@@ -93,18 +93,21 @@ public class WeatherService {
 
             @Override
             public void onResponse(Call call, Response response) throws java.io.IOException {
+                // finishFetch runs in finally: a body read that throws midway would
+                // otherwise leave fetchInFlight set and block every later fetch.
+                boolean success = false;
                 try {
                     if (!response.isSuccessful()) {
                         FLog.e(TAG, "Weather API error: " + response.code());
-                        finishFetch(false);
                         return;
                     }
                     String body = response.body() != null ? response.body().string() : "";
                     long fetchedBefore = lastFetchTime;
                     parseWeatherResponse(body);
-                    finishFetch(lastFetchTime != fetchedBefore);
+                    success = lastFetchTime != fetchedBefore;
                     mainHandler.post(() -> callback.onWeatherReady(currentWeather, currentWind));
                 } finally {
+                    finishFetch(success);
                     response.close();
                 }
             }
