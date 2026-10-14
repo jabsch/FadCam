@@ -33,6 +33,14 @@
 -keep class com.fadcam.model.** { <fields>; }
 -keep class com.fadcam.data.** { <fields>; }
 -keep class com.fadcam.trash.** { <fields>; }
+# Records delete/save/batch sessions are saved as Gson JSON in prefs. Keep their
+# field names, enums and no-arg constructors so a session saved by one build still
+# reads correctly after an update, and field initializers run on parse.
+-keep class com.fadcam.service.RecordsDeletionSessionSnapshot { <fields>; <init>(); }
+-keep class com.fadcam.service.RecordsDeletionSessionSnapshot$* { *; }
+-keep class com.fadcam.service.RecordsDeletionRequestItem { <fields>; }
+-keep class com.fadcam.service.BatchOperationSessionSnapshot { <fields>; <init>(); }
+-keep class com.fadcam.service.BatchOperationSessionSnapshot$* { *; }
 
 # Keep only necessary resources - this is critical for icons to display properly
 # Instead of keeping all resources, keep only what's needed

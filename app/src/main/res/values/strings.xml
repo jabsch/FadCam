@@ -323,6 +323,7 @@
     <string name="records_save_notification_complete_failed">Save failed</string>
     <string name="records_save_notification_cancelled">Save cancelled</string>
     <string name="records_delete_error_invalid_item">Could not delete one of the selected items.</string>
+    <string name="records_delete_error_interrupted">JaCam closed while working on %1$s, so the rest were left alone. Select them and try again.</string>
     <string name="records_delete_error_failed_item">Could not delete %1$s.</string>
     <string name="records_save_error_failed_item">Couldn\'t save %1$s.</string>
     <string name="records_save_error_create_destination">Couldn\'t create destination folder.</string>
