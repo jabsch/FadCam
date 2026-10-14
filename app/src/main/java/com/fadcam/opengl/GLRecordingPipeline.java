@@ -616,6 +616,7 @@ public class GLRecordingPipeline {
                         videoWidth, videoHeight, false);
                 glRenderer.setUserOrientationSetting(orientation);
                 glRenderer.setRecordingPipeline(this); // Set reference for timestamp synchronization
+                glRenderer.setPreviewSuspended(previewSuspended);
                 glRenderer.setFrontVideoMirrorEnabled(frontVideoMirrorEnabled);
                 // Propagate encoder dimensions that were computed during initializeEncoder().
                 // initializeEncoder() runs BEFORE the renderer is created, so its
@@ -2923,6 +2924,21 @@ public class GLRecordingPipeline {
      */
     public Surface getCameraInputSurface() {
         return cameraInputSurface;
+    }
+
+    private volatile boolean previewSuspended = false;
+
+    /**
+     * Skips drawing to the on-screen preview (e.g. while the display is off). A
+     * TextureView surface stays valid with the screen off, so without this every
+     * frame would still be drawn twice.
+     */
+    public void setPreviewSuspended(boolean suspended) {
+        previewSuspended = suspended;
+        GLWatermarkRenderer renderer = glRenderer;
+        if (renderer != null) {
+            renderer.setPreviewSuspended(suspended);
+        }
     }
 
     /** Bitrate the encoder was configured with for this session (bps). */

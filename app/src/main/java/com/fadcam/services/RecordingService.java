@@ -2184,6 +2184,7 @@ public class RecordingService extends Service {
         IN_FLIGHT_FINALIZATIONS.clear();
         releaseDurationLimitController();
         thermalGuard.stop();
+        unregisterScreenStateReceiver();
 
         // Stop any active reconnection attempts
         stopReconnectionAttempts();
@@ -2276,6 +2277,7 @@ public class RecordingService extends Service {
     // --- Core Recording Logic ---
     private void stopRecording() {
         thermalGuard.stop();
+        unregisterScreenStateReceiver();
         if (durationLimitController != null && durationLimitController.stopSession()) {
             FLog.d(TAG, "Cancelled maximum recording duration for current session");
         }
@@ -6773,6 +6775,7 @@ public class RecordingService extends Service {
                 persistRecordingTimelineState();
                 startDurationLimitSession();
                 thermalGuard.start(getApplicationContext());
+                registerScreenStateReceiver();
 
                 // Tactile confirmation that recording actually started — fired
                 // from the SERVICE so it works for widgets, tiles, shortcuts and
@@ -6927,6 +6930,51 @@ public class RecordingService extends Service {
 
     // Add these fields to RecordingService class
     private GLRecordingPipeline glRecordingPipeline;
+
+    /** Pauses the preview pass while the display is off during a recording. */
+    private android.content.BroadcastReceiver screenStateReceiver;
+
+    private void registerScreenStateReceiver() {
+        if (screenStateReceiver != null) {
+            return;
+        }
+        screenStateReceiver = new android.content.BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                applyScreenStateToPipeline();
+            }
+        };
+        IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
+        filter.addAction(Intent.ACTION_SCREEN_ON);
+        androidx.core.content.ContextCompat.registerReceiver(this, screenStateReceiver, filter,
+                androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
+        applyScreenStateToPipeline();
+    }
+
+    private void unregisterScreenStateReceiver() {
+        if (screenStateReceiver == null) {
+            return;
+        }
+        try {
+            unregisterReceiver(screenStateReceiver);
+        } catch (IllegalArgumentException ignored) {
+        }
+        screenStateReceiver = null;
+        GLRecordingPipeline pipeline = glRecordingPipeline;
+        if (pipeline != null) {
+            pipeline.setPreviewSuspended(false);
+        }
+    }
+
+    private void applyScreenStateToPipeline() {
+        GLRecordingPipeline pipeline = glRecordingPipeline;
+        if (pipeline == null) {
+            return;
+        }
+        android.os.PowerManager pm = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
+        boolean screenOn = pm == null || pm.isInteractive();
+        pipeline.setPreviewSuspended(!screenOn);
+    }
 
     private final RecordingThermalGuard thermalGuard = new RecordingThermalGuard(
             new RecordingThermalGuard.Callbacks() {
@@ -7385,6 +7433,7 @@ public class RecordingService extends Service {
             }
 
             glRecordingPipeline.prepareSurfaces();
+            applyScreenStateToPipeline();
 
             // Notify RemoteStreamManager that recording started
             try {

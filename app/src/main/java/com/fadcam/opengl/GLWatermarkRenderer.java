@@ -276,6 +276,12 @@ public class GLWatermarkRenderer {
     private float lastWatermarkNdcH = -1f;
 
     private boolean released = false;
+    /** True while the display is off: skip the preview pass, the encoder pass still runs. */
+    private volatile boolean previewSuspended = false;
+
+    public void setPreviewSuspended(boolean suspended) {
+        previewSuspended = suspended;
+    }
 
     // Reference to recording pipeline for timestamp synchronization
     private GLRecordingPipeline recordingPipeline;
@@ -779,7 +785,7 @@ public class GLWatermarkRenderer {
      */
     public void renderToPreview() {
         // Use unified EGL context/display for preview
-        if (!initialized || currentPreviewSurface == null || !currentPreviewSurface.isValid() || released) {
+        if (previewSuspended || !initialized || currentPreviewSurface == null || !currentPreviewSurface.isValid() || released) {
             return;
         }
         synchronized (previewRenderLock) {
