@@ -1601,7 +1601,7 @@ public class RecordingService extends Service {
                 // Seed with the REAL last fix (carries speed/altitude), not a
                 // fabricated coords-only Location. Null is fine — next fix updates it.
                 android.location.Location androidLoc = locationHelper != null ? locationHelper.getRawLocation() : null;
-                sensorDataProvider.start(androidLoc);
+                startSensorDataProvider(androidLoc);
                 // setup log removed
             }
 
@@ -1714,7 +1714,10 @@ public class RecordingService extends Service {
                     boolean previewEnabled = sharedPreferencesManager != null
                             && sharedPreferencesManager.isPreviewEnabled();
                     boolean hasValidPreview = (previewSurface != null && previewSurface.isValid());
-                    waitForPreviewBeforeStart = previewEnabled && !hasValidPreview;
+                    // Shortcut/tile/remote starts have no UI, so no preview surface will
+                    // ever arrive; waiting would only delay the start by the full timeout.
+                    boolean headlessStart = intent.getBooleanExtra(Constants.INTENT_EXTRA_HEADLESS_START, false);
+                    waitForPreviewBeforeStart = previewEnabled && !hasValidPreview && !headlessStart;
 
                     if (waitForPreviewBeforeStart) {
                         // Install a short timeout to avoid getting stuck if preview never arrives
@@ -2180,6 +2183,8 @@ public class RecordingService extends Service {
         // going away; a stale entry would block future repairs of this file).
         IN_FLIGHT_FINALIZATIONS.clear();
         releaseDurationLimitController();
+        thermalGuard.stop();
+        unregisterScreenStateReceiver();
 
         // Stop any active reconnection attempts
         stopReconnectionAttempts();
@@ -2271,6 +2276,8 @@ public class RecordingService extends Service {
 
     // --- Core Recording Logic ---
     private void stopRecording() {
+        thermalGuard.stop();
+        unregisterScreenStateReceiver();
         if (durationLimitController != null && durationLimitController.stopSession()) {
             FLog.d(TAG, "Cancelled maximum recording duration for current session");
         }
@@ -2652,7 +2659,7 @@ public class RecordingService extends Service {
             // fabricated coords-only Location. Null is fine — the next live fix
             // updates the provider anyway.
             android.location.Location androidLoc = locationHelper != null ? locationHelper.getRawLocation() : null;
-            sensorDataProvider.start(androidLoc);
+            startSensorDataProvider(androidLoc);
         }
         if (watermarkManager != null) watermarkManager.resumeSensors(locationHelper);
         
@@ -5052,12 +5059,9 @@ public class RecordingService extends Service {
                 videoBitrate = 5_000_000;
                 FLog.w(TAG, "[STREAM PRESET] Server ON but no preset stored — using default HIGH (5 Mbps)");
             }
-        } else if (sharedPreferencesManager.sharedPreferences.getBoolean("bitrate_mode_custom", false)) {
-            videoBitrate = sharedPreferencesManager.sharedPreferences.getInt("bitrate_custom_value", 16000) * 1000;
         } else {
-            videoBitrate = Utils.estimateBitrate(sharedPreferencesManager.getCameraResolution(),
-                    sharedPreferencesManager.getVideoFrameRate());
-            // bitrate log removed " + (videoBitrate / 1000) + " kbps");
+            // Single source of truth for custom/auto bitrate (also used by the encoder).
+            videoBitrate = sharedPreferencesManager.getCurrentBitrate();
         }
         return videoBitrate;
     }
@@ -5242,6 +5246,18 @@ public class RecordingService extends Service {
         return sb.toString();
     }
 
+    /**
+     * Speed and altitude come from GPS fixes alone; only the compass needs the
+     * rotation/magnetic sensors, so they stay off unless the compass is shown.
+     */
+    private void startSensorDataProvider(android.location.Location seed) {
+        if (sharedPreferencesManager != null && sharedPreferencesManager.isCompassEnabled()) {
+            sensorDataProvider.start(seed);
+        } else if (seed != null) {
+            sensorDataProvider.updateLocation(seed);
+        }
+    }
+
     private String getExtendedSensorData() {
         if (sharedPreferencesManager == null) {
             return "";
@@ -5268,22 +5284,18 @@ public class RecordingService extends Service {
 
         if (sharedPreferencesManager.isSpeedEnabled() && sensorDataProvider != null) {
             if (!cachedGpsProviderEnabled) {
-                FLog.d(TAG, "Extended: speed=GPS is off");
                 sb.append("\nSpeed: GPS is off");
             } else {
                 float speed = sensorDataProvider.getSpeedKmh();
-                FLog.d(TAG, "Extended: speed=" + speed + " km/h");
                 sb.append("\nSpeed: ").append(String.format("%.0f", speed)).append(" km/h");
             }
         }
 
         if (sharedPreferencesManager.isAltitudeEnabled() && sensorDataProvider != null) {
             if (!cachedGpsProviderEnabled) {
-                FLog.d(TAG, "Extended: altitude=GPS is off");
                 sb.append("\nAlt: GPS is off");
             } else {
                 double alt = sensorDataProvider.getAltitude();
-                FLog.d(TAG, "Extended: altitude=" + alt + " m");
                 sb.append("\nAlt: ").append(String.format("%.0f", alt)).append("m");
             }
         }
@@ -5291,11 +5303,9 @@ public class RecordingService extends Service {
         // Accuracy — gated behind its own toggle like other GPS features
         if (sharedPreferencesManager.isAccuracyEnabled() && sensorDataProvider != null) {
             if (!cachedGpsProviderEnabled) {
-                FLog.d(TAG, "Extended: accuracy=GPS is off");
                 sb.append("\nAccuracy: GPS is off");
             } else {
                 float acc = sensorDataProvider.getAccuracy();
-                FLog.d(TAG, "Extended: accuracy=" + acc + " m");
                 sb.append("\nAccuracy: ").append(String.format("%.0f", acc)).append("m");
             }
         }
@@ -5326,7 +5336,6 @@ public class RecordingService extends Service {
                 if (wind != null && !wind.isEmpty()) {
                     sb.append("\nWind: ").append(wind);
                 }
-                FLog.d(TAG, "Extended: weather=" + weather + ", wind=" + wind);
             }
         }
 
@@ -6767,6 +6776,8 @@ public class RecordingService extends Service {
 
                 persistRecordingTimelineState();
                 startDurationLimitSession();
+                thermalGuard.start(getApplicationContext());
+                registerScreenStateReceiver();
 
                 // Tactile confirmation that recording actually started — fired
                 // from the SERVICE so it works for widgets, tiles, shortcuts and
@@ -6921,6 +6932,79 @@ public class RecordingService extends Service {
 
     // Add these fields to RecordingService class
     private GLRecordingPipeline glRecordingPipeline;
+
+    /** Pauses the preview pass while the display is off during a recording. */
+    private android.content.BroadcastReceiver screenStateReceiver;
+
+    private void registerScreenStateReceiver() {
+        if (screenStateReceiver != null) {
+            return;
+        }
+        screenStateReceiver = new android.content.BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                applyScreenStateToPipeline();
+            }
+        };
+        IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
+        filter.addAction(Intent.ACTION_SCREEN_ON);
+        androidx.core.content.ContextCompat.registerReceiver(this, screenStateReceiver, filter,
+                androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
+        applyScreenStateToPipeline();
+    }
+
+    private void unregisterScreenStateReceiver() {
+        if (screenStateReceiver == null) {
+            return;
+        }
+        try {
+            unregisterReceiver(screenStateReceiver);
+        } catch (IllegalArgumentException ignored) {
+        }
+        screenStateReceiver = null;
+        GLRecordingPipeline pipeline = glRecordingPipeline;
+        if (pipeline != null) {
+            pipeline.setPreviewSuspended(false);
+        }
+    }
+
+    private void applyScreenStateToPipeline() {
+        GLRecordingPipeline pipeline = glRecordingPipeline;
+        if (pipeline == null) {
+            return;
+        }
+        android.os.PowerManager pm = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
+        boolean screenOn = pm == null || pm.isInteractive();
+        pipeline.setPreviewSuspended(!screenOn);
+    }
+
+    private final RecordingThermalGuard thermalGuard = new RecordingThermalGuard(
+            new RecordingThermalGuard.Callbacks() {
+                @Override
+                public void onReduceLoad() {
+                    GLRecordingPipeline pipeline = glRecordingPipeline;
+                    if (pipeline != null) {
+                        pipeline.setRuntimeVideoBitrate(pipeline.getConfiguredVideoBitrate() / 2);
+                    }
+                    Toast.makeText(getApplicationContext(), R.string.thermal_guard_reduced,
+                            Toast.LENGTH_LONG).show();
+                }
+
+                @Override
+                public void onRestoreLoad() {
+                    GLRecordingPipeline pipeline = glRecordingPipeline;
+                    if (pipeline != null) {
+                        pipeline.setRuntimeVideoBitrate(pipeline.getConfiguredVideoBitrate());
+                    }
+                }
+
+                @Override
+                public void onStopForHeat() {
+                    Toast.makeText(getApplicationContext(), R.string.thermal_guard_stopped,
+                            Toast.LENGTH_LONG).show();
+                    stopRecording();
+                }
+            });
     private WatermarkInfoProvider watermarkInfoProvider;
     private com.fadcam.watermark.WatermarkManager watermarkManager;
     
@@ -7351,6 +7435,7 @@ public class RecordingService extends Service {
             }
 
             glRecordingPipeline.prepareSurfaces();
+            applyScreenStateToPipeline();
 
             // Notify RemoteStreamManager that recording started
             try {

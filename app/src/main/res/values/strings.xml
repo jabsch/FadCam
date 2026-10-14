@@ -3104,4 +3104,17 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="toast_failed_open_file">Failed to open file for writing</string>
     <string name="toast_cannot_write_custom_dir">Cannot write to selected custom directory</string>
     <string name="toast_failed_create_file">Failed to create file for writing</string>
+    <string name="thermal_guard_reduced">Phone is hot. FadCam lowered the recording bitrate to cool down.</string>
+    <string name="thermal_guard_stopped">Phone is overheating. Recording stopped and saved.</string>
+    <string name="setting_pixel_optimized_title">Pixel 11 optimized</string>
+    <string name="setting_pixel_optimized_footer">Tunes recording for Pixel 11 phones: H.265 at 1080p 30 fps with auto bitrate, which stays cool on long recordings. It also hides settings that do nothing on this phone. Turning it on re-applies these values; you can still change any of them afterwards. Turn it off to show every setting again.</string>
+    <string name="hardware_buttons_heading">Hardware buttons</string>
+    <string name="hardware_buttons_service_label">FadCam hardware buttons</string>
+    <string name="hardware_buttons_service_desc">Lets you run FadCam shortcuts by holding a volume key, even with the screen off. A short press still changes the volume. FadCam only reads volume keys you assign, and never during calls.</string>
+    <string name="hardware_buttons_service_row">Button service</string>
+    <string name="hardware_buttons_volume_up_hold">Hold volume up</string>
+    <string name="hardware_buttons_volume_down_hold">Hold volume down</string>
+    <string name="hardware_buttons_none">None</string>
+    <string name="hardware_buttons_helper">Hold a volume key to run the shortcut you assign to it. A short press still changes the volume. Turn on the button service once in Android\'s Accessibility settings so it works from any screen, even with the screen off.</string>
+    <string name="hardware_buttons_enable_prompt">Turn on \"FadCam hardware buttons\" so your button shortcuts work</string>
 </resources>

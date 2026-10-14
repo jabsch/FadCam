@@ -197,6 +197,32 @@ public class VideoSettingsFragment extends Fragment {
     }
 
     /**
+     * Opens the Pixel optimized mode sheet. Turning it on re-applies the tuned
+     * recording profile; either way the other settings screens pick up the
+     * row visibility change the next time they open.
+     */
+    private void showPixelOptimizedBottomSheet() {
+        final String resultKey = "picker_result_pixel_optimized";
+        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
+            if (b.containsKey(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE)) {
+                boolean state = b.getBoolean(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE);
+                com.fadcam.utils.PixelOptimizedMode.setEnabled(prefs, state);
+                refreshAllValues();
+            }
+        });
+        com.fadcam.ui.picker.PickerBottomSheetFragment sheet = com.fadcam.ui.picker.PickerBottomSheetFragment
+                .newInstanceWithSwitch(
+                        getString(R.string.setting_pixel_optimized_title),
+                        new java.util.ArrayList<>(),
+                        null,
+                        resultKey,
+                        getString(R.string.setting_pixel_optimized_footer),
+                        getString(R.string.setting_pixel_optimized_title),
+                        com.fadcam.utils.PixelOptimizedMode.isEnabled(prefs));
+        sheet.show(getParentFragmentManager(), "pixel_optimized_picker");
+    }
+
+    /**
      * Checks whether the currently selected camera advertises EIS (video
      * stabilization) and/or OIS. Fully guarded — any failure (permissions,
      * camera busy, no characteristics) is treated as "not supported" rather
@@ -266,6 +292,11 @@ public class VideoSettingsFragment extends Fragment {
         };
         root.findViewById(R.id.row_camera_type).setOnClickListener(v -> showCameraBottomSheet());
         root.findViewById(R.id.row_video_stabilization).setOnClickListener(v -> showVideoStabilizationBottomSheet());
+        if (com.fadcam.utils.PixelOptimizedMode.isSupported()) {
+            root.findViewById(R.id.row_pixel_optimized).setVisibility(View.VISIBLE);
+            root.findViewById(R.id.divider_pixel_optimized).setVisibility(View.VISIBLE);
+            root.findViewById(R.id.row_pixel_optimized).setOnClickListener(v -> showPixelOptimizedBottomSheet());
+        }
         root.findViewById(R.id.row_lens).setOnClickListener(v -> showLensBottomSheet());
         root.findViewById(R.id.row_resolution).setOnClickListener(v -> showResolutionBottomSheet());
         root.findViewById(R.id.row_framerate).setOnClickListener(v -> showFrameRateBottomSheet());
@@ -301,6 +332,14 @@ public class VideoSettingsFragment extends Fragment {
         } else {
             valueCamera.setText(cam == CameraType.FRONT ? getString(R.string.button_settings_cam_front)
                     : getString(R.string.button_settings_cam_back));
+        }
+
+        TextView valuePixelOptimized = getView() != null
+                ? getView().findViewById(R.id.value_pixel_optimized) : null;
+        if (valuePixelOptimized != null) {
+            valuePixelOptimized.setText(com.fadcam.utils.PixelOptimizedMode.isEnabled(prefs)
+                    ? getString(R.string.setting_enabled_msg)
+                    : getString(R.string.setting_disabled_msg));
         }
 
         // Video stabilization row value
@@ -1447,44 +1486,16 @@ public class VideoSettingsFragment extends Fragment {
         prefs.sharedPreferences.edit().putInt(PREF_BITRATE_CUSTOM_VALUE, value).apply();
     }
 
+    /**
+     * Auto bitrate in kbps. Must match what the encoder actually uses
+     * ({@link SharedPreferencesManager#getCurrentBitrate()}); this used to be a
+     * separate table that showed e.g. 12 Mbps at 1080p30 while recordings were
+     * encoded at about 7.8 Mbps.
+     */
     private int getDefaultBitrate() {
         Size resolution = prefs.getCameraResolution();
-        CameraType camera = prefs.getCameraSelection();
-        int framerate = prefs.getSpecificVideoFrameRate(camera);
-
-        int width = resolution.getWidth();
-        int height = resolution.getHeight();
-        int pixels = width * height;
-
-        // Base bitrate calculation based on resolution
-        int baseBitrate;
-
-        if (pixels >= 3840 * 2160) {
-            // 4K and above
-            baseBitrate = 45000; // 45 Mbps
-        } else if (pixels >= 2560 * 1440) {
-            // 2K/1440p
-            baseBitrate = 16000; // 16 Mbps
-        } else if (pixels >= 1920 * 1080) {
-            // FHD/1080p
-            baseBitrate = 12000; // 12 Mbps
-        } else if (pixels >= 1280 * 720) {
-            // HD/720p
-            baseBitrate = 8000; // 8 Mbps
-        } else if (pixels >= 854 * 480) {
-            // 480p
-            baseBitrate = 4000; // 4 Mbps
-        } else {
-            // SD and below
-            baseBitrate = 2000; // 2 Mbps
-        }
-
-        // Adjust for framerate (higher framerate = higher bitrate)
-        if (framerate > 30) {
-            baseBitrate = (int) (baseBitrate * (framerate / 30.0f));
-        }
-
-        return baseBitrate;
+        int framerate = prefs.getSpecificVideoFrameRate(prefs.getCameraSelection());
+        return com.fadcam.Utils.estimateBitrate(resolution, framerate) / 1000;
     }
 
     private int getCurrentBitrate() {

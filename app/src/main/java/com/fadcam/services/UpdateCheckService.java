@@ -15,7 +15,9 @@ import java.util.regex.Pattern;
 public class UpdateCheckService {
 
     private static final String TAG = "UpdateCheckService";
-    private static final String ORG = "anonfaded";
+    // This fork publishes its own releases; checking upstream would offer builds
+    // signed with a different key that cannot install over this one.
+    private static final String ORG = "jabsch";
     private static final String FREE_REPO = "FadCam";
     private static final String PRO_REPO = "FadCamPro";
     private static final String FREE_FEED = feedUrl(FREE_REPO);

@@ -32,7 +32,7 @@ android {
         minSdk = 24
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 52
+        versionCode = 53
         versionName = "4.0.0"
         vectorDrawables.useSupportLibrary = true
         
@@ -67,7 +67,7 @@ android {
         debug {
             applicationIdSuffix = ".beta"
             isDebuggable = true
-            versionNameSuffix = "-beta10.6" // Increment the beta version suffix for each release. Use `beta1` for the first beta release, then `beta2`, etc.
+            versionNameSuffix = "-beta10.7" // Increment the beta version suffix for each release. Use `beta1` for the first beta release, then `beta2`, etc.
             resValue("string", "app_name", "FadCam Beta")
         }
         
@@ -169,6 +169,10 @@ android {
     // Dynamic APK output names: FadCam_<flavor>_v<versionName><suffix>-<abi>.apk
     // (default flavor has no <flavor> part; universal APK gets the literal "-universal")
     applicationVariants.all {
+        // res/xml/shortcuts.xml must name the installed package, which differs per
+        // variant (.beta, .pro, ...). A hardcoded "com.fadcam" made every static
+        // launcher shortcut fail with "app isn't installed" on non-release builds.
+        resValue("string", "shortcut_target_package", applicationId)
         val versionName = "${defaultConfig.versionName}${buildType.versionNameSuffix.orEmpty()}"
         val flavor = if (flavorName != "default") "${flavorName}_" else ""
         outputs.all {

@@ -13,6 +13,7 @@ public class FadCamApplication extends Application implements DefaultLifecycleOb
     public void onCreate() {
         super.onCreate();
         ProcessLifecycleOwner.get().getLifecycle().addObserver(this);
+        com.fadcam.utils.PixelOptimizedMode.applyOnceIfNeeded(this);
         // Room DB open + invalidation observer registration is deferred off the
         // main thread: cold start must not block on SQLite open. The observer
         // still catches post-kill index writes (invocation is on Room's own
@@ -54,6 +55,12 @@ public class FadCamApplication extends Application implements DefaultLifecycleOb
     public void onStop(@androidx.annotation.NonNull LifecycleOwner owner) {
         // App is in background, reset AppLock session
         SharedPreferencesManager.getInstance(this).setAppLockSessionUnlocked(false);
+        // Only notify a running service. Starting it just to say "backgrounded" spins
+        // up RecordingService (GPS, camera thread, wakelock object) after every
+        // shortcut press and leaves it alive as a sticky idle service.
+        if (!com.fadcam.utils.ServiceUtils.isServiceRunning(this, com.fadcam.services.RecordingService.class)) {
+            return;
+        }
         Intent intent = new Intent(this, com.fadcam.services.RecordingService.class);
         intent.setAction("ACTION_APP_BACKGROUND");
         startService(intent);

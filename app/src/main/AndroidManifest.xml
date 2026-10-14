@@ -321,6 +321,20 @@
                 android:resource="@xml/fadrec_screenshot_accessibility_service" />
         </service>
 
+        <!-- Accessibility service that runs shortcuts from held volume keys -->
+        <service
+            android:name=".service.HardwareButtonAccessibilityService"
+            android:label="@string/hardware_buttons_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/hardware_button_accessibility_service" />
+        </service>
+
         <!-- Faditor export service for background video export -->
         <service android:name=".ui.faditor.export.ExportService" android:exported="false" android:foregroundServiceType="dataSync" />
 
@@ -331,9 +345,11 @@
             </intent-filter>
         </receiver>
 
-        <activity android:name=".RecordingStartActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="true" android:configChanges="keyboardHidden|orientation|screenSize" android:windowSoftInputMode="stateAlwaysHidden" android:screenOrientation="portrait" />
-        <activity android:name=".RecordingStopActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="true" android:configChanges="keyboardHidden|orientation|screenSize" android:windowSoftInputMode="stateAlwaysHidden" android:screenOrientation="portrait" />
-        <activity android:name=".RecordingToggleActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="true" />
+        <!-- Recording trampolines run in their own empty task (taskAffinity="") so a
+             shortcut/tile press never clears, resumes or backgrounds the main app task. -->
+        <activity android:name=".RecordingStartActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="true" android:configChanges="keyboardHidden|orientation|screenSize" android:windowSoftInputMode="stateAlwaysHidden" android:documentLaunchMode="never" android:clearTaskOnLaunch="true" android:taskAffinity="" android:allowTaskReparenting="false" />
+        <activity android:name=".RecordingStopActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="true" android:configChanges="keyboardHidden|orientation|screenSize" android:windowSoftInputMode="stateAlwaysHidden" android:documentLaunchMode="never" android:clearTaskOnLaunch="true" android:taskAffinity="" android:allowTaskReparenting="false" />
+        <activity android:name=".RecordingToggleActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="true" android:configChanges="keyboardHidden|orientation|screenSize" android:documentLaunchMode="never" android:clearTaskOnLaunch="true" android:taskAffinity="" android:allowTaskReparenting="false" />
         <activity
             android:name=".PhotoCaptureActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"

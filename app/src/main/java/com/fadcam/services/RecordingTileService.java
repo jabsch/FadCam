@@ -30,13 +30,15 @@ import com.fadcam.SharedPreferencesManager;
  * 
  * Features:
  * - Single tap start/stop recording control
- * - Double tap camera switch control (within 450ms)
+ * - Double tap camera switch control (within 300ms)
  * - Android 14+ compatible (targetSDK 36 background FGS launch workaround)
  */
 public class RecordingTileService extends TileService {
 
     private static final String TAG = "RecordingTileService";
-    private static final long DOUBLE_TAP_WINDOW_MS = 450L;
+    // Matches ViewConfiguration.getDoubleTapTimeout(); every single tap waits this long
+    // before acting, so keep it as short as a reliable double-tap allows.
+    private static final long DOUBLE_TAP_WINDOW_MS = 300L;
 
     // Handler on main looper for processing double-tap gesture delays
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -111,7 +113,8 @@ public class RecordingTileService extends TileService {
         clickRunnable = new Runnable() {
             @Override
             public void run() {
-                boolean currentRecording = SharedPreferencesManager.getInstance(RecordingTileService.this).isRecordingInProgress();
+                // Clears flags left by a killed session so the tap starts instead of "stopping" nothing.
+                boolean currentRecording = com.fadcam.RecordingShortcutDispatcher.hasActiveSession(RecordingTileService.this);
                 FLog.i(TAG, "Executing single tap action. Recording state: " + currentRecording);
                 if (currentRecording) {
                     stopRecording();
@@ -274,7 +277,7 @@ public class RecordingTileService extends TileService {
     }
 
     private void refreshTile() {
-        boolean recording = SharedPreferencesManager.getInstance(this).isRecordingInProgress();
+        boolean recording = com.fadcam.RecordingShortcutDispatcher.hasActiveSession(this);
         FLog.d(TAG, "refreshTile - Active recording: " + recording);
         setTileState(recording);
     }

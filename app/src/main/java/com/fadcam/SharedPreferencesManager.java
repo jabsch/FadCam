@@ -2255,7 +2255,8 @@ public class SharedPreferencesManager {
         } else {
             // Estimate based on resolution and framerate
             android.util.Size resolution = getCameraResolution();
-            int frameRate = getVideoFrameRate();
+            // Frame rate is stored per camera; use the one that is recording.
+            int frameRate = getSpecificVideoFrameRate(getCameraSelection());
             return com.fadcam.Utils.estimateBitrate(resolution, frameRate);
         }
     }

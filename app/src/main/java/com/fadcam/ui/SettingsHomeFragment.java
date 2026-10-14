@@ -62,6 +62,10 @@ public class SettingsHomeFragment extends Fragment {
         setupRowHandlers(root);
         wireAppInlineRows(root);
         cacheGroupReferences(root);
+        // Pixel optimized mode: drop "coming soon" placeholders that do nothing.
+        com.fadcam.utils.PixelOptimizedMode.hideRowsIfEnabled(root,
+                R.id.group_thermal_guardian, R.id.group_audio_vision,
+                R.id.group_scheduled_recording, R.id.group_profiles);
 
         // Apply initial filter
         applyModeFilter(SettingsMode.ALL, root);
