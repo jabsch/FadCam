@@ -13,6 +13,7 @@ public class FadCamApplication extends Application implements DefaultLifecycleOb
     public void onCreate() {
         super.onCreate();
         ProcessLifecycleOwner.get().getLifecycle().addObserver(this);
+        com.fadcam.utils.PixelOptimizedMode.applyOnceIfNeeded(this);
         // Room DB open + invalidation observer registration is deferred off the
         // main thread: cold start must not block on SQLite open. The observer
         // still catches post-kill index writes (invocation is on Room's own

@@ -197,6 +197,32 @@ public class VideoSettingsFragment extends Fragment {
     }
 
     /**
+     * Opens the Pixel optimized mode sheet. Turning it on re-applies the tuned
+     * recording profile; either way the other settings screens pick up the
+     * row visibility change the next time they open.
+     */
+    private void showPixelOptimizedBottomSheet() {
+        final String resultKey = "picker_result_pixel_optimized";
+        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
+            if (b.containsKey(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE)) {
+                boolean state = b.getBoolean(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE);
+                com.fadcam.utils.PixelOptimizedMode.setEnabled(prefs, state);
+                refreshAllValues();
+            }
+        });
+        com.fadcam.ui.picker.PickerBottomSheetFragment sheet = com.fadcam.ui.picker.PickerBottomSheetFragment
+                .newInstanceWithSwitch(
+                        getString(R.string.setting_pixel_optimized_title),
+                        new java.util.ArrayList<>(),
+                        null,
+                        resultKey,
+                        getString(R.string.setting_pixel_optimized_footer),
+                        getString(R.string.setting_pixel_optimized_title),
+                        com.fadcam.utils.PixelOptimizedMode.isEnabled(prefs));
+        sheet.show(getParentFragmentManager(), "pixel_optimized_picker");
+    }
+
+    /**
      * Checks whether the currently selected camera advertises EIS (video
      * stabilization) and/or OIS. Fully guarded — any failure (permissions,
      * camera busy, no characteristics) is treated as "not supported" rather
@@ -266,6 +292,11 @@ public class VideoSettingsFragment extends Fragment {
         };
         root.findViewById(R.id.row_camera_type).setOnClickListener(v -> showCameraBottomSheet());
         root.findViewById(R.id.row_video_stabilization).setOnClickListener(v -> showVideoStabilizationBottomSheet());
+        if (com.fadcam.utils.PixelOptimizedMode.isSupported()) {
+            root.findViewById(R.id.row_pixel_optimized).setVisibility(View.VISIBLE);
+            root.findViewById(R.id.divider_pixel_optimized).setVisibility(View.VISIBLE);
+            root.findViewById(R.id.row_pixel_optimized).setOnClickListener(v -> showPixelOptimizedBottomSheet());
+        }
         root.findViewById(R.id.row_lens).setOnClickListener(v -> showLensBottomSheet());
         root.findViewById(R.id.row_resolution).setOnClickListener(v -> showResolutionBottomSheet());
         root.findViewById(R.id.row_framerate).setOnClickListener(v -> showFrameRateBottomSheet());
@@ -301,6 +332,14 @@ public class VideoSettingsFragment extends Fragment {
         } else {
             valueCamera.setText(cam == CameraType.FRONT ? getString(R.string.button_settings_cam_front)
                     : getString(R.string.button_settings_cam_back));
+        }
+
+        TextView valuePixelOptimized = getView() != null
+                ? getView().findViewById(R.id.value_pixel_optimized) : null;
+        if (valuePixelOptimized != null) {
+            valuePixelOptimized.setText(com.fadcam.utils.PixelOptimizedMode.isEnabled(prefs)
+                    ? getString(R.string.setting_enabled_msg)
+                    : getString(R.string.setting_disabled_msg));
         }
 
         // Video stabilization row value

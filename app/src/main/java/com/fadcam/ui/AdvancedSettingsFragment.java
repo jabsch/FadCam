@@ -78,6 +78,10 @@ public class AdvancedSettingsFragment extends Fragment {
                 android.widget.Toast.makeText(requireContext(), R.string.mini_app_coming_soon_desc, android.widget.Toast.LENGTH_SHORT).show()
             );
         }
+        // Pixel optimized mode: drop "coming soon" placeholders that do nothing.
+        com.fadcam.utils.PixelOptimizedMode.hideRowsIfEnabled(view,
+                R.id.row_thermal_guardian, R.id.row_audio_vision,
+                R.id.row_scheduled_recording, R.id.row_profiles, R.id.row_fadcrypt);
     }
 
     private void handleBack() {
