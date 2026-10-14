@@ -8,6 +8,8 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Build;
@@ -21,6 +23,7 @@ import androidx.documentfile.provider.DocumentFile;
 import com.fadcam.FLog;
 import com.fadcam.R;
 import com.fadcam.SharedPreferencesManager;
+import com.fadcam.utils.AudioDeviceResolver;
 import com.fadcam.utils.RecordingStoragePaths;
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -31,7 +34,8 @@ import java.util.Locale;
  * Audio-only (voice) recording to AAC in an .m4a file, started and stopped from
  * the voice shortcut, a hardware button binding or this service's notification.
  * Files go to a "Voice" folder next to the video folders, in the same internal
- * or custom (SAF) location the app records video to.
+ * or custom (SAF) location the app records video to. Input source, raw audio,
+ * bitrate and sample rate follow the Audio settings used for video.
  */
 public class VoiceRecordingService extends Service {
     private static final String TAG = "VoiceRecordingService";
@@ -49,6 +53,9 @@ public class VoiceRecordingService extends Service {
     private MediaRecorder recorder;
     private ParcelFileDescriptor outputPfd;
     private String outputLabel;
+    /** Set while a Bluetooth mic's SCO link is up; restored on stop. */
+    private AudioManager scoAudioManager;
+    private int originalAudioMode;
 
     /** True while a voice recording is in progress in this process. */
     public static boolean isRecording() {
@@ -83,16 +90,29 @@ public class VoiceRecordingService extends Service {
         String fileName = "Voice_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date()) + ".m4a";
         MediaRecorder mr = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                 ? new MediaRecorder(this) : new MediaRecorder();
+        SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(this);
+        AudioDeviceInfo externalMic = AudioDeviceResolver.resolvePreferredInput(this,
+                prefs.getAudioInputSource(), prefs.getAudioInputDeviceType(), prefs.getAudioInputDeviceName());
+        boolean bluetoothMic = externalMic != null && isBluetoothInput(externalMic.getType());
+        int source = externalMic == null && prefs.isRawAudioEnabled()
+                ? rawAudioSource() : MediaRecorder.AudioSource.MIC;
         try {
-            mr.setAudioSource(MediaRecorder.AudioSource.MIC);
+            mr.setAudioSource(source);
             mr.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
             mr.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-            mr.setAudioSamplingRate(48000);
-            mr.setAudioChannels(1);
-            mr.setAudioEncodingBitRate(96_000);
+            mr.setAudioSamplingRate(prefs.getAudioSamplingRate());
+            // Bluetooth headset mics are mono; the phone's mics record stereo, as in video.
+            mr.setAudioChannels(bluetoothMic ? 1 : 2);
+            mr.setAudioEncodingBitRate(prefs.getAudioBitrate());
+            if (externalMic != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                mr.setPreferredDevice(externalMic);
+            }
             if (!setOutput(mr, fileName)) {
                 mr.release();
                 return false;
+            }
+            if (bluetoothMic) {
+                startBluetoothSco();
             }
             mr.prepare();
             mr.start();
@@ -100,8 +120,12 @@ public class VoiceRecordingService extends Service {
             FLog.e(TAG, "Could not start voice recording", e);
             mr.release();
             closeOutput();
+            stopBluetoothSco();
             return false;
         }
+        FLog.i(TAG, "Voice recording audio: source=" + source + " rate=" + prefs.getAudioSamplingRate()
+                + " bitrate=" + prefs.getAudioBitrate() + " externalMic="
+                + (externalMic != null ? externalMic.getProductName() : "none"));
         recorder = mr;
         running = true;
         outputLabel = fileName;
@@ -109,6 +133,51 @@ public class VoiceRecordingService extends Service {
         Toast.makeText(this, R.string.voice_recording_started, Toast.LENGTH_SHORT).show();
         FLog.i(TAG, "Voice recording started: " + fileName);
         return true;
+    }
+
+    /**
+     * Raw audio as in video recording: UNPROCESSED where the phone offers it,
+     * else VOICE_RECOGNITION (no noise suppression or AGC).
+     */
+    private int rawAudioSource() {
+        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        boolean unprocessed = am != null && "true".equalsIgnoreCase(
+                am.getProperty(AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED));
+        return unprocessed ? MediaRecorder.AudioSource.UNPROCESSED : MediaRecorder.AudioSource.VOICE_RECOGNITION;
+    }
+
+    private static boolean isBluetoothInput(int type) {
+        return type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                || type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+                || type == AudioDeviceInfo.TYPE_BLE_HEADSET;
+    }
+
+    /** Bluetooth headset mics only capture over an SCO link in communication mode. */
+    private void startBluetoothSco() {
+        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        if (am == null) {
+            return;
+        }
+        originalAudioMode = am.getMode();
+        am.startBluetoothSco();
+        am.setBluetoothScoOn(true);
+        am.setMode(AudioManager.MODE_IN_COMMUNICATION);
+        scoAudioManager = am;
+    }
+
+    private void stopBluetoothSco() {
+        AudioManager am = scoAudioManager;
+        scoAudioManager = null;
+        if (am == null) {
+            return;
+        }
+        try {
+            am.stopBluetoothSco();
+            am.setBluetoothScoOn(false);
+            am.setMode(originalAudioMode);
+        } catch (Exception e) {
+            FLog.w(TAG, "Could not release Bluetooth SCO", e);
+        }
     }
 
     /** Points the recorder at the custom (SAF) folder when one is set, else internal storage. */
@@ -165,6 +234,7 @@ public class VoiceRecordingService extends Service {
     private void stopSelfCleanly() {
         running = false;
         closeOutput();
+        stopBluetoothSco();
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
         stopSelf();
     }
