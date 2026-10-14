@@ -28,7 +28,9 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.fadcam"
+        // Own id so this fork installs alongside upstream FadCam (which is signed
+        // with a different key and would otherwise block the install).
+        applicationId = "com.jabsch.fadcam"
         minSdk = 24
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
