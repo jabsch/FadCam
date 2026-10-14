@@ -28,6 +28,9 @@ public class ShimmerTextView extends AppCompatTextView {
     private float shimmerTranslate = 0f;
     private boolean isShimmering = false;
     private RectF viewRect;
+    private final android.graphics.Path clipPath = new android.graphics.Path();
+    /** False while this view, an ancestor (e.g. a hidden tab) or the window is hidden. */
+    private boolean visibleToUser = true;
 
     private int shimmerWidth = 50;
     private int shimmerColor = 0x45FFFFFF;
@@ -62,7 +65,11 @@ public class ShimmerTextView extends AppCompatTextView {
         if (w > 0 && h > 0) {
             cornerRadius = h / 2f; // Match pill shape
             viewRect.set(0, 0, w, h);
+            clipPath.reset();
+            clipPath.addRoundRect(viewRect, cornerRadius, cornerRadius, android.graphics.Path.Direction.CW);
             createShimmerGradient();
+            // Restart so the sweep spans the new width.
+            stopShimmer();
             startShimmer();
         }
     }
@@ -86,8 +93,6 @@ public class ShimmerTextView extends AppCompatTextView {
             int saveCount = canvas.save();
             
             // Clip to rounded rect matching button shape
-            android.graphics.Path clipPath = new android.graphics.Path();
-            clipPath.addRoundRect(viewRect, cornerRadius, cornerRadius, android.graphics.Path.Direction.CW);
             canvas.clipPath(clipPath);
             
             shimmerMatrix.reset();
@@ -103,7 +108,8 @@ public class ShimmerTextView extends AppCompatTextView {
      * Start the shimmer animation.
      */
     public void startShimmer() {
-        if (shimmerAnimator != null && shimmerAnimator.isRunning()) {
+        // An infinite animator invalidates every frame; don't run it while nobody can see it.
+        if (!visibleToUser || (shimmerAnimator != null && shimmerAnimator.isRunning())) {
             return;
         }
 
@@ -130,6 +136,19 @@ public class ShimmerTextView extends AppCompatTextView {
             shimmerAnimator = null;
         }
         invalidate();
+    }
+
+    @Override
+    public void onVisibilityAggregated(boolean isVisible) {
+        super.onVisibilityAggregated(isVisible);
+        visibleToUser = isVisible;
+        if (isVisible) {
+            if (getWidth() > 0) {
+                startShimmer();
+            }
+        } else {
+            stopShimmer();
+        }
     }
 
     @Override

@@ -1438,7 +1438,11 @@ public class HomeFragment extends BaseFragment {
         updateStats(); // Update file count/size stats
         updateStorageInfo(); // Update available storage info
         updateClock(); // Update clock display
-        startUpdatingClock(); // Start periodic clock updates
+        // Tabs use hide/show, so onStart also runs while another tab is showing;
+        // the 1 s clock then starts when Home is shown (resumeUpdateHandlers).
+        if (!isHidden()) {
+            startUpdatingClock(); // Start periodic clock updates
+        }
         startUpdatingInfo(); // Start periodic storage/estimate updates
         showCurrentCameraSelection(); // Show selected camera
         // Restore preview state (use centralized SharedPreferencesManager API)
@@ -7496,17 +7500,19 @@ public class HomeFragment extends BaseFragment {
             return;
         }
         
-        // Resume clock updates
-        if (isRecording() || isPaused()) {
-            if (!clockUpdatesRunning) {
-                if (updateClockRunnable == null) {
-                    startUpdatingClock();
-                } else {
-                    clockUpdatesRunning = true;
-                    handlerClock.post(updateClockRunnable);
-                }
-                FLog.d(TAG, "resumeUpdateHandlers: Clock handler resumed");
+        // Resume clock updates: the clock shows whether or not a recording runs,
+        // and pauseUpdateHandlers stopped it when Home was hidden or paused.
+        if (!clockUpdatesRunning) {
+            if (updateClockRunnable == null) {
+                startUpdatingClock();
+            } else {
+                clockUpdatesRunning = true;
+                handlerClock.post(updateClockRunnable);
             }
+            FLog.d(TAG, "resumeUpdateHandlers: Clock handler resumed");
+        }
+
+        if (isRecording() || isPaused()) {
 
             // Resume storage + stats updates
             if (!infoUpdatesRunning) {

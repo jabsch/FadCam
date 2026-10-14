@@ -138,6 +138,8 @@ public class RemoteFragment extends BaseFragment {
     private RemoteStreamService streamService;
     private boolean serviceBound = false;
     private Handler statusUpdateHandler;
+    /** The status glow pulse; started once, cancelled when inactive, paused or hidden. */
+    private android.animation.AnimatorSet statusPulse;
     private Runnable statusUpdateRunnable;
     private Handler healthUpdateHandler;
     private Runnable healthUpdateRunnable;
@@ -482,6 +484,7 @@ public class RemoteFragment extends BaseFragment {
     
     /** Pause streaming update handlers and unbind service. */
     private void pauseRemoteUpdates() {
+        cancelStatusPulse();
         if (serviceBound) {
             try {
                 requireContext().unbindService(serviceConnection);
@@ -694,6 +697,11 @@ public class RemoteFragment extends BaseFragment {
     
     private void animateStatusIndicator(boolean isActive) {
         if (isActive) {
+            // updateUI() runs every 2 s; starting new infinite animators each time
+            // piled them up on the same view, each ticking every frame.
+            if (statusPulse != null && statusPulse.isRunning()) {
+                return;
+            }
             statusIndicatorDot.setBackground(requireContext().getDrawable(R.drawable.status_dot_pulse));
             statusGlow.setVisibility(View.VISIBLE);
             
@@ -726,13 +734,21 @@ public class RemoteFragment extends BaseFragment {
             scaleY.setRepeatMode(ObjectAnimator.RESTART);
             alpha.setRepeatMode(ObjectAnimator.RESTART);
             
-            scaleX.start();
-            scaleY.start();
-            alpha.start();
+            statusPulse = new android.animation.AnimatorSet();
+            statusPulse.playTogether(scaleX, scaleY, alpha);
+            statusPulse.start();
         } else {
+            cancelStatusPulse();
             statusIndicatorDot.setBackground(requireContext().getDrawable(R.drawable.status_dot_inactive));
             statusGlow.setVisibility(View.GONE);
             statusGlow.clearAnimation();
+        }
+    }
+
+    private void cancelStatusPulse() {
+        if (statusPulse != null) {
+            statusPulse.cancel();
+            statusPulse = null;
         }
     }
     

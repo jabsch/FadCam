@@ -261,32 +261,11 @@ public class RecordingService extends Service {
         sharedPreferencesManager = SharedPreferencesManager.getInstance(getApplicationContext());
         initializeDurationLimitController();
 
-        // Initialize LocationHelper when ANY location-dependent feature is on —
-        // not just the "location watermark" toggle. If speed/altitude/accuracy/
-        // compass/weather/UTM are enabled but the location watermark is off, the
-        // GPS feed would otherwise never start and those watermarks would be
-        // stuck at 0 (the exact bug users reported).
-        if (sharedPreferencesManager != null && needsLocationData()) {
-            locationHelper = new LocationHelper(this,
-                    LocationFeedGate.needsFastLocation(sharedPreferencesManager)); // For watermark text
-            // Also initialize geocoder for reverse geocoding (non-blocking, cached)
-            // Uses Nominatim (free, open-source) - no API keys needed
-            locationGeocoder = new LocationGeocoder();
-        } else {
-            // no location-dependent feature enabled
-        }
-
-        // Initialize GeotagHelper only if location embedding is enabled
-        if (sharedPreferencesManager != null && sharedPreferencesManager.isLocationEmbeddingEnabled()) {
-            try {
-                geotagHelper = new GeotagHelper(this); // For metadata embedding
-                boolean started = geotagHelper.startUpdates();
-            } catch (Exception e) {
-                FLog.e(TAG, "Error initializing GeotagHelper", e);
-            }
-        } else {
-            // location embedding disabled
-        }
+        // GPS is NOT started here: the app starts this service on every
+        // foreground and tab switch just to query state, which kept the GPS
+        // radio on whenever JaCam was open. The watermark feed starts with a
+        // recording or preview (ensureLocationFeed) and geotagging with the
+        // recording itself.
 
         // Sensor providers (NoiseMonitor, SensorDataProvider, WeatherService)
         // are now initialized lazily in the START_RECORDING intent handler
@@ -1552,6 +1531,7 @@ public class RecordingService extends Service {
             previewOnlyActive = true;
             pendingStartRecording = false;
             recordingState = RecordingState.NONE;
+            ensureLocationFeed();
             ensurePreviewOnlyGlPipeline();
             openCamera();
             broadcastOnPreviewOnlyStarted();
@@ -1582,7 +1562,7 @@ public class RecordingService extends Service {
             // (NOT during preview-only mode — prevents mic/sensor memory leaks)
             // setup log removed
 
-            matchLocationFeedRateToFeatures();
+            ensureLocationFeed();
 
             // Shared watermark manager (DRY — used by both single and dual camera)
             if (watermarkManager == null) {
@@ -6226,23 +6206,31 @@ public class RecordingService extends Service {
      * {@link LocationFeedGate#needsLocationData}.
      */
     /**
-     * The helper is created in onCreate, and an idle service can outlive a
-     * settings change; recreate it if speed/altitude/accuracy/compass were
-     * toggled since, so the GPS cadence matches what the watermark shows.
+     * Starts the watermark GPS feed when ANY location-dependent feature is on
+     * (not just the location watermark: speed/altitude/accuracy/compass/
+     * weather/UTM need it too), at the cadence those features need. Called
+     * when a recording or preview starts; recreates the helper if the cadence
+     * changed since it was made.
      */
-    private void matchLocationFeedRateToFeatures() {
-        if (locationHelper == null) {
+    private void ensureLocationFeed() {
+        if (sharedPreferencesManager == null || !needsLocationData()) {
             return;
         }
         boolean wantFast = LocationFeedGate.needsFastLocation(sharedPreferencesManager);
-        if (locationHelper.isFastUpdates() == wantFast) {
+        if (locationHelper != null && locationHelper.isFastUpdates() == wantFast) {
             return;
         }
         try {
-            locationHelper.stopLocationUpdates();
+            if (locationHelper != null) {
+                locationHelper.stopLocationUpdates();
+            }
             locationHelper = new LocationHelper(this, wantFast);
+            if (locationGeocoder == null) {
+                // Reverse geocoding (Nominatim, cached, non-blocking) for the address format.
+                locationGeocoder = new LocationGeocoder();
+            }
         } catch (Exception e) {
-            FLog.e(TAG, "Error switching location feed rate", e);
+            FLog.e(TAG, "Error starting location feed", e);
         }
     }
 
