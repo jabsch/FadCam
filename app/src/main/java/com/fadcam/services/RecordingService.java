@@ -5097,12 +5097,22 @@ public class RecordingService extends Service {
         return fontSize;
     }
 
-    private String getCurrentTimestamp() {
+    // Built once per pattern: this runs every second while recording.
+    private SimpleDateFormat watermarkTimeFormat;
+    private String watermarkTimePattern;
+
+    private synchronized String getCurrentTimestamp() {
         // Abbreviated day (e.g. "Wed, ") included when the Day toggle is on.
         String pattern = (sharedPreferencesManager.isWatermarkDayEnabled() ? "EEE, " : "")
                 + "dd/MMM/yyyy hh:mm:ss a";
-        SimpleDateFormat sdf = new SimpleDateFormat(pattern, Locale.ENGLISH); // 12-hour format with AM/PM
-        return convertArabicNumeralsToEnglish(sdf.format(new Date()));
+        if (watermarkTimeFormat == null || !pattern.equals(watermarkTimePattern)) {
+            // Locale.ENGLISH always formats Western digits, so no numeral conversion is needed.
+            watermarkTimeFormat = new SimpleDateFormat(pattern, Locale.ENGLISH); // 12-hour format with AM/PM
+            watermarkTimePattern = pattern;
+        }
+        // The formatter keeps the zone it was built with; follow time zone changes.
+        watermarkTimeFormat.setTimeZone(java.util.TimeZone.getDefault());
+        return watermarkTimeFormat.format(new Date());
     }
 
     private String getTimezoneSuffix() {
@@ -5123,21 +5133,6 @@ public class RecordingService extends Service {
             gmt += " (" + tz.getID() + ")";
         }
         return " " + gmt;
-    }
-
-    private String convertArabicNumeralsToEnglish(String text) {
-        if (text == null)
-            return null;
-        return text.replaceAll("٠", "0")
-                .replaceAll("١", "1")
-                .replaceAll("٢", "2")
-                .replaceAll("٣", "3")
-                .replaceAll("٤", "4")
-                .replaceAll("٥", "5")
-                .replaceAll("٦", "6")
-                .replaceAll("٧", "7")
-                .replaceAll("٨", "8")
-                .replaceAll("٩", "9");
     }
 
     private String getLocationData() {
