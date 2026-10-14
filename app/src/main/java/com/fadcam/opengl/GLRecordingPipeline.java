@@ -1560,14 +1560,15 @@ public class GLRecordingPipeline {
     }
 
     /**
-     * Poll interval for the encoder drain loop: about three polls per frame,
-     * clamped to 2..8 ms. A fixed 2 ms poll meant ~500 wakeups/s whatever the
-     * frame rate, which keeps CPU cores out of idle states and heats the phone
-     * on long recordings; at 30 fps this is 8 ms, still well under a frame.
+     * Poll interval for the encoder drain loop: two polls per frame, clamped
+     * to 4..16 ms. Each poll drains everything queued, so a frame waits at
+     * most half a frame for the muxer, and the 16 ms ceiling stays under one
+     * 21 ms AAC frame. Fewer wakeups (~60/s at 30 fps instead of ~125) let
+     * CPU cores reach deeper idle states on long recordings.
      */
     private long drainIntervalMs() {
         int fps = videoFramerate > 0 ? videoFramerate : 30;
-        return Math.max(2L, Math.min(8L, 1000L / (fps * 3L)));
+        return Math.max(4L, Math.min(16L, 1000L / (fps * 2L)));
     }
 
     private final class DrainRunnable implements Runnable {
