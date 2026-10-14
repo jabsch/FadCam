@@ -3108,6 +3108,17 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="thermal_guard_stopped">Phone is overheating. Recording stopped and saved.</string>
     <string name="setting_pixel_optimized_title">Pixel 11 optimized</string>
     <string name="setting_pixel_optimized_footer">Tunes recording for Pixel 11 phones: H.265 at 1080p 30 fps with auto bitrate, which stays cool on long recordings. It also hides settings that do nothing on this phone. Turning it on re-applies these values; you can still change any of them afterwards. Turn it off to show every setting again.</string>
+    <string name="shortcut_voice_recording">Voice</string>
+    <string name="shortcut_voice_recording_long">Start/stop voice recording</string>
+    <string name="shortcut_purpose_voice">This shortcut starts an audio-only voice recording, or stops and saves the one in progress. Recordings are saved as .m4a files in a Voice folder next to your videos.</string>
+    <string name="voice_recording_started">Voice recording started</string>
+    <string name="voice_recording_saved">Voice recording saved</string>
+    <string name="voice_recording_failed">Voice recording could not be saved</string>
+    <string name="voice_recording_needs_mic">Allow microphone access in JaCam first</string>
+    <string name="voice_recording_channel">Voice recording</string>
+    <string name="voice_recording_notification_title">Recording voice</string>
+    <string name="voice_recording_notification_text">Tap to stop and save</string>
+    <string name="voice_recording_stop">Stop</string>
     <string name="preset_1080p_30">1080p · 30 fps</string>
     <string name="preset_1080p_max">1080p · max fps</string>
     <string name="preset_4k_max">4K · max fps</string>

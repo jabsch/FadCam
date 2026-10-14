@@ -126,6 +126,10 @@ public class ShortcutsSettingsFragment extends Fragment {
                 getString(R.string.shortcut_take_screenshot),
                 new Intent(Intent.ACTION_VIEW).setClassName(requireContext(), "com.fadcam.ScreenShotCaptureActivity"),
                 ShortcutsManager.ID_SCREENSHOT);
+        wireShortcutRow(view, R.id.cell_voice, R.id.icon_voice, R.drawable.voice_shortcut,
+                getString(R.string.shortcut_voice_recording),
+                new Intent(Intent.ACTION_VIEW).setClassName(requireContext(), "com.fadcam.VoiceRecordingToggleActivity"),
+                ShortcutsManager.ID_VOICE);
 
         // Unify ripple/click: handle click on parent container only
         View widgetCell = view.findViewById(R.id.cell_widget_clock);
@@ -252,6 +256,8 @@ public class ShortcutsSettingsFragment extends Fragment {
             subtitle = root.findViewById(R.id.subtitle_photo_front);
         } else if (rowId == R.id.cell_screenshot) {
             subtitle = root.findViewById(R.id.subtitle_screenshot);
+        } else if (rowId == R.id.cell_voice) {
+            subtitle = root.findViewById(R.id.subtitle_voice);
         }
         // Apply custom label/icon if present
         ShortcutsPreferences sp = new ShortcutsPreferences(requireContext());
@@ -285,6 +291,8 @@ public class ShortcutsSettingsFragment extends Fragment {
                 subtitle.setBackgroundResource(R.drawable.badge_teal);
             } else if (ShortcutsManager.ID_SCREENSHOT.equals(shortcutId)) {
                 subtitle.setBackgroundResource(R.drawable.badge_orange);
+            } else if (ShortcutsManager.ID_VOICE.equals(shortcutId)) {
+                subtitle.setBackgroundResource(R.drawable.badge_red);
             }
         }
         if (icon != null)
@@ -318,6 +326,8 @@ public class ShortcutsSettingsFragment extends Fragment {
             return R.id.title_photo_front;
         if (rowId == R.id.cell_screenshot)
             return R.id.title_screenshot;
+        if (rowId == R.id.cell_voice)
+            return R.id.title_voice;
         return R.id.title_photo;
     }
 
@@ -527,6 +537,8 @@ public class ShortcutsSettingsFragment extends Fragment {
             return "FadShot Front";
         } else if (ShortcutsManager.ID_SCREENSHOT.equals(shortcutId)) {
             return "Screen Rec";
+        } else if (ShortcutsManager.ID_VOICE.equals(shortcutId)) {
+            return "Voice";
         }
         return "Shortcut";
     }
@@ -550,6 +562,8 @@ public class ShortcutsSettingsFragment extends Fragment {
             return getString(R.string.shortcut_purpose_photo_front);
         } else if (ShortcutsManager.ID_SCREENSHOT.equals(shortcutId)) {
             return getString(R.string.shortcut_purpose_screenshot);
+        } else if (ShortcutsManager.ID_VOICE.equals(shortcutId)) {
+            return getString(R.string.shortcut_purpose_voice);
         } else {
             return getString(R.string.shortcut_purpose_torch);
         }
@@ -620,6 +634,10 @@ public class ShortcutsSettingsFragment extends Fragment {
                 getString(R.string.shortcut_take_screenshot),
                 new Intent(Intent.ACTION_VIEW).setClassName(requireContext(), "com.fadcam.ScreenShotCaptureActivity"),
                 ShortcutsManager.ID_SCREENSHOT);
+        wireShortcutRow(view, R.id.cell_voice, R.id.icon_voice, R.drawable.voice_shortcut,
+                getString(R.string.shortcut_voice_recording),
+                new Intent(Intent.ACTION_VIEW).setClassName(requireContext(), "com.fadcam.VoiceRecordingToggleActivity"),
+                ShortcutsManager.ID_VOICE);
     }
 
     private void loadShortcutIconInto(ImageView imageView, String shortcutId, int defaultIconRes) {
