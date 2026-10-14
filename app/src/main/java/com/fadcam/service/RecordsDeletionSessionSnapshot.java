@@ -151,10 +151,29 @@ public class RecordsDeletionSessionSnapshot {
             return null;
         }
         try {
-            return GSON.fromJson(json, RecordsDeletionSessionSnapshot.class);
+            RecordsDeletionSessionSnapshot snapshot = GSON.fromJson(json, RecordsDeletionSessionSnapshot.class);
+            // No readable state means the stored session is unusable: treat it as none.
+            return snapshot == null || snapshot.state == null ? null : snapshot.withDefaults();
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    /**
+     * Gson can leave fields null (for example when a minified build created the object
+     * without running field initializers), so restore the non-null defaults.
+     */
+    @NonNull
+    private RecordsDeletionSessionSnapshot withDefaults() {
+        if (sessionId == null) sessionId = UUID.randomUUID().toString();
+        if (operationKind == null) operationKind = OperationKind.DELETE;
+        if (pendingItems == null) pendingItems = new ArrayList<>();
+        if (completedUriStrings == null) completedUriStrings = new ArrayList<>();
+        if (failedUriStrings == null) failedUriStrings = new ArrayList<>();
+        if (errorSummaries == null) errorSummaries = new ArrayList<>();
+        pendingItems.removeIf(item -> item == null || item.uriString == null);
+        if (inFlightItem != null && inFlightItem.uriString == null) inFlightItem = null;
+        return this;
     }
 
     private static long sumBytes(@NonNull List<RecordsDeletionRequestItem> items) {

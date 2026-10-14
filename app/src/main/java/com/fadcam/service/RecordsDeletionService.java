@@ -140,6 +140,21 @@ public class RecordsDeletionService extends Service {
         return null;
     }
 
+    /**
+     * Android 15+ calls this when the app's daily dataSync foreground time runs out.
+     * The service must stop within seconds or Android crashes the app. The session
+     * stays saved: the item in progress finishes, and the rest resumes the next time
+     * Records opens.
+     */
+    @Override
+    public void onTimeout(int startId, int fgsType) {
+        FLog.w(TAG, "Foreground time limit reached, pausing the session");
+        executorShuttingDown.set(true);
+        inForeground = false;
+        com.fadcam.Utils.stopForegroundCompat(this, true);
+        stopSelf();
+    }
+
     @Override
     public void onDestroy() {
         executorShuttingDown.set(true);
@@ -337,6 +352,41 @@ public class RecordsDeletionService extends Service {
      * requests that arrive meanwhile are never overwritten by a stale copy.
      */
     private void runSession() {
+        try {
+            runSessionLoop();
+        } catch (Throwable t) {
+            // Never let a worker error take the app down: end the session instead.
+            FLog.e(TAG, "Deletion worker failed", t);
+            com.fadcam.utils.CrashRecorder.recordNonFatal("delete-worker", t);
+            synchronized (sessionLock) {
+                RecordsDeletionSessionSnapshot latest = null;
+                try {
+                    latest = sessionStore.read();
+                } catch (Throwable ignored) {
+                }
+                if (latest != null && latest.isActive()) {
+                    if (latest.inFlightItem != null) {
+                        latest.failedItemCount++;
+                        latest.failedUriStrings.add(latest.inFlightItem.uriString);
+                        latest.inFlightItem = null;
+                    }
+                    latest.errorSummaries.add(t.getClass().getSimpleName()
+                            + (t.getMessage() != null ? ": " + t.getMessage() : ""));
+                    latest.pendingItems.clear();
+                    try {
+                        finalizeSession(latest);
+                        return;
+                    } catch (Throwable finalizeError) {
+                        FLog.e(TAG, "Could not finalize failed session", finalizeError);
+                        sessionStore.clear();
+                    }
+                }
+                stopProcessingLocked();
+            }
+        }
+    }
+
+    private void runSessionLoop() {
         boolean firstPass = true;
         while (true) {
             RecordsDeletionSessionSnapshot snapshot;
@@ -357,13 +407,20 @@ public class RecordsDeletionService extends Service {
                     return;
                 }
                 if (firstPass && snapshot.inFlightItem != null) {
-                    // A previous worker died mid-item: no other worker runs in this
-                    // process, so put that item back at the front of the queue.
-                    if (!cancelRequested.get()) {
-                        snapshot.pendingItems.add(0, snapshot.inFlightItem);
-                    }
+                    // The app died while this item was being processed (no other worker
+                    // runs in this process). Retrying it could crash again on every
+                    // launch, so mark it failed and end the session; the rest can be
+                    // deleted again by hand.
+                    RecordsDeletionRequestItem interrupted = snapshot.inFlightItem;
                     snapshot.inFlightItem = null;
                     snapshot.currentItemBytesDone = 0L;
+                    snapshot.failedItemCount++;
+                    snapshot.failedUriStrings.add(interrupted.uriString);
+                    snapshot.errorSummaries.add(getString(R.string.records_delete_error_interrupted,
+                            interrupted.displayName));
+                    snapshot.pendingItems.clear();
+                    finalizeSession(snapshot);
+                    return;
                 }
                 firstPass = false;
                 if (cancelRequested.get()) {

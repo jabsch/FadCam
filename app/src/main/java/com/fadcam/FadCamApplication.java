@@ -12,6 +12,7 @@ public class FadCamApplication extends Application implements DefaultLifecycleOb
     @Override
     public void onCreate() {
         super.onCreate();
+        com.fadcam.utils.CrashRecorder.install(this);
         ProcessLifecycleOwner.get().getLifecycle().addObserver(this);
         com.fadcam.utils.PixelOptimizedMode.applyOnceIfNeeded(this);
         // Room DB open + invalidation observer registration is deferred off the

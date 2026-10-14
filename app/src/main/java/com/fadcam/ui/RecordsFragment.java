@@ -588,6 +588,16 @@ public class RecordsFragment extends BaseFragment implements
         if (deletionSessionStore == null) {
             return;
         }
+        try {
+            syncDeletionUiFromStoreUnchecked(immediate);
+        } catch (RuntimeException e) {
+            // Stored session state must never stop Records (or the app) from opening.
+            FLog.e(TAG, "Could not show the stored deletion session", e);
+            com.fadcam.utils.CrashRecorder.recordNonFatal("records-delete-sync", e);
+        }
+    }
+
+    private void syncDeletionUiFromStoreUnchecked(boolean immediate) {
         RecordsDeletionSessionSnapshot snapshot = deletionSessionStore.read();
         deletionSnapshot = snapshot;
         if (snapshot != null && snapshot.isActive() && getContext() != null) {
@@ -1336,31 +1346,12 @@ public class RecordsFragment extends BaseFragment implements
                     if (!isAdded() || intent == null) {
                         return;
                     }
-                    String action = intent.getAction();
-                    if (Constants.ACTION_RECORDS_DELETE_ITEM_COMPLETED.equals(action)) {
-                        ArrayList<String> completedUris = intent.getStringArrayListExtra(
-                                Constants.EXTRA_RECORDS_DELETE_COMPLETED_URIS);
-                        // Get operation kind from intent, default to DELETE if not provided
-                        String operationKind = intent.getStringExtra(Constants.EXTRA_RECORDS_DELETE_OPERATION_KIND);
-                        if (operationKind == null) {
-                            operationKind = RecordsDeletionSessionSnapshot.OperationKind.DELETE.name();
-                        }
-                        applyDeletedItemsToUi(parseUriList(completedUris), operationKind);
-                    }
-                    if (Constants.ACTION_RECORDS_DELETE_SESSION_UPDATED.equals(action)
-                            || Constants.ACTION_RECORDS_DELETE_SESSION_FINISHED.equals(action)) {
-                        RecordsDeletionSessionSnapshot snapshot = RecordsDeletionSessionSnapshot.fromJson(
-                                intent.getStringExtra(Constants.EXTRA_RECORDS_DELETE_SESSION_JSON));
-                        deletionSnapshot = snapshot;
-                        renderDeletionSnapshot(snapshot, false);
-                        
-                        // For COPY and EXPORT operations, trigger delta scan to refresh records list
-                        if (Constants.ACTION_RECORDS_DELETE_SESSION_FINISHED.equals(action)
-                                && snapshot != null
-                                && (snapshot.operationKind == RecordsDeletionSessionSnapshot.OperationKind.SAVE_COPY_TO_GALLERY
-                                || snapshot.operationKind == RecordsDeletionSessionSnapshot.OperationKind.SAVE_EXPORT_TO_CUSTOM_TREE)) {
-                            triggerRecordsDeltaScanWithDelay(200);
-                        }
+                    try {
+                        handleRecordsDeletionBroadcast(intent);
+                    } catch (RuntimeException e) {
+                        // A progress update must never take the app down.
+                        FLog.e(TAG, "Deletion update failed", e);
+                        com.fadcam.utils.CrashRecorder.recordNonFatal("records-delete-ui", e);
                     }
                 }
             };
@@ -1377,6 +1368,35 @@ public class RecordsFragment extends BaseFragment implements
         );
         isRecordsDeletionReceiverRegistered = true;
         syncDeletionUiFromStore(true);
+    }
+
+    private void handleRecordsDeletionBroadcast(@NonNull Intent intent) {
+        String action = intent.getAction();
+        if (Constants.ACTION_RECORDS_DELETE_ITEM_COMPLETED.equals(action)) {
+            ArrayList<String> completedUris = intent.getStringArrayListExtra(
+                    Constants.EXTRA_RECORDS_DELETE_COMPLETED_URIS);
+            // Get operation kind from intent, default to DELETE if not provided
+            String operationKind = intent.getStringExtra(Constants.EXTRA_RECORDS_DELETE_OPERATION_KIND);
+            if (operationKind == null) {
+                operationKind = RecordsDeletionSessionSnapshot.OperationKind.DELETE.name();
+            }
+            applyDeletedItemsToUi(parseUriList(completedUris), operationKind);
+        }
+        if (Constants.ACTION_RECORDS_DELETE_SESSION_UPDATED.equals(action)
+                || Constants.ACTION_RECORDS_DELETE_SESSION_FINISHED.equals(action)) {
+            RecordsDeletionSessionSnapshot snapshot = RecordsDeletionSessionSnapshot.fromJson(
+                    intent.getStringExtra(Constants.EXTRA_RECORDS_DELETE_SESSION_JSON));
+            deletionSnapshot = snapshot;
+            renderDeletionSnapshot(snapshot, false);
+            
+            // For COPY and EXPORT operations, trigger delta scan to refresh records list
+            if (Constants.ACTION_RECORDS_DELETE_SESSION_FINISHED.equals(action)
+                    && snapshot != null
+                    && (snapshot.operationKind == RecordsDeletionSessionSnapshot.OperationKind.SAVE_COPY_TO_GALLERY
+                    || snapshot.operationKind == RecordsDeletionSessionSnapshot.OperationKind.SAVE_EXPORT_TO_CUSTOM_TREE)) {
+                triggerRecordsDeltaScanWithDelay(200);
+            }
+        }
     }
 
     private void unregisterRecordsDeletionReceiver() {
