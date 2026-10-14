@@ -65,7 +65,8 @@ public class WatermarkManager implements WatermarkInfoProvider {
         if ("no_watermark".equals(option)) return;
 
         if (locationHelper == null) {
-            locationHelper = new LocationHelper(context);
+            locationHelper = new LocationHelper(context,
+                    com.fadcam.services.LocationFeedGate.needsFastLocation(prefs));
             locationHelper.startLocationUpdates();
         }
 

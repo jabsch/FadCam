@@ -28,7 +28,9 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.fadcam"
+        // Own id so this fork installs alongside upstream FadCam (which is signed
+        // with a different key and would otherwise block the install).
+        applicationId = "com.jacam"
         minSdk = 24
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -68,7 +70,7 @@ android {
             applicationIdSuffix = ".beta"
             isDebuggable = true
             versionNameSuffix = "-beta10.7" // Increment the beta version suffix for each release. Use `beta1` for the first beta release, then `beta2`, etc.
-            resValue("string", "app_name", "FadCam Beta")
+            resValue("string", "app_name", "JaCam Beta")
         }
         
         release {
@@ -111,7 +113,7 @@ android {
             }
             versionNameSuffix = "-Pro+"
             // Custom app name via gradle property
-            val customAppName = project.findProperty("customAppName")?.toString() ?: "FadCam Pro+"
+            val customAppName = project.findProperty("customAppName")?.toString() ?: "JaCam Pro+"
             resValue("string", "app_name", customAppName)
         }
     }
@@ -166,7 +168,7 @@ android {
         }
     }
 
-    // Dynamic APK output names: FadCam_<flavor>_v<versionName><suffix>-<abi>.apk
+    // Dynamic APK output names: JaCam_<flavor>_v<versionName><suffix>-<abi>.apk
     // (default flavor has no <flavor> part; universal APK gets the literal "-universal")
     applicationVariants.all {
         // res/xml/shortcuts.xml must name the installed package, which differs per
@@ -182,7 +184,7 @@ android {
                 ?.identifier
                 ?: "universal"
             output.outputFileName =
-                "FadCam_${flavor}v${versionName}-${abiType}.apk"
+                "JaCam_${flavor}v${versionName}-${abiType}.apk"
         }
     }
 

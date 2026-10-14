@@ -7635,7 +7635,8 @@ public class HomeFragment extends BaseFragment {
                     long activeBytes = com.fadcam.ActiveRecordingStats.getActiveFileSizeBytes(requireContext());
                     long activeMB = activeBytes / (1024 * 1024);
                     long totalMBWithActive = dbTotalMB + activeMB;
-                    VideoStatsCache.updateStats(sharedPreferencesManager, dbCount, totalMBWithActive);
+                    // UI only: persisting here rewrote the whole AppPreferences file
+                    // every 3 s of recording, and the live segment size is transient.
                     updateStatsUI(dbCount, totalMBWithActive);
                     return;
                 }

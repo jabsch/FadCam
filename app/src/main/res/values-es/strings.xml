@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="app_name" translatable="false">FadCam</string>
+    <string name="app_name" translatable="false">JaCam</string>
     <string name="app_icon_description">Elige un ícono y nombre para tu app. Esto cambiará cómo aparece en tu pantalla de inicio.</string>
     <string name="check_for_updates">Buscar actualizaciones</string>
     <string name="accessibility_thumbnail_progress">%1$d%% visto</string>

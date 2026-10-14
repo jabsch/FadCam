@@ -31,4 +31,18 @@ public final class LocationFeedGate {
                 || prefs.isCompassEnabled()
                 || prefs.isWeatherEnabled();
     }
+
+    /**
+     * True if an enabled feature needs a fix every second: speed, altitude and
+     * accuracy readouts, and the compass (which falls back to GPS bearing).
+     * Location text, UTM, weather and metadata embedding are fine with a slower
+     * feed, which lets the GPS radio idle between fixes.
+     */
+    public static boolean needsFastLocation(SharedPreferencesManager prefs) {
+        if (prefs == null) return false;
+        return prefs.isSpeedEnabled()
+                || prefs.isAltitudeEnabled()
+                || prefs.isAccuracyEnabled()
+                || prefs.isCompassEnabled();
+    }
 }

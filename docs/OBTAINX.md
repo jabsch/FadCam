@@ -6,8 +6,8 @@
 
 1. Set `versionName` / `versionNameSuffix` in `app/build.gradle.kts`.
 2. Build with your release keystore configured in `local.properties` (`KEYSTORE_FILE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`):
-   - Stable: `./gradlew assembleDefaultRelease` → `app/build/outputs/apk/default/release/FadCam_v<version>-arm64-v8a.apk`
-   - Beta: `./gradlew assembleDefaultDebug` → `FadCam_v<version>-beta<N>-arm64-v8a.apk` (package `com.fadcam.beta`, installs alongside stable; signed with your machine's debug key, so always build betas on the same machine)
+   - Stable: `./gradlew assembleDefaultRelease` → `app/build/outputs/apk/default/release/JaCam_v<version>-arm64-v8a.apk`
+   - Beta: `./gradlew assembleDefaultDebug` → `JaCam_v<version>-beta<N>-arm64-v8a.apk` (package `com.jacam.beta`, installs alongside stable and alongside upstream FadCam; signed with your machine's debug key, so always build betas on the same machine)
 3. On GitHub, create a release in `jabsch/FadCam`:
    - Tag: `v` plus the exact versionName, e.g. `v4.0.0` or `v4.0.0-beta10.6`. The in-app update checker reads the same tags.
    - Tick **Set as a pre-release** for betas.
@@ -17,17 +17,17 @@ Always sign with the same keystore. Android refuses an update signed with a diff
 
 ## 2. Add FadCam to ObtainX (on the phone)
 
-**Stable** (`com.fadcam`):
+**Stable** (`com.jacam`):
 
 | Field | Value |
 |---|---|
 | App source URL | `https://github.com/jabsch/FadCam` |
 | Include prereleases | Off |
-| Filter APKs by regular expression | `^FadCam_v\d+\.\d+\.\d+-arm64-v8a\.apk$` |
+| Filter APKs by regular expression | `^JaCam_v\d+\.\d+\.\d+-arm64-v8a\.apk$` |
 | Trim version string with RegEx | `\d+\.\d+\.\d+` |
 | Verify the 'latest' tag | On |
 
-**Beta** (`com.fadcam.beta`), as a second app entry:
+**Beta** (`com.jacam.beta`), as a second app entry:
 
 | Field | Value |
 |---|---|

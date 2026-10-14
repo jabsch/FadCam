@@ -16,6 +16,10 @@ import android.os.Looper;
  */
 public class GeotagHelper {
     private static final String TAG = "GeotagHelper";
+    // A geotag only needs one good fix per recording, so don't hold the GPS
+    // radio at 1 Hz for it (the speed watermark has its own 1 s feed).
+    private static final long GEOTAG_MIN_TIME_MS = 5000;
+    private static final float GEOTAG_MIN_DISTANCE_M = 5f;
     private final LocationManager locationManager;
     private final Context context;
     private Location bestLocation;
@@ -93,8 +97,8 @@ public class GeotagHelper {
                 try {
                     locationManager.requestLocationUpdates(
                         LocationManager.GPS_PROVIDER, 
-                        1000, // 1 second
-                        1,    // 1 meter
+                        GEOTAG_MIN_TIME_MS,
+                        GEOTAG_MIN_DISTANCE_M,
                         gpsListener,
                         Looper.getMainLooper()
                     );
@@ -108,8 +112,8 @@ public class GeotagHelper {
                 try {
                     locationManager.requestLocationUpdates(
                         LocationManager.NETWORK_PROVIDER,
-                        1000, // 1 second
-                        1,    // 1 meter
+                        GEOTAG_MIN_TIME_MS,
+                        GEOTAG_MIN_DISTANCE_M,
                         networkListener,
                         Looper.getMainLooper()
                     );

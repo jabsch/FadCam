@@ -80,7 +80,7 @@ public class LocationPrivacySettingsFragment extends Fragment {
     }
 
     private void startLocationHelperIfNeeded(){
-        if(locationHelper==null){ locationHelper = new LocationHelper(requireContext()); }
+        if(locationHelper==null){ locationHelper = new LocationHelper(requireContext(), true); }
     }
 
     private void stopLocationIfAllDisabled(){

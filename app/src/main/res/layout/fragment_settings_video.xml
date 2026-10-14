@@ -109,6 +109,48 @@ app:layout_constraintTop_toTopOf="parent"
                 style="@style/SettingsDivider"
                 android:visibility="gone" />
 
+            <!-- Quick preset row (resolution + fps in one tap): shown with the Pixel row -->
+            <LinearLayout
+                android:id="@+id/row_recording_preset"
+                style="@style/SettingsGroupRow"
+                android:clickable="true"
+                android:focusable="true"
+                android:visibility="gone">
+                <TextView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_marginEnd="16dp"
+                    android:fontFamily="@font/materialicons"
+                    android:gravity="center"
+                    android:text="tune"
+                    android:textSize="18sp"
+                    android:textColor="@android:color/darker_gray" />
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/setting_recording_preset_title"
+                    android:textStyle="bold"
+                    android:textSize="15sp"
+                    android:textColor="?attr/colorHeading"/>
+                <TextView
+                    android:id="@+id/value_recording_preset"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="-"
+                    android:textColor="@android:color/darker_gray"
+                    android:textSize="13sp"/>
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:src="@drawable/ic_arrow_right"
+                    android:tint="@android:color/darker_gray"/>
+            </LinearLayout>
+            <View
+                android:id="@+id/divider_recording_preset"
+                style="@style/SettingsDivider"
+                android:visibility="gone" />
+
             <!-- Video Stabilization Row (opens bottom sheet) -->
             <LinearLayout
                 android:id="@+id/row_video_stabilization"

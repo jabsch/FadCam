@@ -668,7 +668,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="fix_video_saf_export">Exportiere oder teile die reparierte Datei bei Bedarf aus dem App-Speicher.</string>
     <string name="full_changelog_info">Für das vollständige Changelog gehe zum Home-Tab, öffne das Hamburger-Menü und wähle «Neuigkeiten».</string>
 
-    <string name="app_name" translatable="false">FadCam</string>
+    <string name="app_name" translatable="false">JaCam</string>
     <string name="accessibility_thumbnail_progress">%1$d%% angesehen</string>
     <string name="readme_github_subtitle">Quellcode &amp; Versionen</string>
     <string name="readme_discord_subtitle">Tritt der Community bei</string>

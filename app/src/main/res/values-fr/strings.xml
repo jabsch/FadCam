@@ -499,7 +499,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
     <string name="next">Suivant</string>
     <string name="done">Terminé</string>
     <string name="full_changelog_info">Pour le changelog complet, allez dans l\'onglet Accueil, ouvrez le menu hamburger, puis sélectionnez «Quoi de neuf».</string>
-<string name="app_name" translatable="false">FadCam</string>
+<string name="app_name" translatable="false">JaCam</string>
 
 <string name="accessibility_thumbnail_progress">%1$d%% watched</string>
 

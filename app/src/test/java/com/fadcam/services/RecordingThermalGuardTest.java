@@ -3,6 +3,7 @@ package com.fadcam.services;
 import static org.junit.Assert.assertEquals;
 
 import com.fadcam.services.RecordingThermalGuard.Action;
+import com.fadcam.services.RecordingThermalGuard.FpsAction;
 import org.junit.Test;
 
 public class RecordingThermalGuardTest {
@@ -31,5 +32,21 @@ public class RecordingThermalGuardTest {
         assertEquals(Action.STOP, RecordingThermalGuard.decide(RecordingThermalGuard.STATUS_CRITICAL, false));
         assertEquals(Action.STOP, RecordingThermalGuard.decide(5, true));
         assertEquals(Action.STOP, RecordingThermalGuard.decide(6, false));
+    }
+
+    @Test
+    public void autoFpsDropsAtModerateAndRisesOnlyWhenCool() {
+        FpsAction none = FpsAction.NONE;
+        assertEquals(none, RecordingThermalGuard.decideFps(RecordingThermalGuard.STATUS_LIGHT, false));
+        assertEquals(FpsAction.LOWER, RecordingThermalGuard.decideFps(RecordingThermalGuard.STATUS_MODERATE, false));
+        assertEquals(FpsAction.LOWER, RecordingThermalGuard.decideFps(RecordingThermalGuard.STATUS_SEVERE, false));
+        assertEquals(none, RecordingThermalGuard.decideFps(RecordingThermalGuard.STATUS_MODERATE, true));
+        assertEquals(FpsAction.RAISE, RecordingThermalGuard.decideFps(RecordingThermalGuard.STATUS_LIGHT, true));
+        assertEquals(FpsAction.RAISE, RecordingThermalGuard.decideFps(0, true));
+    }
+
+    @Test
+    public void autoFpsLeavesCriticalToTheStop() {
+        assertEquals(FpsAction.NONE, RecordingThermalGuard.decideFps(RecordingThermalGuard.STATUS_CRITICAL, false));
     }
 }
