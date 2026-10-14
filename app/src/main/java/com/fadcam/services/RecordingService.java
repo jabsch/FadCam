@@ -3122,6 +3122,26 @@ public class RecordingService extends Service {
         }
     }
 
+    private List<com.fadcam.motion.domain.detector.EfficientDetLite1Detector.DetectionResult>
+            motionLastPersonDetections = java.util.Collections.emptyList();
+    private long motionLastPersonDetectMs = 0L;
+
+    /**
+     * Whether to run the AI detector on this frame (Motion Lab "Person Check").
+     * The scene counts as still when the motion check scored zero without
+     * suppressing a whole-frame change (camera shake, light switch).
+     */
+    private boolean personCheckDue(float rawMotionScore, long nowMs) {
+        boolean sceneStill = rawMotionScore <= 0f
+                && !(motionDetector instanceof com.fadcam.motion.domain.detector.MotionDebugInfoProvider
+                        && ((com.fadcam.motion.domain.detector.MotionDebugInfoProvider) motionDetector)
+                                .isLastGlobalMotionSuppressed());
+        com.fadcam.utils.PersonCheckMode mode = sharedPreferencesManager != null
+                ? com.fadcam.utils.PersonCheckMode.current(sharedPreferencesManager)
+                : com.fadcam.utils.PersonCheckMode.EVERY_FRAME;
+        return mode.shouldDetect(sceneStill, nowMs - motionLastPersonDetectMs);
+    }
+
     private void processMotionFrame(
             float rawMotionScore,
             @Nullable com.fadcam.motion.domain.detector.EfficientDetLite1Detector.FramePacket framePacket,
@@ -3142,10 +3162,17 @@ public class RecordingService extends Service {
             motionScoreEma = (alpha * rawMotionScore) + ((1f - alpha) * motionScoreEma);
         }
         float motionScore = motionScoreEma;
-        List<com.fadcam.motion.domain.detector.EfficientDetLite1Detector.DetectionResult> detections =
-                (efficientDetDetector != null && framePacket != null)
-                        ? efficientDetDetector.detect(framePacket)
-                        : java.util.Collections.emptyList();
+        List<com.fadcam.motion.domain.detector.EfficientDetLite1Detector.DetectionResult> detections;
+        if (efficientDetDetector == null) {
+            detections = java.util.Collections.emptyList();
+        } else if (framePacket != null && personCheckDue(rawMotionScore, nowMs)) {
+            detections = efficientDetDetector.detect(framePacket);
+            motionLastPersonDetections = detections;
+            motionLastPersonDetectMs = nowMs;
+        } else {
+            // Still scene: nothing new can have appeared, so the last result stands.
+            detections = motionLastPersonDetections;
+        }
         com.fadcam.motion.domain.detector.EfficientDetLite1Detector.DetectionResult primaryDetection =
                 efficientDetDetector != null ? efficientDetDetector.choosePrimary(detections) : null;
         float personConfidence = efficientDetDetector != null ? efficientDetDetector.bestPersonConfidence(detections) : 0f;

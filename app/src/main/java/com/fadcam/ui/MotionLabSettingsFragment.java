@@ -129,6 +129,8 @@ public class MotionLabSettingsFragment extends Fragment {
 
         view.findViewById(R.id.row_motion_sensitivity).setOnClickListener(v -> showSensitivityInput());
         view.findViewById(R.id.row_motion_analysis_fps).setOnClickListener(v -> showAnalysisFpsPicker());
+        view.findViewById(R.id.row_motion_person_check).setOnClickListener(v -> showPersonCheckPicker());
+        refreshPersonCheckValue(view);
         view.findViewById(R.id.row_motion_debounce).setOnClickListener(v -> showDebounceInput());
         view.findViewById(R.id.row_motion_post_roll).setOnClickListener(v -> showPostRollInput());
         view.findViewById(R.id.row_motion_pre_roll).setOnClickListener(v -> showPreRollInput());
@@ -162,6 +164,37 @@ public class MotionLabSettingsFragment extends Fragment {
         valueDebounce.setText(getString(R.string.motion_lab_ms_value, state.debounceMs));
         valuePostRoll.setText(getString(R.string.motion_lab_seconds_value, state.postRollMs / 1000));
         valuePreRoll.setText(getString(R.string.motion_lab_seconds_value, state.preRollSeconds));
+    }
+
+    /** Opens the Person Check picker (how often the AI detector runs); the service reads it per frame. */
+    private void showPersonCheckPicker() {
+        SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(requireContext());
+        com.fadcam.utils.PersonCheckMode current = com.fadcam.utils.PersonCheckMode.current(prefs);
+        java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
+        for (com.fadcam.utils.PersonCheckMode m : com.fadcam.utils.PersonCheckMode.values()) {
+            items.add(new com.fadcam.ui.picker.OptionItem(m.id, getString(m.labelRes), getString(m.descriptionRes)));
+        }
+        final String resultKey = "picker_result_person_check";
+        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
+            com.fadcam.utils.PersonCheckMode picked = com.fadcam.utils.PersonCheckMode.fromId(
+                    b.getString(PickerBottomSheetFragment.BUNDLE_SELECTED_ID));
+            if (picked == null || picked == current) {
+                return;
+            }
+            com.fadcam.utils.PersonCheckMode.save(prefs, picked);
+            refreshPersonCheckValue(getView());
+        });
+        PickerBottomSheetFragment.newInstance(getString(R.string.setting_person_check_title),
+                items, current.id, resultKey, getString(R.string.person_check_footer))
+                .show(getParentFragmentManager(), "person_check_picker");
+    }
+
+    private void refreshPersonCheckValue(@Nullable View root) {
+        TextView value = root != null ? root.findViewById(R.id.value_motion_person_check) : null;
+        if (value != null) {
+            value.setText(com.fadcam.utils.PersonCheckMode.current(
+                    SharedPreferencesManager.getInstance(requireContext())).labelRes);
+        }
     }
 
     private void showAnalysisFpsPicker() {
