@@ -25,6 +25,7 @@ import androidx.fragment.app.Fragment;
 
 import com.fadcam.R;
 import com.fadcam.shortcuts.HardwareButtonBindings;
+import com.fadcam.shortcuts.VolumeKeyGestureDetector;
 import com.fadcam.shortcuts.ShortcutsManager;
 import com.fadcam.shortcuts.ShortcutsPreferences;
 
@@ -155,18 +156,46 @@ public class ShortcutsSettingsFragment extends Fragment {
         if (service != null) {
             service.setOnClickListener(v -> openAccessibilitySettings());
         }
-        View up = root.findViewById(R.id.row_hw_volume_up);
-        if (up != null) {
-            up.setOnClickListener(v -> showHardwareBindingPicker(
-                    android.view.KeyEvent.KEYCODE_VOLUME_UP, R.string.hardware_buttons_volume_up_hold));
-        }
-        View down = root.findViewById(R.id.row_hw_volume_down);
-        if (down != null) {
-            down.setOnClickListener(v -> showHardwareBindingPicker(
-                    android.view.KeyEvent.KEYCODE_VOLUME_DOWN, R.string.hardware_buttons_volume_down_hold));
+        for (HardwareRow row : HARDWARE_ROWS) {
+            View view = root.findViewById(row.rowId);
+            if (view != null) {
+                view.setOnClickListener(v -> showHardwareBindingPicker(row));
+            }
         }
         refreshHardwareButtons(root);
     }
+
+    /** One settings row per volume key gesture. */
+    private static final class HardwareRow {
+        final int rowId;
+        final int valueId;
+        final int keyCode;
+        final VolumeKeyGestureDetector.Gesture gesture;
+        final int titleRes;
+
+        HardwareRow(int rowId, int valueId, int keyCode, VolumeKeyGestureDetector.Gesture gesture, int titleRes) {
+            this.rowId = rowId;
+            this.valueId = valueId;
+            this.keyCode = keyCode;
+            this.gesture = gesture;
+            this.titleRes = titleRes;
+        }
+    }
+
+    private static final HardwareRow[] HARDWARE_ROWS = {
+            new HardwareRow(R.id.row_hw_volume_up, R.id.value_hw_volume_up,
+                    android.view.KeyEvent.KEYCODE_VOLUME_UP, VolumeKeyGestureDetector.Gesture.HOLD,
+                    R.string.hardware_buttons_volume_up_hold),
+            new HardwareRow(R.id.row_hw_volume_down, R.id.value_hw_volume_down,
+                    android.view.KeyEvent.KEYCODE_VOLUME_DOWN, VolumeKeyGestureDetector.Gesture.HOLD,
+                    R.string.hardware_buttons_volume_down_hold),
+            new HardwareRow(R.id.row_hw_volume_up_double, R.id.value_hw_volume_up_double,
+                    android.view.KeyEvent.KEYCODE_VOLUME_UP, VolumeKeyGestureDetector.Gesture.DOUBLE_TAP,
+                    R.string.hardware_buttons_volume_up_double),
+            new HardwareRow(R.id.row_hw_volume_down_double, R.id.value_hw_volume_down_double,
+                    android.view.KeyEvent.KEYCODE_VOLUME_DOWN, VolumeKeyGestureDetector.Gesture.DOUBLE_TAP,
+                    R.string.hardware_buttons_volume_down_double),
+    };
 
     private void refreshHardwareButtons(@Nullable View root) {
         if (root == null || !isAdded()) return;
@@ -175,29 +204,27 @@ public class ShortcutsSettingsFragment extends Fragment {
             service.setText(HardwareButtonBindings.isServiceEnabled(requireContext())
                     ? R.string.setting_enabled_msg : R.string.setting_disabled_msg);
         }
-        TextView up = root.findViewById(R.id.value_hw_volume_up);
-        if (up != null) {
-            up.setText(bindingLabel(android.view.KeyEvent.KEYCODE_VOLUME_UP));
-        }
-        TextView down = root.findViewById(R.id.value_hw_volume_down);
-        if (down != null) {
-            down.setText(bindingLabel(android.view.KeyEvent.KEYCODE_VOLUME_DOWN));
+        for (HardwareRow row : HARDWARE_ROWS) {
+            TextView value = root.findViewById(row.valueId);
+            if (value != null) {
+                value.setText(bindingLabel(row));
+            }
         }
     }
 
-    private String bindingLabel(int keyCode) {
-        String id = HardwareButtonBindings.getHoldBinding(requireContext(), keyCode);
+    private String bindingLabel(HardwareRow row) {
+        String id = HardwareButtonBindings.getBinding(requireContext(), row.keyCode, row.gesture);
         return id == null ? getString(R.string.hardware_buttons_none)
                 : ShortcutsManager.defaultLabelFor(requireContext(), id);
     }
 
-    private void showHardwareBindingPicker(int keyCode, int titleRes) {
-        final String resultKey = "picker_result_hw_binding_" + keyCode;
+    private void showHardwareBindingPicker(HardwareRow row) {
+        final String resultKey = "picker_result_hw_binding_" + row.keyCode + "_" + row.gesture;
         final String noneId = "none";
         getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
             String selected = b.getString(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID);
             if (selected == null) return;
-            HardwareButtonBindings.setHoldBinding(requireContext(), keyCode,
+            HardwareButtonBindings.setBinding(requireContext(), row.keyCode, row.gesture,
                     noneId.equals(selected) ? null : selected);
             refreshHardwareButtons(getView());
             if (!noneId.equals(selected) && !HardwareButtonBindings.isServiceEnabled(requireContext())) {
@@ -212,10 +239,11 @@ public class ShortcutsSettingsFragment extends Fragment {
             items.add(new com.fadcam.ui.picker.OptionItem(id,
                     ShortcutsManager.defaultLabelFor(requireContext(), id)));
         }
-        String current = HardwareButtonBindings.getHoldBinding(requireContext(), keyCode);
+        String current = HardwareButtonBindings.getBinding(requireContext(), row.keyCode, row.gesture);
         com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(
-                getString(titleRes), items, current == null ? noneId : current, resultKey,
-                getString(R.string.hardware_buttons_helper))
+                getString(row.titleRes), items, current == null ? noneId : current, resultKey,
+                getString(row.gesture == VolumeKeyGestureDetector.Gesture.DOUBLE_TAP
+                        ? R.string.hardware_buttons_double_helper : R.string.hardware_buttons_helper))
                 .show(getParentFragmentManager(), "hw_binding_picker");
     }
 
