@@ -13165,9 +13165,13 @@ public class HomeFragment extends BaseFragment {
         boolean currentShowsTimer = isElapsedTimerDisplayText(currentText);
 
         if (showTimerOnButton) {
-            buttonStartStop.setIcon(AppCompatResources.getDrawable(
-                    requireContext(),
-                    R.drawable.stop_rounded));
+            if (!currentShowsTimer) {
+                // Set the stop icon once when the timer takes over the button. Setting a
+                // new drawable every second re-laid out and redrew the button.
+                buttonStartStop.setIcon(AppCompatResources.getDrawable(
+                        requireContext(),
+                        R.drawable.stop_rounded));
+            }
             if (!currentValue.equals(latestElapsedDisplay)) {
                 if (buttonStartStop instanceof com.fadcam.ui.utils.AnimatedMaterialButton
                         && currentShowsTimer && slideLiveCounters()) {
