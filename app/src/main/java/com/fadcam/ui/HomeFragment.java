@@ -6452,7 +6452,7 @@ public class HomeFragment extends BaseFragment {
                 if (tvQuickTimerValue instanceof com.fadcam.ui.utils.AnimatedTextView) {
                     com.fadcam.ui.utils.AnimatedTextView animated =
                             (com.fadcam.ui.utils.AnimatedTextView) tvQuickTimerValue;
-                    if (wasQuickCountdownActive) {
+                    if (wasQuickCountdownActive && slideLiveCounters()) {
                         animated.animateSlotDown(text, 350);
                     } else {
                         // Fresh session: jump to the value (no odd roll from the
@@ -6935,7 +6935,11 @@ public class HomeFragment extends BaseFragment {
                         if (tvEstimateTitle != null) {
                             String oldEstimate = tvEstimateTitle.getText() != null ? tvEstimateTitle.getText().toString() : "";
                             if (!oldEstimate.equals(finalTimeLeftText)) {
-                                if (tvEstimateTitle instanceof com.fadcam.ui.utils.AnimatedTextView) {
+                                if (tvEstimateTitle instanceof com.fadcam.ui.utils.AnimatedTextView
+                                        && !slideLiveCounters()) {
+                                    ((com.fadcam.ui.utils.AnimatedTextView) tvEstimateTitle).cancelAnimation();
+                                    tvEstimateTitle.setText(finalTimeLeftText);
+                                } else if (tvEstimateTitle instanceof com.fadcam.ui.utils.AnimatedTextView) {
                                     // Check if the format (units) changed (e.g., "59m 59s" -> "1h 0m 0s")
                                     // If format changed, use full animation; otherwise use differential
                                     boolean formatChanged = hasTimeUnitFormatChanged(oldEstimate, finalTimeLeftText);
@@ -6949,9 +6953,7 @@ public class HomeFragment extends BaseFragment {
                                 }
                             }
                         }
-                        if (tvEstimateSubtitle != null) tvEstimateSubtitle.setText(
-                            getString(R.string.recording_time_left)
-                        );
+                        setTextIfChanged(tvEstimateSubtitle, getString(R.string.recording_time_left));
                         applyTimeLeftAccentPreference();
                     }
 
@@ -6970,7 +6972,7 @@ public class HomeFragment extends BaseFragment {
                     if (tvSpaceTotal != null) {
                         // Show static "/ XX.X GB" — set once, never animate.
                         String totalStr = String.format(numberFormatLocale, "/ %.2f GB", gbTotal);
-                        tvSpaceTotal.setText(totalStr);
+                        setTextIfChanged(tvSpaceTotal, totalStr);
                     }
                     applyStorageTotalVisibilityPreference();
                     if (tvSpaceSubtitle != null) {
@@ -7203,13 +7205,15 @@ public class HomeFragment extends BaseFragment {
             String oldElapsed = viewElapsedCompact.getDisplayText() != null
                     ? viewElapsedCompact.getDisplayText().toString()
                     : "";
-            boolean animate = allowAnimation && shouldAnimateElapsedTransition(oldElapsed, elapsedTimeText);
+            boolean animate = allowAnimation && slideLiveCounters()
+                    && shouldAnimateElapsedTransition(oldElapsed, elapsedTimeText);
             viewElapsedCompact.setElapsedText(elapsedTimeText, animate);
         } else if (tvElapsedTitle != null) {
             String oldElapsed = tvElapsedTitle.getText() != null
                     ? tvElapsedTitle.getText().toString()
                     : "";
-            boolean animate = allowAnimation && shouldAnimateElapsedTransition(oldElapsed, elapsedTimeText);
+            boolean animate = allowAnimation && slideLiveCounters()
+                    && shouldAnimateElapsedTransition(oldElapsed, elapsedTimeText);
             if (tvElapsedTitle instanceof com.fadcam.ui.utils.AnimatedTextView) {
                 com.fadcam.ui.utils.AnimatedTextView animated =
                         (com.fadcam.ui.utils.AnimatedTextView) tvElapsedTitle;
@@ -7225,9 +7229,7 @@ public class HomeFragment extends BaseFragment {
             }
         }
 
-        if (tvElapsedSubtitle != null) {
-            tvElapsedSubtitle.setText(getString(R.string.recording_elapsed_time));
-        }
+        setTextIfChanged(tvElapsedSubtitle, getString(R.string.recording_elapsed_time));
         if (tvElapsedReadable != null) {
             tvElapsedReadable.setVisibility(View.GONE);
             tvElapsedReadable.setText("");
@@ -11959,6 +11961,22 @@ public class HomeFragment extends BaseFragment {
         updatePreviewHintPosition();
     }
 
+    /** Live counters slide unless Counter Motion asks for instant changes while recording. */
+    private boolean slideLiveCounters() {
+        return sharedPreferencesManager == null
+                || com.fadcam.utils.LiveCounterMode.current(sharedPreferencesManager)
+                        .slides(isRecordingOrPaused());
+    }
+
+    /** setText re-measures even for the same text; these labels are refreshed every second. */
+    private static void setTextIfChanged(@Nullable TextView view, CharSequence text) {
+        if (view == null) return;
+        CharSequence current = view.getText();
+        if (current == null || !current.toString().contentEquals(text)) {
+            view.setText(text);
+        }
+    }
+
     private boolean isRecordingOrPaused() {
         return (
             recordingState == RecordingState.IN_PROGRESS ||
@@ -13117,7 +13135,7 @@ public class HomeFragment extends BaseFragment {
                     R.drawable.stop_rounded));
             if (!currentValue.equals(latestElapsedDisplay)) {
                 if (buttonStartStop instanceof com.fadcam.ui.utils.AnimatedMaterialButton
-                        && currentShowsTimer) {
+                        && currentShowsTimer && slideLiveCounters()) {
                     com.fadcam.ui.utils.AnimatedMaterialButton animatedButton =
                             (com.fadcam.ui.utils.AnimatedMaterialButton) buttonStartStop;
                     animatedButton.animateSlot(latestElapsedDisplay, 400);

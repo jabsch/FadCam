@@ -65,6 +65,7 @@ public class AppearanceSettingsFragment extends Fragment {
         setupAppIconRow(view);
         setupEyeColorRow(view);
         setupLogoRow(view);
+        setupLiveCountersRow(view);
         View backBtn = view.findViewById(R.id.back_button);
         if (backBtn != null) {
             backBtn.setOnClickListener(v ->
@@ -72,6 +73,37 @@ public class AppearanceSettingsFragment extends Fragment {
             );
         }
         // -------------- Update End for this method(onViewCreated)-----------
+    }
+
+    /** Counter Motion: whether Home's live counters slide while recording. */
+    private void setupLiveCountersRow(View view) {
+        View row = view.findViewById(R.id.row_live_counters);
+        TextView value = view.findViewById(R.id.value_live_counters);
+        if (row == null || value == null) return;
+        value.setText(com.fadcam.utils.LiveCounterMode.current(sharedPreferencesManager).labelRes);
+        row.setOnClickListener(v -> showLiveCountersPicker(value));
+    }
+
+    private void showLiveCountersPicker(TextView value) {
+        com.fadcam.utils.LiveCounterMode current =
+                com.fadcam.utils.LiveCounterMode.current(sharedPreferencesManager);
+        java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
+        for (com.fadcam.utils.LiveCounterMode m : com.fadcam.utils.LiveCounterMode.values()) {
+            items.add(new com.fadcam.ui.picker.OptionItem(m.id, getString(m.labelRes), getString(m.descriptionRes)));
+        }
+        final String resultKey = "picker_result_live_counters";
+        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
+            com.fadcam.utils.LiveCounterMode picked = com.fadcam.utils.LiveCounterMode.fromId(
+                    b.getString(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID));
+            if (picked == null || picked == current) {
+                return;
+            }
+            com.fadcam.utils.LiveCounterMode.save(sharedPreferencesManager, picked);
+            value.setText(picked.labelRes);
+        });
+        com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(getString(R.string.setting_live_counters_title),
+                items, current.id, resultKey, getString(R.string.live_counter_footer))
+                .show(getParentFragmentManager(), "live_counters_picker");
     }
 
     // -------------- Refactor Start: theme row -----------

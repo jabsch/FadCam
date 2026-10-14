@@ -42,7 +42,7 @@ public class Log {
 
     private static Uri fileUri;
 
-    private static boolean isDebugEnabled = false;
+    private static volatile boolean isDebugEnabled = false;
     
     // Recording state (used for markers in the debug log)
     private static volatile boolean recordingActive = false;
@@ -124,6 +124,11 @@ public class Log {
      * Check if debug logging is actually enabled.
      */
     private static boolean isDebugLoggingActive() {
+        return isDebugEnabled;
+    }
+
+    /** Whether the in-app debug log file is being written. */
+    public static boolean isDebugLoggingEnabled() {
         return isDebugEnabled;
     }
 
