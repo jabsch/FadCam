@@ -184,7 +184,7 @@ public class VideoSettingsFragment extends Fragment {
         sheet.show(getParentFragmentManager(), "video_stabilization_picker");
     }
 
-    /** Opens the preview-while-recording frame rate picker; applies live to a running recording. */
+    /** Opens the preview frame rate picker; applies live to a running recording, and to the next preview. */
     private void showPreviewFrameRateBottomSheet() {
         com.fadcam.utils.PreviewFrameRateMode current = com.fadcam.utils.PreviewFrameRateMode.current(prefs);
         java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
