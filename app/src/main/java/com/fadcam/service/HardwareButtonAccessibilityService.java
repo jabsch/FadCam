@@ -12,66 +12,69 @@ import android.view.accessibility.AccessibilityEvent;
 import com.fadcam.FLog;
 import com.fadcam.shortcuts.HardwareButtonBindings;
 import com.fadcam.shortcuts.ShortcutsManager;
+import com.fadcam.shortcuts.VolumeKeyGestureDetector;
 
 /**
- * Runs FadCam shortcuts from hardware buttons, including with the screen off or
- * another app open. Holding a bound volume key runs its shortcut; a short press
- * still changes the volume. Unbound keys are never touched, and nothing is
- * intercepted during calls.
+ * Runs JaCam shortcuts from hardware buttons, including with the screen off or
+ * another app open. Holding or double-tapping a bound volume key runs its
+ * shortcut; a single short press still changes the volume. Unbound keys are
+ * never touched, and nothing is intercepted during calls.
  */
 public class HardwareButtonAccessibilityService extends AccessibilityService {
     private static final String TAG = "HwButtonService";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private int heldKeyCode = KeyEvent.KEYCODE_UNKNOWN;
-    private boolean holdFired;
-    private Runnable pendingHold;
+    private VolumeKeyGestureDetector detector;
+
+    @Override
+    protected void onServiceConnected() {
+        super.onServiceConnected();
+        detector = new VolumeKeyGestureDetector(new VolumeKeyGestureDetector.Host() {
+            @Override
+            public String binding(int keyCode, VolumeKeyGestureDetector.Gesture gesture) {
+                return HardwareButtonBindings.getBinding(HardwareButtonAccessibilityService.this,
+                        keyCode, gesture);
+            }
+
+            @Override
+            public void runShortcut(String shortcutId) {
+                HardwareButtonAccessibilityService.this.runShortcut(shortcutId);
+            }
+
+            @Override
+            public void adjustVolume(int keyCode) {
+                HardwareButtonAccessibilityService.this.adjustVolume(keyCode);
+            }
+
+            @Override
+            public void schedule(Runnable task, long delayMs) {
+                handler.postDelayed(task, delayMs);
+            }
+
+            @Override
+            public void cancel(Runnable task) {
+                handler.removeCallbacks(task);
+            }
+        }, ViewConfiguration.getLongPressTimeout(), ViewConfiguration.getDoubleTapTimeout());
+    }
 
     @Override
     protected boolean onKeyEvent(KeyEvent event) {
-        int keyCode = event.getKeyCode();
-        String shortcutId = HardwareButtonBindings.getHoldBinding(this, keyCode);
-        if (shortcutId == null || isInCall()) {
+        if (detector == null) {
+            return false;
+        }
+        if (isInCall()) {
+            detector.reset();
             return false;
         }
         switch (event.getAction()) {
             case KeyEvent.ACTION_DOWN:
-                if (event.getRepeatCount() == 0) {
-                    beginHold(keyCode, shortcutId);
-                }
-                return true;
+                return detector.onKeyDown(event.getKeyCode(), event.getRepeatCount());
             case KeyEvent.ACTION_UP:
-                if (keyCode == heldKeyCode) {
-                    boolean fired = holdFired;
-                    cancelHold();
-                    if (!fired) {
-                        adjustVolume(keyCode);
-                    }
-                }
-                return true;
+                return detector.onKeyUp(event.getKeyCode());
             default:
-                return true;
+                return false;
         }
-    }
-
-    private void beginHold(int keyCode, String shortcutId) {
-        cancelHold();
-        heldKeyCode = keyCode;
-        holdFired = false;
-        pendingHold = () -> {
-            holdFired = true;
-            runShortcut(shortcutId);
-        };
-        handler.postDelayed(pendingHold, ViewConfiguration.getLongPressTimeout());
-    }
-
-    private void cancelHold() {
-        if (pendingHold != null) {
-            handler.removeCallbacks(pendingHold);
-            pendingHold = null;
-        }
-        heldKeyCode = KeyEvent.KEYCODE_UNKNOWN;
-        holdFired = false;
     }
 
     private void runShortcut(String shortcutId) {
@@ -112,12 +115,12 @@ public class HardwareButtonAccessibilityService extends AccessibilityService {
 
     @Override
     public void onInterrupt() {
-        cancelHold();
+        if (detector != null) detector.reset();
     }
 
     @Override
     public void onDestroy() {
-        cancelHold();
+        if (detector != null) detector.reset();
         super.onDestroy();
     }
 }
