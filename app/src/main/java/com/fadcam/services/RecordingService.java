@@ -2614,6 +2614,10 @@ public class RecordingService extends Service {
         // No-op unless the paused camera was in Motion Lab standby.
         requestMotionStandby(false);
 
+        if (glRecordingPipeline != null && motionLabEnabledForSession && !isSwitchingCamera) {
+            // The camera stayed open while paused; frames left from then are old.
+            glRecordingPipeline.discardPendingCameraFrames();
+        }
         if (glRecordingPipeline != null)
             glRecordingPipeline.resumeRecording(); // if supported
         if (pauseStartedAt > 0L) {
@@ -7190,8 +7194,12 @@ public class RecordingService extends Service {
     // encoded or drawn, yet the camera stays open for the motion check, so the
     // full-size GL target only costs sensor and ISP work.
     private volatile boolean motionStandbyWanted = false;
-    // Camera thread only: the current repeating request is in standby.
-    private boolean motionStandbyApplied = false;
+    // Set on the camera thread (and reset with each new request builder):
+    // the current repeating request is in standby.
+    private volatile boolean motionStandbyApplied = false;
+    private int motionStandbyRetries = 0;
+    private static final int MOTION_STANDBY_MAX_RETRIES = 5;
+    private static final long MOTION_STANDBY_RETRY_MS = 200L;
 
     /**
      * Enters or leaves Motion Lab standby on the camera thread. In standby the
@@ -7209,6 +7217,7 @@ public class RecordingService extends Service {
     private void syncMotionStandbyRequest() {
         boolean standby = motionStandbyWanted;
         if (standby == motionStandbyApplied) {
+            motionStandbyRetries = 0;
             return;
         }
         CameraCaptureSession session = captureSession;
@@ -7236,17 +7245,27 @@ public class RecordingService extends Service {
             }
             session.setRepeatingRequest(builder.build(), null, backgroundHandler);
             motionStandbyApplied = standby;
+            motionStandbyRetries = 0;
             FLog.i(TAG, standby ? "Motion Lab standby: analysis feed only" : "Motion Lab standby ended at "
                     + recordingFps + " fps");
         } catch (Exception e) {
-            // Leave the builder at full rate with every target, so the next
-            // request anything issues (torch, zoom, a new session) records.
             if (standby) {
+                // Stay out of standby: the builder goes back to full rate with
+                // every target, matching the request that is still running.
                 builder.addTarget(glSurface);
                 applyFrameRateSettings(builder, recordingFps, currentCameraCharacteristics);
+                FLog.w(TAG, "Motion Lab standby could not start", e);
+                return;
             }
-            motionStandbyApplied = false;
-            FLog.w(TAG, "Motion Lab standby change failed (standby=" + standby + ")", e);
+            // Leaving standby failed, so the camera may still skip the video
+            // feed. The builder is already full; keep retrying. A new session
+            // resets motionStandbyApplied and ends the retries.
+            Handler handler = backgroundHandler;
+            if (handler != null && motionStandbyRetries < MOTION_STANDBY_MAX_RETRIES) {
+                motionStandbyRetries++;
+                handler.postDelayed(this::syncMotionStandbyRequest, MOTION_STANDBY_RETRY_MS);
+            }
+            FLog.e(TAG, "Motion Lab standby could not end (attempt " + motionStandbyRetries + ")", e);
         }
     }
 
