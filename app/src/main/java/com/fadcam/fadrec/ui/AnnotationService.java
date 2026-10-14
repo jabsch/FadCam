@@ -2635,12 +2635,25 @@ public class AnnotationService extends Service {
         autoSaveRunnable = new Runnable() {
             @Override
             public void run() {
-                saveCurrentState();
+                saveBackupState();
                 autoSaveHandler.postDelayed(this, AUTO_SAVE_INTERVAL);
             }
         };
         autoSaveHandler.postDelayed(autoSaveRunnable, AUTO_SAVE_INTERVAL);
         FLog.d(TAG, "Auto-save started (interval: " + AUTO_SAVE_INTERVAL + "ms)");
+    }
+
+    /**
+     * Timer backup save: writes only when something changed that the
+     * immediate saves missed, instead of rewriting the project every tick.
+     */
+    private void saveBackupState() {
+        if (annotationView != null && projectFileManager != null && currentProjectName != null) {
+            AnnotationState state = annotationView.getState();
+            if (state != null && !projectFileManager.saveProjectIfChanged(state, currentProjectName)) {
+                FLog.e(TAG, "❌ Backup save failed for: " + currentProjectName + ".fadrec");
+            }
+        }
     }
 
     /**

@@ -55,6 +55,13 @@ public class ProjectFileManager {
     private final Context context;
     private final File projectsDir;
     private final SharedPreferences prefs;
+
+    // Content last written by a backup save (project + hash + length of the
+    // content JSON without the "modified" stamp). Any other save clears it, so a
+    // backup save only skips when the file still holds exactly that content.
+    private String backupSavedProject;
+    private int backupSavedHash;
+    private int backupSavedLength;
     
     public static class ProjectSummary {
         public String folderName;
@@ -134,6 +141,55 @@ public class ProjectFileManager {
      * Save annotation state to .fadrec file in project folder
      */
     public boolean saveProject(AnnotationState state, String projectName) {
+        return saveProject(state, projectName, false);
+    }
+
+    /**
+     * Backup save for the periodic timer: skips the disk write when the content
+     * is unchanged since this method's own last write and no other save has
+     * happened since. Changes are already saved as they happen, so the timer
+     * mostly finds nothing new; rewriting the whole file every few seconds kept
+     * storage and the main thread busy while the annotation overlay was up.
+     */
+    public boolean saveProjectIfChanged(AnnotationState state, String projectName) {
+        return saveProject(state, projectName, true);
+    }
+
+    private boolean saveProject(AnnotationState state, String projectName, boolean skipIfUnchanged) {
+        if (skipIfUnchanged) {
+            try {
+                JSONObject meta = new JSONObject(state.getMetadata().toString());
+                meta.remove("modified");
+                JSONArray pages = new JSONArray();
+                for (AnnotationPage page : state.getPages()) {
+                    pages.put(page.toJSON());
+                }
+                String content = meta.toString() + pages.toString() + state.getActivePageIndex();
+                synchronized (this) {
+                    if (projectName.equals(backupSavedProject)
+                            && content.hashCode() == backupSavedHash
+                            && content.length() == backupSavedLength
+                            && getProjectFile(projectName).exists()) {
+                        return true;
+                    }
+                }
+                boolean saved = saveProject(state, projectName, false);
+                if (saved) {
+                    synchronized (this) {
+                        backupSavedProject = projectName;
+                        backupSavedHash = content.hashCode();
+                        backupSavedLength = content.length();
+                    }
+                }
+                return saved;
+            } catch (JSONException e) {
+                FLog.w(TAG, "Backup save check failed, saving anyway", e);
+                return saveProject(state, projectName, false);
+            }
+        }
+        synchronized (this) {
+            backupSavedProject = null;
+        }
         FLog.i(TAG, "========== SAVING PROJECT: " + projectName + " ==========");
         try {
             JSONObject project = new JSONObject();

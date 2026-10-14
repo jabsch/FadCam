@@ -12491,12 +12491,10 @@ public class HomeFragment extends BaseFragment {
         if (!isAdded() || getContext() == null) {
             return;
         }
-        long now = SystemClock.elapsedRealtime();
-        if (now - lastPreviewOnlyToggleDispatchMs < PREVIEW_ONLY_TOGGLE_DEBOUNCE_MS) {
-            FLog.d(TAG, "dispatchStopPreviewOnly: skipped by debounce");
-            return;
-        }
-        lastPreviewOnlyToggleDispatchMs = now;
+        // No debounce: callers (pause, tab hidden) clear their own preview
+        // state right after, so a skipped stop left the camera and GPS running
+        // in the background when the screen was left right after starting it.
+        lastPreviewOnlyToggleDispatchMs = SystemClock.elapsedRealtime();
         try {
             Intent stopIntent = new Intent(requireContext(), RecordingService.class);
             stopIntent.setAction(Constants.INTENT_ACTION_STOP_PREVIEW_ONLY);
