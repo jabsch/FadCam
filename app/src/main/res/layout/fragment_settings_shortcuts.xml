@@ -369,6 +369,44 @@ app:layout_constraintTop_toTopOf="parent"
                         android:visibility="gone"/>
                 </LinearLayout>
 
+                <LinearLayout
+                    android:id="@+id/cell_voice"
+                    android:foreground="@drawable/shortcut_cell_feedback"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal"
+                    android:padding="8dp">
+                    <ImageView
+                        android:id="@+id/icon_voice"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:src="@drawable/voice_shortcut"/>
+                    <TextView
+                        android:id="@+id/title_voice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="@android:color/white"
+                        android:textSize="14sp"
+                        android:text="@string/shortcut_voice_recording"/>
+                    <TextView
+                        android:id="@+id/subtitle_voice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@android:color/black"
+                        android:textSize="12sp"
+                        android:layout_marginTop="4dp"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:visibility="gone"/>
+                </LinearLayout>
+
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

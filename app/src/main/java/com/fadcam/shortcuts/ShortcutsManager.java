@@ -31,11 +31,12 @@ public class ShortcutsManager {
     public static final String ID_SHOT = "capture_photo";
     public static final String ID_SHOT_FRONT = "capture_photo_front";
     public static final String ID_SCREENSHOT = "capture_screenshot";
+    public static final String ID_VOICE = "voice_toggle";
 
     /** Every shortcut id, in the order the shortcuts screen lists them. */
     public static final String[] ALL_IDS = {
         ID_TOGGLE, ID_START, ID_STOP, ID_TORCH, ID_START_FRONT, ID_START_CURRENT,
-        ID_START_DUAL, ID_SHOT, ID_SHOT_FRONT, ID_SCREENSHOT
+        ID_START_DUAL, ID_SHOT, ID_SHOT_FRONT, ID_SCREENSHOT, ID_VOICE
     };
 
     /**
@@ -67,6 +68,8 @@ public class ShortcutsManager {
                     com.fadcam.PhotoCaptureActivity.PHOTO_CAMERA_MODE_FRONT);
             case ID_SCREENSHOT:
                 return activityIntent(context, "com.fadcam.ScreenShotCaptureActivity");
+            case ID_VOICE:
+                return activityIntent(context, "com.fadcam.VoiceRecordingToggleActivity");
             default:
                 return null;
         }
@@ -87,6 +90,7 @@ public class ShortcutsManager {
             case ID_SHOT: res = com.fadcam.R.string.shortcut_take_photo; break;
             case ID_SHOT_FRONT: res = com.fadcam.R.string.shortcut_take_photo_front; break;
             case ID_SCREENSHOT: res = com.fadcam.R.string.shortcut_take_screenshot; break;
+            case ID_VOICE: res = com.fadcam.R.string.shortcut_voice_recording; break;
             default: return id;
         }
         return context.getString(res);
@@ -269,6 +273,17 @@ public class ShortcutsManager {
                 com.fadcam.R.drawable.toggle_recording_shortcut,
                 ctx.getString(com.fadcam.R.string.shortcut_toggle_recording),
                 ctx.getString(com.fadcam.R.string.shortcut_toggle_recording_long)
+            )
+        );
+        // Voice (audio-only) recording toggle, near the top so launchers that
+        // show only the first few dynamic shortcuts still offer it.
+        list.add(
+            buildShortcut(
+                ID_VOICE,
+                intentFor(ctx, ID_VOICE),
+                com.fadcam.R.drawable.voice_shortcut,
+                ctx.getString(com.fadcam.R.string.shortcut_voice_recording),
+                ctx.getString(com.fadcam.R.string.shortcut_voice_recording_long)
             )
         );
         // Start

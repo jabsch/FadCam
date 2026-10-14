@@ -196,7 +196,9 @@ public class ClockWidgetProvider extends AppWidgetProvider {
         long interval = 60_000L;
         long triggerAt = SystemClock.elapsedRealtime() + interval;
         am.cancel(pi);
-        am.setInexactRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, interval, pi);
+        // Non-wakeup: a clock nobody can see needs no updates; the pending alarm is
+        // delivered as soon as the phone wakes, so the time is fresh on screen-on.
+        am.setInexactRepeating(AlarmManager.ELAPSED_REALTIME, triggerAt, interval, pi);
     }
 
     private void cancelMinuteUpdates(Context context) {

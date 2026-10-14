@@ -1021,7 +1021,17 @@ public class MainActivity extends AppCompatActivity {
 
     @RequiresApi(api = Build.VERSION_CODES.N_MR1)
     private void createDynamicShortcuts() {
-        new ShortcutsManager(this).publishAllDynamic();
+        // Off the main thread: building ~10 shortcuts (custom icons are decoded
+        // from disk) plus the system_server call delayed first frame on every
+        // cold start, including launches from widgets and shortcuts.
+        Context appContext = getApplicationContext();
+        new Thread(() -> {
+            try {
+                new ShortcutsManager(appContext).publishAllDynamic();
+            } catch (Exception e) {
+                FLog.w("MainActivity", "Publishing dynamic shortcuts failed", e);
+            }
+        }, "publish-shortcuts").start();
     }
 
     public void applyLanguage(String languageCode) {
