@@ -5448,6 +5448,9 @@ public class RecordsFragment extends BaseFragment implements
     @SuppressLint("NotifyDataSetChanged")
     private void requestRealtimeRefresh(@NonNull String reason) {
         if (!isAdded()) return;
+        // Hidden tabs stay resumed, so file events (new segments, shots, exports)
+        // reloaded a list nobody could see. Showing the tab reloads it anyway.
+        if (isHidden()) return;
         loadRecordsList(true);
     }
 
