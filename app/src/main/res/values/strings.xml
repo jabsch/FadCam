@@ -1086,6 +1086,7 @@
     <string name="screenshot_capture_failed">Could not capture screenshot</string>
     <string name="screenshot_capture_system_saved">Screenshot captured by system. Saved in system screenshots.</string>
     <string name="screenshot_accessibility_enable_needed">Enable "FadRec Screenshot" in Accessibility to use this shortcut without recording prompt.</string>
+    <string name="screenshot_accessibility_service_label">JaCam screenshot shortcut</string>
     <string name="screenshot_accessibility_service_desc">Captures a screenshot for the FadRec shortcut and saves it in FadCam/FadShot.</string>
     <string name="shortcuts_video_category">Video Recording</string>
     <string name="shortcuts_picture_category">Picture</string>
@@ -3184,12 +3185,12 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="pixel_optimized_confirm_changes">Turning on Pixel optimized mode changes these settings:\n• Resolution: 1080p\n• Frame rate: 30 fps (front and back)\n• Codec: H.265 (HEVC)\n• Bitrate: Auto\n• Stabilization: Optical only\n\nYou can change any of them again afterwards.</string>
     <string name="thermal_guard_fps_lowered">Phone is warm. Recording at 30 fps until it cools down.</string>
     <string name="hardware_buttons_heading">Hardware buttons</string>
-    <string name="hardware_buttons_service_label">FadCam hardware buttons</string>
-    <string name="hardware_buttons_service_desc">Lets you run FadCam shortcuts by holding a volume key, even with the screen off. A short press still changes the volume. FadCam only reads volume keys you assign, and never during calls.</string>
+    <string name="hardware_buttons_service_label">JaCam hardware buttons</string>
+    <string name="hardware_buttons_service_desc">Lets you run JaCam shortcuts by holding a volume key, even with the screen off. A short press still changes the volume. JaCam only reads volume keys you assign, and never during calls.</string>
     <string name="hardware_buttons_service_row">Button service</string>
     <string name="hardware_buttons_volume_up_hold">Hold volume up</string>
     <string name="hardware_buttons_volume_down_hold">Hold volume down</string>
     <string name="hardware_buttons_none">None</string>
     <string name="hardware_buttons_helper">Hold a volume key to run the shortcut you assign to it. A short press still changes the volume. Turn on the button service once in Android\'s Accessibility settings so it works from any screen, even with the screen off.</string>
-    <string name="hardware_buttons_enable_prompt">Turn on \"FadCam hardware buttons\" so your button shortcuts work</string>
+    <string name="hardware_buttons_enable_prompt">Turn on \"JaCam hardware buttons\" so your button shortcuts work</string>
 </resources>
