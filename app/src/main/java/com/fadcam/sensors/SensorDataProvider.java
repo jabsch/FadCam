@@ -21,6 +21,10 @@ public class SensorDataProvider implements SensorEventListener {
     // The overlay reads the heading about once a second, so ~5 Hz is plenty;
     // SENSOR_DELAY_UI (~16 Hz) kept the sensor hub and CPU awake for nothing.
     private static final int SENSOR_RATE = SensorManager.SENSOR_DELAY_NORMAL;
+    // Let the sensor hub batch readings for up to a second (the overlay's own
+    // cadence) so the CPU wakes once per second instead of on every sample.
+    // Hubs without a FIFO ignore this and deliver as before.
+    private static final int SENSOR_MAX_LATENCY_US = 1_000_000;
     private static final float MAX_ACCURACY_FOR_SPEED_M = 30f;
     private static final long MIN_TIME_DELTA_MS = 200;
     private static final long MAX_TIME_DELTA_MS = 10000;
@@ -102,17 +106,17 @@ public class SensorDataProvider implements SensorEventListener {
 
         if (rotationVectorSensor != null) {
             boolean ok = sensorManager.registerListener(this, rotationVectorSensor,
-                    SENSOR_RATE, sensorHandler);
+                    SENSOR_RATE, SENSOR_MAX_LATENCY_US, sensorHandler);
             FLog.d(TAG, "Rotation vector sensor registered: " + ok);
         } else {
             if (accelerometer != null) {
                 boolean ok = sensorManager.registerListener(this, accelerometer,
-                        SENSOR_RATE, sensorHandler);
+                        SENSOR_RATE, SENSOR_MAX_LATENCY_US, sensorHandler);
                 FLog.d(TAG, "Accelerometer registered: " + ok);
             }
             if (magnetometer != null) {
                 boolean ok = sensorManager.registerListener(this, magnetometer,
-                        SENSOR_RATE, sensorHandler);
+                        SENSOR_RATE, SENSOR_MAX_LATENCY_US, sensorHandler);
                 FLog.d(TAG, "Magnetometer registered: " + ok);
             }
         }

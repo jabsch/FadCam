@@ -292,6 +292,11 @@ public class HomeFragment extends BaseFragment {
     private boolean isPreviewOnlyActive = false;
     private boolean isPreviewOnlyStartPending = false;
     private long lastPreviewOnlyToggleDispatchMs = 0L;
+    // What the Home clock last showed (minute + settings) and on which views.
+    private String clockTextKey;
+    private TextView clockTextView;
+    private TextView clockTextDateEnglish;
+    private TextView clockTextDateArabic;
     private static final long PREVIEW_ONLY_TOGGLE_DEBOUNCE_MS = 500L;
     private long previewOnlyStartPendingDeadlineMs = 0L;
     private android.view.ScaleGestureDetector previewScaleGestureDetector;
@@ -6281,16 +6286,26 @@ public class HomeFragment extends BaseFragment {
             CLOCK_HOUR_FORMAT_12
         );
 
+        // The clock shows minutes and the dates change at midnight, so the text
+        // is rebuilt only when the minute (or a setting, zone or view) changes;
+        // building three formatters every second was wasted work.
+        String clockKey = (System.currentTimeMillis() / 60_000L) + "|" + hourFormatPref + "|"
+            + displayOption + "|" + java.util.TimeZone.getDefault().getID() + "|" + Locale.getDefault();
+        boolean clockTextStale = !clockKey.equals(clockTextKey) || tvClock != clockTextView
+            || tvDateEnglish != clockTextDateEnglish || tvDateArabic != clockTextDateArabic;
+
         // Update the time
-        SimpleDateFormat timeFormat = new SimpleDateFormat(
-            CLOCK_HOUR_FORMAT_24.equals(hourFormatPref) ? "HH:mm" : "hh:mm a",
-            Locale.getDefault()
-        );
-        String currentTime = timeFormat.format(new Date());
-        if (tvClock instanceof com.fadcam.ui.utils.AnimatedTextView) {
-            ((com.fadcam.ui.utils.AnimatedTextView) tvClock).animateSlot(currentTime, 400);
-        } else {
-            tvClock.setText(currentTime);
+        if (clockTextStale) {
+            SimpleDateFormat timeFormat = new SimpleDateFormat(
+                CLOCK_HOUR_FORMAT_24.equals(hourFormatPref) ? "HH:mm" : "hh:mm a",
+                Locale.getDefault()
+            );
+            String currentTime = timeFormat.format(new Date());
+            if (tvClock instanceof com.fadcam.ui.utils.AnimatedTextView) {
+                ((com.fadcam.ui.utils.AnimatedTextView) tvClock).animateSlot(currentTime, 400);
+            } else {
+                tvClock.setText(currentTime);
+            }
         }
 
         // OPTIMIZATION: Cache color calculation (only recalculate every 1 second)
@@ -6329,30 +6344,6 @@ public class HomeFragment extends BaseFragment {
         tvDateEnglish.setTextColor(textColor);
         tvDateArabic.setTextColor(textColor);
 
-        // Update the date in English
-        SimpleDateFormat dateFormatEnglish = new SimpleDateFormat(
-            "EEE, MMM d",
-            Locale.getDefault()
-        );
-        String currentDateEnglish = dateFormatEnglish.format(new Date());
-
-        // Update the date in Arabic (Islamic calendar)
-        String currentDateArabic = "N/A";
-        if (
-            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O
-        ) {
-            HijrahDate hijrahDate = HijrahChronology.INSTANCE.dateNow();
-            DateTimeFormatter dateFormatterArabic = DateTimeFormatter.ofPattern(
-                "d MMMM yyyy",
-                Locale.forLanguageTag("ar")
-            );
-            currentDateArabic = dateFormatterArabic.format(hijrahDate);
-        }
-
-        // Set text visibility based on user choice
-        String displayDateEnglish = displayOption == 1 || displayOption == 2 ? currentDateEnglish : "";
-        String displayDateArabic = displayOption == 2 ? currentDateArabic : "";
-
         boolean showEnglish = displayOption == 1 || displayOption == 2;
         boolean showArabic = displayOption == 2;
         tvDateEnglish.setVisibility(showEnglish ? View.VISIBLE : View.GONE);
@@ -6367,16 +6358,46 @@ public class HomeFragment extends BaseFragment {
             clockStyleLandscape = landscape;
             clockStyledView = tvDateArabic;
         }
-        if (tvDateEnglish instanceof com.fadcam.ui.utils.AnimatedTextView) {
-            ((com.fadcam.ui.utils.AnimatedTextView) tvDateEnglish).animateSlot(displayDateEnglish, 400);
-        } else {
-            tvDateEnglish.setText(displayDateEnglish);
-        }
+        if (clockTextStale) {
+            // Update the date in English
+            SimpleDateFormat dateFormatEnglish = new SimpleDateFormat(
+                "EEE, MMM d",
+                Locale.getDefault()
+            );
+            String currentDateEnglish = dateFormatEnglish.format(new Date());
 
-        if (tvDateArabic instanceof com.fadcam.ui.utils.AnimatedTextView) {
-            ((com.fadcam.ui.utils.AnimatedTextView) tvDateArabic).animateSlot(displayDateArabic, 400);
-        } else {
-            tvDateArabic.setText(displayDateArabic);
+            // Update the date in Arabic (Islamic calendar)
+            String currentDateArabic = "N/A";
+            if (
+                android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O
+            ) {
+                HijrahDate hijrahDate = HijrahChronology.INSTANCE.dateNow();
+                DateTimeFormatter dateFormatterArabic = DateTimeFormatter.ofPattern(
+                    "d MMMM yyyy",
+                    Locale.forLanguageTag("ar")
+                );
+                currentDateArabic = dateFormatterArabic.format(hijrahDate);
+            }
+
+            // Set text based on user choice
+            String displayDateEnglish = showEnglish ? currentDateEnglish : "";
+            String displayDateArabic = showArabic ? currentDateArabic : "";
+
+            if (tvDateEnglish instanceof com.fadcam.ui.utils.AnimatedTextView) {
+                ((com.fadcam.ui.utils.AnimatedTextView) tvDateEnglish).animateSlot(displayDateEnglish, 400);
+            } else {
+                tvDateEnglish.setText(displayDateEnglish);
+            }
+
+            if (tvDateArabic instanceof com.fadcam.ui.utils.AnimatedTextView) {
+                ((com.fadcam.ui.utils.AnimatedTextView) tvDateArabic).animateSlot(displayDateArabic, 400);
+            } else {
+                tvDateArabic.setText(displayDateArabic);
+            }
+            clockTextKey = clockKey;
+            clockTextView = tvClock;
+            clockTextDateEnglish = tvDateEnglish;
+            clockTextDateArabic = tvDateArabic;
         }
 
         // Live max-duration countdown badge (runs on the same 1s tick).
