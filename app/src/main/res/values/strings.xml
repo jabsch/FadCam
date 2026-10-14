@@ -1358,6 +1358,12 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="preview_fps_15_desc">Visibly choppier preview, least heat. Good for mounted or dashcam use.</string>
     <string name="preview_fps_auto">Auto</string>
     <string name="preview_fps_auto_desc">Full until the phone gets warm, then 15 fps until it cools down.</string>
+    <string name="setting_preview_bars_title">Preview Edges</string>
+    <string name="preview_bars_footer">When the preview window is a different shape from your video, there are empty edges around it. Filling them with a dimmed, zoomed copy of the camera costs two extra full-screen draws on every preview frame. Black edges skip those draws and keep the phone cooler. Your recorded video is the same either way.</string>
+    <string name="preview_bars_fill">Camera fill</string>
+    <string name="preview_bars_fill_desc">Dimmed, zoomed camera behind the preview. Looks seamless, most GPU work.</string>
+    <string name="preview_bars_black">Black</string>
+    <string name="preview_bars_black_desc">Plain black edges. Skips two of the three full-screen draws per preview frame.</string>
     <string name="stabilization_off">Off</string>
     <string name="stabilization_off_desc">No stabilization. Full field of view; best on a tripod or mount.</string>
     <string name="stabilization_optical">Optical only</string>

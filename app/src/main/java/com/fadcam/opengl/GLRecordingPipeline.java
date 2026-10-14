@@ -618,6 +618,8 @@ public class GLRecordingPipeline {
                 glRenderer.setRecordingPipeline(this); // Set reference for timestamp synchronization
                 glRenderer.setPreviewSuspended(previewSuspended);
                 glRenderer.setPreviewFrameRateCap(previewFrameRateCap);
+                glRenderer.setPreviewLetterboxFill(com.fadcam.utils.PreviewLetterboxMode
+                        .current(com.fadcam.SharedPreferencesManager.getInstance(context)).fillsBars());
                 glRenderer.setFrontVideoMirrorEnabled(frontVideoMirrorEnabled);
                 // Propagate encoder dimensions that were computed during initializeEncoder().
                 // initializeEncoder() runs BEFORE the renderer is created, so its
@@ -2951,6 +2953,14 @@ public class GLRecordingPipeline {
         GLWatermarkRenderer renderer = glRenderer;
         if (renderer != null) {
             renderer.setPreviewFrameRateCap(fps);
+        }
+    }
+
+    /** Live change of the preview letterbox setting (new renderers read it themselves). */
+    public void setPreviewLetterboxFill(boolean fill) {
+        GLWatermarkRenderer renderer = glRenderer;
+        if (renderer != null) {
+            renderer.setPreviewLetterboxFill(fill);
         }
     }
 

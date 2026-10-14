@@ -183,6 +183,34 @@ public class GLWatermarkRenderer {
     private int simpleWatermarkProgram;
     private int simpleWatermarkPositionHandle;
     private FloatBuffer watermarkRectBuffer;
+    /** Landscape texture fix (vertical flip), constant so frames don't allocate it. */
+    private static final float[] LANDSCAPE_TEX_MATRIX = new float[16];
+    /** Horizontal mirror applied after the camera transform (front-camera mirroring). */
+    private static final float[] MIRROR_TEX_MATRIX = new float[16];
+    static {
+        Matrix.setIdentityM(LANDSCAPE_TEX_MATRIX, 0);
+        Matrix.scaleM(LANDSCAPE_TEX_MATRIX, 0, 1f, -1f, 1f);
+        Matrix.translateM(LANDSCAPE_TEX_MATRIX, 0, 0f, -1f, 0f);
+        Matrix.setIdentityM(MIRROR_TEX_MATRIX, 0);
+        Matrix.translateM(MIRROR_TEX_MATRIX, 0, 1f, 0f, 0f);
+        Matrix.scaleM(MIRROR_TEX_MATRIX, 0, -1f, 1f, 1f);
+    }
+    // Per-frame scratch matrices (GL thread only), one per call site so a
+    // result is never overwritten while still in use.
+    private final float[] encoderMirrorTexMatrix = new float[16];
+    private final float[] swappedMirrorTexMatrix = new float[16];
+    private final float[] previewTexMatrix = new float[16];
+    private final float[] previewMirrorTexMatrix = new float[16];
+    private final float[] pipTexMatrixScratch = new float[16];
+    private final float[] pipMirrorTexMatrix = new float[16];
+    private final int[] previewSurfaceW = new int[1];
+    private final int[] previewSurfaceH = new int[1];
+    private final float[] watermarkRectVerts = new float[8];
+    /** Viewport last set through {@link #setViewport}; avoids glGet round trips. */
+    private int currentViewportX, currentViewportY, currentViewportW, currentViewportH;
+    /** Video orientation pref, refreshed with each watermark text update instead of per frame. */
+    private boolean watermarkPortrait = true;
+
     private static final float[] WATERMARK_RECT_VERTICES = {
             -1.0f, 1.0f, // Top left
             -0.5f, 1.0f, // Top right (left half)
@@ -247,7 +275,7 @@ public class GLWatermarkRenderer {
         this.recordingPipeline = pipeline;
     }
 
-    private float[] computeWatermarkRectVertices(float ndcWidth, float ndcHeight) {
+    private void computeWatermarkRectVertices(float[] out, float ndcWidth, float ndcHeight) {
         // For screen recording (FadRec), position watermark with padding below the statusbar.
         // For camera recording (FadCam), position at the very top (no padding).
         float topY = 1.0f;
@@ -261,12 +289,19 @@ public class GLWatermarkRenderer {
             topY = 1.0f - statusbarPaddingNdc; // Shift down by statusbar padding
         }
         
-        return new float[] {
-                -1.0f, topY, // Top left
-                -1.0f + ndcWidth, topY, // Top right
-                -1.0f, topY - ndcHeight, // Bottom left
-                -1.0f + ndcWidth, topY - ndcHeight // Bottom right
-        };
+        out[0] = -1.0f;            out[1] = topY;             // Top left
+        out[2] = -1.0f + ndcWidth; out[3] = topY;             // Top right
+        out[4] = -1.0f;            out[5] = topY - ndcHeight; // Bottom left
+        out[6] = -1.0f + ndcWidth; out[7] = topY - ndcHeight; // Bottom right
+    }
+
+    /** glViewport plus bookkeeping, so draws can read the viewport without glGetIntegerv. */
+    private void setViewport(int x, int y, int w, int h) {
+        GLES20.glViewport(x, y, w, h);
+        currentViewportX = x;
+        currentViewportY = y;
+        currentViewportW = w;
+        currentViewportH = h;
     }
 
     private int dynamicBitmapWidth = 0;
@@ -290,6 +325,13 @@ public class GLWatermarkRenderer {
     /** Minimum time between preview draws while recording; 0 draws every frame. */
     private volatile long previewMinIntervalNs = 0L;
     private long lastPreviewDrawNs = 0L;
+
+    /** True: dimmed, zoomed camera behind the letterboxed preview. False: black bars (two fewer full-screen passes). */
+    private volatile boolean previewLetterboxFill = true;
+
+    public void setPreviewLetterboxFill(boolean fill) {
+        previewLetterboxFill = fill;
+    }
 
     /** Caps the preview pass while recording at {@code fps} (0 = every camera frame). */
     public void setPreviewFrameRateCap(int fps) {
@@ -624,7 +666,7 @@ public class GLWatermarkRenderer {
             {
                 int vpW = encoderWidth > 0 ? encoderWidth : videoWidth;
                 int vpH = encoderHeight > 0 ? encoderHeight : videoHeight;
-                GLES20.glViewport(0, 0, vpW, vpH);
+                setViewport(0, 0, vpW, vpH);
             }
 
             // Check if cameraSurfaceTexture is still valid
@@ -728,18 +770,14 @@ public class GLWatermarkRenderer {
             float[] encoderTexMatrix;
             if (isLandscape) {
                 // Apply vertical flip for landscape only
-                float[] fixedTexMatrix = new float[16];
-                Matrix.setIdentityM(fixedTexMatrix, 0);
-                Matrix.scaleM(fixedTexMatrix, 0, 1f, -1f, 1f);
-                Matrix.translateM(fixedTexMatrix, 0, 0f, -1f, 0f);
-                encoderTexMatrix = fixedTexMatrix;
+                encoderTexMatrix = LANDSCAPE_TEX_MATRIX;
             } else {
                 // Portrait: use original texMatrix
                 encoderTexMatrix = texMatrix;
             }
             float[] encoderCameraMvp = recordingMvpMatrix;
             if (isFullscreenCameraFront() && frontVideoMirrorEnabled) {
-                encoderTexMatrix = applyHorizontalTexFlip(encoderTexMatrix);
+                encoderTexMatrix = applyHorizontalTexFlip(encoderTexMatrix, encoderMirrorTexMatrix);
             }
 
             // Draw to encoder
@@ -759,7 +797,7 @@ public class GLWatermarkRenderer {
                 float[] fsTexMatrix = camerasSwapped ? pipLatestTexMatrix : encoderTexMatrix;
                 // pipLatestTexMatrix is raw from pipSurfaceTexture — apply flip if fullscreen camera is front
                 if (camerasSwapped && isFullscreenCameraFront() && frontVideoMirrorEnabled) {
-                    fsTexMatrix = applyHorizontalTexFlip(fsTexMatrix);
+                    fsTexMatrix = applyHorizontalTexFlip(fsTexMatrix, swappedMirrorTexMatrix);
                 }
                 if (mFullFrameBlit != null) {
                     if (!camerasSwapped) {
@@ -869,13 +907,14 @@ public class GLWatermarkRenderer {
             // NOTE: The MVP matrix aspect-ratio correction in updateMatrices() is NOT effective
             // because Grafika's FullFrameRect.drawFrame() always overrides uMVPMatrix to IDENTITY.
             // Therefore, the viewport is the correct place to handle aspect ratio for preview.
-            int[] pvW = new int[1], pvH = new int[1];
+            int[] pvW = previewSurfaceW, pvH = previewSurfaceH;
             EGL14.eglQuerySurface(eglDisplay, previewEglSurface, EGL14.EGL_WIDTH, pvW, 0);
             EGL14.eglQuerySurface(eglDisplay, previewEglSurface, EGL14.EGL_HEIGHT, pvH, 0);
 
             // Viewport variables — accessible to the draw calls below
             int vpX = 0, vpY = 0, vpW = pvW[0], vpH = pvH[0];
             boolean needsLetterbox = false;
+            final boolean fillBars = previewLetterboxFill;
 
             if (pvW[0] > 0 && pvH[0] > 0) {
                 // Content dimensions = encoder output (already rotation-corrected)
@@ -905,7 +944,7 @@ public class GLWatermarkRenderer {
                 }
 
                 // Clear full surface to black (safety)
-                GLES20.glViewport(0, 0, pvW[0], pvH[0]);
+                setViewport(0, 0, pvW[0], pvH[0]);
                 GLES20.glClearColor(0f, 0f, 0f, 1f);
                 GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 
@@ -916,7 +955,7 @@ public class GLWatermarkRenderer {
                 // edge-extended background that replaces the black letterbox/pillarbox
                 // bars with actual camera content — the same technique used by YouTube,
                 // Instagram, and the default Photos apps.
-                if (needsLetterbox) {
+                if (needsLetterbox && fillBars) {
                     int fillVpX, fillVpY, fillVpW, fillVpH;
                     if (surfaceAR > contentAR) {
                         // Surface wider → fill = match width, height overflows
@@ -931,14 +970,15 @@ public class GLWatermarkRenderer {
                         fillVpX = (pvW[0] - fillVpW) / 2;
                         fillVpY = 0;
                     }
-                    GLES20.glViewport(fillVpX, fillVpY, fillVpW, fillVpH);
+                    setViewport(fillVpX, fillVpY, fillVpW, fillVpH);
                 } else {
-                    // No letterbox — set fit viewport directly
-                    GLES20.glViewport(vpX, vpY, vpW, vpH);
+                    // No letterbox, or black bars: the clear above already
+                    // painted them, so set the fit viewport directly.
+                    setViewport(vpX, vpY, vpW, vpH);
                 }
             }
 
-            float[] texMatrix = new float[16];
+            float[] texMatrix = this.previewTexMatrix;
             if (cameraSurfaceTexture != null) {
                 cameraSurfaceTexture.getTransformMatrix(texMatrix);
             } else {
@@ -960,18 +1000,14 @@ public class GLWatermarkRenderer {
             float[] previewTexMatrix;
             if (isLandscape) {
                 // Apply vertical flip for landscape only (same as encoder)
-                float[] fixedTexMatrix = new float[16];
-                Matrix.setIdentityM(fixedTexMatrix, 0);
-                Matrix.scaleM(fixedTexMatrix, 0, 1f, -1f, 1f);
-                Matrix.translateM(fixedTexMatrix, 0, 0f, -1f, 0f);
-                previewTexMatrix = fixedTexMatrix;
+                previewTexMatrix = LANDSCAPE_TEX_MATRIX;
             } else {
                 // Portrait: use original texMatrix
                 previewTexMatrix = texMatrix;
             }
             float[] previewCameraMvp = previewMvpMatrix;
             if (isFullscreenCameraFront() && frontVideoMirrorEnabled) {
-                previewTexMatrix = applyHorizontalTexFlip(previewTexMatrix);
+                previewTexMatrix = applyHorizontalTexFlip(previewTexMatrix, previewMirrorTexMatrix);
             }
 
             updateMatrices();
@@ -982,12 +1018,12 @@ public class GLWatermarkRenderer {
             }
 
             // Pass 1: Zoom-fill background (drawn at the fill-crop viewport set above)
-            if (needsLetterbox) {
+            if (needsLetterbox && fillBars) {
                 drawOESTexture(previewCameraMvp, previewTexMatrix);
                 // Dim the background so the sharp foreground visually pops
                 drawDimOverlay(0.75f);
                 // Switch to the fit viewport for the sharp foreground
-                GLES20.glViewport(vpX, vpY, vpW, vpH);
+                setViewport(vpX, vpY, vpW, vpH);
             }
             previewOverlayVpX = vpX;
             previewOverlayVpY = vpY;
@@ -1215,6 +1251,8 @@ public class GLWatermarkRenderer {
         if (watermarkTextureId == 0) {
             return;
         }
+        watermarkPortrait = "portrait".equalsIgnoreCase(
+                SharedPreferencesManager.getInstance(context).getVideoOrientation());
         String text = watermarkText == null ? "" : watermarkText.trim();
         if (text.isEmpty()) {
             dynamicBitmapWidth = 0;
@@ -1470,8 +1508,7 @@ public class GLWatermarkRenderer {
 
         // CRITICAL FIX: Same as updateWatermarkTexture() — use encoder width, not Math.max
         int refWidth = Math.max(1, encoderWidth > 0 ? encoderWidth : videoWidth);
-        String orientationPref = SharedPreferencesManager.getInstance(context).getVideoOrientation();
-        boolean isPortrait = "portrait".equalsIgnoreCase(orientationPref);
+        boolean isPortrait = watermarkPortrait;
 
         float bitmapAspect = (float) dynamicBitmapWidth / (float) dynamicBitmapHeight;
         float intrinsicFraction = Math.max(0.35f, Math.min(0.90f, dynamicBitmapWidth / (float) refWidth));
@@ -1494,11 +1531,13 @@ public class GLWatermarkRenderer {
             return;
         }
 
-        float[] rectVerts = computeWatermarkRectVertices(ndcWidth, ndcHeight);
-        watermarkRectBuffer = ByteBuffer.allocateDirect(rectVerts.length * 4)
-                .order(ByteOrder.nativeOrder())
-                .asFloatBuffer();
-        watermarkRectBuffer.put(rectVerts).position(0);
+        // Rewrite the existing buffer: with a preview on screen the encoder and
+        // preview viewports alternate every frame, which used to allocate a
+        // new direct buffer twice per frame. GL reads client arrays at draw
+        // time, so overwriting after a draw is safe.
+        computeWatermarkRectVertices(watermarkRectVerts, ndcWidth, ndcHeight);
+        watermarkRectBuffer.clear();
+        watermarkRectBuffer.put(watermarkRectVerts).position(0);
         // OPTIMIZATION: Removed FLog.v() for viewport logging - was causing excessive I/O blocking rendering thread
         // The early return optimization above prevents unnecessary recalculations anyway
 
@@ -1904,9 +1943,9 @@ public class GLWatermarkRenderer {
             // Do not draw any watermark if text is empty (no watermark option)
             return;
         }
-        int[] viewport = new int[4];
-        GLES20.glGetIntegerv(GLES20.GL_VIEWPORT, viewport, 0);
-        updateWatermarkRectForViewport(viewport[2], viewport[3]);
+        int vpW = currentViewportW > 0 ? currentViewportW : (encoderWidth > 0 ? encoderWidth : videoWidth);
+        int vpH = currentViewportH > 0 ? currentViewportH : (encoderHeight > 0 ? encoderHeight : videoHeight);
+        updateWatermarkRectForViewport(vpW, vpH);
         if (watermarkRectBuffer == null) {
             return;
         }
@@ -1931,10 +1970,10 @@ public class GLWatermarkRenderer {
         if (forensicsOverlayPayload == null || forensicsOverlayPayload.isEmpty() || forensicsOverlayTextureId == 0) {
             return;
         }
-        int[] previousViewport = new int[4];
-        GLES20.glGetIntegerv(GLES20.GL_VIEWPORT, previousViewport, 0);
+        int prevX = currentViewportX, prevY = currentViewportY;
+        int prevW = currentViewportW, prevH = currentViewportH;
         if (previewOverlayVpW > 0 && previewOverlayVpH > 0) {
-            GLES20.glViewport(previewOverlayVpX, previewOverlayVpY, previewOverlayVpW, previewOverlayVpH);
+            setViewport(previewOverlayVpX, previewOverlayVpY, previewOverlayVpW, previewOverlayVpH);
         }
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
@@ -1951,7 +1990,7 @@ public class GLWatermarkRenderer {
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
         GLES20.glUseProgram(0);
         GLES20.glDisable(GLES20.GL_BLEND);
-        GLES20.glViewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3]);
+        setViewport(prevX, prevY, prevW, prevH);
     }
 
     private int createProgram(String vertexSource, String fragmentSource) {
@@ -2367,7 +2406,7 @@ public class GLWatermarkRenderer {
         // PiP always draws pipOesTextureId (which points to the correct camera
         // after swap). Use the SurfaceTexture that produced this texture for the matrix.
         SurfaceTexture pipMatrixST = camerasSwapped ? cameraSurfaceTexture : pipSurfaceTexture;
-        float[] currentPipTexMatrix = new float[16];
+        float[] currentPipTexMatrix = pipTexMatrixScratch;
         if (pipMatrixST != null) {
             pipMatrixST.getTransformMatrix(currentPipTexMatrix);
         } else {
@@ -2382,18 +2421,14 @@ public class GLWatermarkRenderer {
 
         float[] pipEncoderTexMatrix;
         if (isLandscape) {
-            float[] fixedTexMatrix = new float[16];
-            Matrix.setIdentityM(fixedTexMatrix, 0);
-            Matrix.scaleM(fixedTexMatrix, 0, 1f, -1f, 1f);
-            Matrix.translateM(fixedTexMatrix, 0, 0f, -1f, 0f);
-            pipEncoderTexMatrix = fixedTexMatrix;
+            pipEncoderTexMatrix = LANDSCAPE_TEX_MATRIX;
         } else {
             pipEncoderTexMatrix = currentPipTexMatrix;
         }
 
         // Apply mirror flip for PiP front camera (same logic as fullscreen encoder path)
         if (pipEnabled && !isFrontCamera() && frontVideoMirrorEnabled) {
-            pipEncoderTexMatrix = applyHorizontalTexFlip(pipEncoderTexMatrix);
+            pipEncoderTexMatrix = applyHorizontalTexFlip(pipEncoderTexMatrix, pipMirrorTexMatrix);
         }
 
         // Enable blending for smooth edges on rounded corners
@@ -2785,16 +2820,11 @@ public class GLWatermarkRenderer {
         return sensorOrientation == 270;
     }
 
-    private float[] applyHorizontalTexFlip(float[] source) {
-        float[] flip = new float[16];
-        Matrix.setIdentityM(flip, 0);
-        Matrix.translateM(flip, 0, 1f, 0f, 0f);
-        Matrix.scaleM(flip, 0, -1f, 1f, 1f);
-
-        float[] out = new float[16];
+    /** Writes {@code source} mirrored horizontally into {@code out} (must not alias source) and returns it. */
+    private static float[] applyHorizontalTexFlip(float[] source, float[] out) {
         // Apply flip after camera transform so flip behaves as mirror-only and
         // doesn't alter effective rotation on OEM-specific ST matrices.
-        Matrix.multiplyMM(out, 0, source, 0, flip, 0);
+        Matrix.multiplyMM(out, 0, source, 0, MIRROR_TEX_MATRIX, 0);
         return out;
     }
 
@@ -2848,7 +2878,7 @@ public class GLWatermarkRenderer {
             try {
                 if (EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
                     contextMadeCurrent = true;
-                    GLES20.glViewport(0, 0, encoderWidth > 0 ? encoderWidth : videoWidth,
+                    setViewport(0, 0, encoderWidth > 0 ? encoderWidth : videoWidth,
                             encoderHeight > 0 ? encoderHeight : videoHeight);
                     GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
                     GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
