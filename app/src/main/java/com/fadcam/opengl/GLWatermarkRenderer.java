@@ -255,6 +255,10 @@ public class GLWatermarkRenderer {
     }
 
     private OnFrameAvailableListener externalFrameListener;
+    // When the primary camera last delivered a frame (GL thread only).
+    private long lastPrimaryFrameNs;
+    // The PiP camera drives rendering only after the primary has been quiet this long.
+    private static final long PRIMARY_IDLE_NS = 250_000_000L;
     private android.os.Handler glThreadHandler; // Handler for GL thread callbacks
 
     // Add this field to track the FullFrameRect instance
@@ -1186,6 +1190,7 @@ public class GLWatermarkRenderer {
                 frameAvailable = true;
                 frameSyncObject.notifyAll();
             }
+            lastPrimaryFrameNs = System.nanoTime();
             if (externalFrameListener != null) {
                 externalFrameListener.onFrameAvailable();
             }
@@ -2204,8 +2209,12 @@ public class GLWatermarkRenderer {
             synchronized (pipFrameSyncObject) {
                 pipFrameAvailable = true;
             }
-            // Also trigger a render so PiP updates even if primary camera is idle
-            if (externalFrameListener != null) {
+            // Primary frames already pick up the newest PiP frame. Rendering on
+            // every PiP frame too re-encoded the old primary frame, about doubling
+            // GPU and encoder work, so the PiP only drives rendering while the
+            // primary camera is idle.
+            if (externalFrameListener != null
+                    && System.nanoTime() - lastPrimaryFrameNs > PRIMARY_IDLE_NS) {
                 externalFrameListener.onFrameAvailable();
             }
         }, glThreadHandler);

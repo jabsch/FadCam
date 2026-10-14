@@ -1265,6 +1265,16 @@ public class ScreenRecordingService extends Service {
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .addAction(R.drawable.ic_notification_stop, getString(R.string.notification_action_stop), stopPendingIntent);
+
+        if (recordingState == ScreenRecordingState.IN_PROGRESS) {
+            // The system ticks the elapsed time itself, so the notification is
+            // posted once instead of being rebuilt (and re-inflated by SystemUI)
+            // every second.
+            long elapsedMs = SystemClock.elapsedRealtime() - recordingStartTime;
+            builder.setShowWhen(true)
+                .setUsesChronometer(true)
+                .setWhen(System.currentTimeMillis() - elapsedMs);
+        }
         
         // Add pause/resume action if supported
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -1337,26 +1347,11 @@ public class ScreenRecordingService extends Service {
      * Gets notification text with recording duration.
      */
     private String getNotificationText() {
-        if (recordingState == ScreenRecordingState.PAUSED) {
-            return "Recording paused";
-        }
-        
-        long elapsed = SystemClock.elapsedRealtime() - recordingStartTime;
-        long seconds = elapsed / 1000;
-        long minutes = seconds / 60;
-        long hours = minutes / 60;
-        
-        if (hours > 0) {
-            return String.format(Locale.US, "Recording: %02d:%02d:%02d", 
-                hours, minutes % 60, seconds % 60);
-        } else {
-            return String.format(Locale.US, "Recording: %02d:%02d", 
-                minutes, seconds % 60);
-        }
+        return recordingState == ScreenRecordingState.PAUSED ? "Recording paused" : "Recording";
     }
 
     /**
-     * Updates the notification (called periodically).
+     * Re-posts the notification for the current state.
      */
     private void updateNotification() {
         NotificationManager notificationManager = getSystemService(NotificationManager.class);
@@ -1366,15 +1361,14 @@ public class ScreenRecordingService extends Service {
     }
 
     /**
-     * Starts periodic notification updates.
+     * Posts the in-progress notification; its chronometer keeps the time current.
      */
     private void startNotificationUpdates() {
         notificationUpdateRunnable = new Runnable() {
             @Override
             public void run() {
                 if (recordingState == ScreenRecordingState.IN_PROGRESS) {
-                    updateNotification();
-                    notificationHandler.postDelayed(this, 1000); // Update every second
+                    updateNotification(); // chronometer counts from here on
                 }
             }
         };

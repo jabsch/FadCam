@@ -80,6 +80,29 @@ public class VideoPlayerActivity extends AppCompatActivity {
     private android.os.Handler scrubControllerEnforceHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private Runnable scrubControllerEnforceRunnable = null;
     // Periodic resume-save handler
+    // Slider (200 ms) and waveform (100 ms) refresh loops. They only run while
+    // the screen is in front: they used to keep running after pause and even
+    // after the player closed, one more pair for every video opened.
+    private final android.os.Handler uiTickHandler = new android.os.Handler(
+        android.os.Looper.getMainLooper()
+    );
+    private Runnable sliderUpdateRunnable;
+
+    private void stopUiTicks() {
+        if (sliderUpdateRunnable != null) uiTickHandler.removeCallbacks(sliderUpdateRunnable);
+        if (waveformHandler != null && waveformUpdateRunnable != null) {
+            waveformHandler.removeCallbacks(waveformUpdateRunnable);
+        }
+    }
+
+    private void startUiTicks() {
+        stopUiTicks();
+        if (sliderUpdateRunnable != null) uiTickHandler.post(sliderUpdateRunnable);
+        if (waveformHandler != null && waveformUpdateRunnable != null) {
+            waveformHandler.post(waveformUpdateRunnable);
+        }
+    }
+
     private final android.os.Handler resumeSaveHandler = new android.os.Handler(
         android.os.Looper.getMainLooper()
     );
@@ -1470,7 +1493,10 @@ public class VideoPlayerActivity extends AppCompatActivity {
             
             // Start periodic slider updates when not scrubbing
             try {
-                android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
+                final android.os.Handler h = uiTickHandler;
+                if (sliderUpdateRunnable != null) {
+                    h.removeCallbacks(sliderUpdateRunnable);
+                }
                 Runnable r = new Runnable() {
                     @Override
                     public void run() {
@@ -1521,6 +1547,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
                         h.postDelayed(this, 200);
                     }
                 };
+                sliderUpdateRunnable = r;
                 h.post(r);
             } catch (Exception ignored) {}
             FLog.i(
@@ -2923,6 +2950,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        startUiTicks();
         // Keep screen on during playback if enabled in settings
         boolean keepAwake = SharedPreferencesManager.getInstance(
             this
@@ -3399,12 +3427,14 @@ public class VideoPlayerActivity extends AppCompatActivity {
         saveCurrentPlaybackPosition();
         // Stop periodic saves while paused
         resumeSaveHandler.removeCallbacks(resumeSaveRunnable);
+        stopUiTicks();
         // Detach view to let service own playback surface-less
         if (playerView != null) playerView.setPlayer(null);
     }
 
     @Override
     protected void onDestroy() {
+        stopUiTicks();
         // Clear screen flags again just in case
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         // Persist current playback position prior to destruction
@@ -3558,6 +3588,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
                 };
             }
 
+            waveformHandler.removeCallbacks(waveformUpdateRunnable);
             waveformHandler.post(waveformUpdateRunnable);
         } catch (Exception e) {
             FLog.w(TAG, "Error setting up waveform updates", e);

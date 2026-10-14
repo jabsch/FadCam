@@ -119,7 +119,10 @@ public class AudioWaveformView extends View {
      * Set the current playback progress (0.0 – 1.0).
      */
     public void setProgress(float progress) {
-        this.progress = Math.max(0f, Math.min(1f, progress));
+        float clamped = Math.max(0f, Math.min(1f, progress));
+        // Called every 100 ms; while paused the value doesn't move, so skip the redraw.
+        if (clamped == this.progress) return;
+        this.progress = clamped;
         invalidate();
     }
 

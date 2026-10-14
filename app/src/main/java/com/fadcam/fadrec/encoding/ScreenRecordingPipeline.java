@@ -187,7 +187,7 @@ public class ScreenRecordingPipeline {
     
     // State management
     private boolean isRecording = false;
-    private boolean isPaused = false;
+    private volatile boolean isPaused = false;
     private boolean isStopped = false;
     private boolean muxerStarted = false;
     private volatile boolean audioMuted = false;
@@ -590,6 +590,15 @@ public class ScreenRecordingPipeline {
                 glWatermarkRenderer.setOnFrameAvailableListener(() -> {
                     if (!isStopped && isRecording
                             && renderRunnableQueued.compareAndSet(false, true)) {
+                        if (isPaused) {
+                            // Paused output is thrown away, so don't render and encode
+                            // it; just free the buffer so the display keeps producing.
+                            if (glWatermarkRenderer != null) {
+                                glWatermarkRenderer.consumeLatestFrame();
+                            }
+                            renderRunnableQueued.set(false);
+                            return;
+                        }
                         if (videoFramerate > 0) {
                             long now = System.nanoTime();
                             long targetIntervalNanos = 1_000_000_000L / videoFramerate;
@@ -1506,6 +1515,17 @@ public class ScreenRecordingPipeline {
         }
         
         isPaused = false;
+        // Start the resumed part on a keyframe so it never refers to frames
+        // from before the pause.
+        try {
+            if (videoEncoder != null) {
+                android.os.Bundle params = new android.os.Bundle();
+                params.putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0);
+                videoEncoder.setParameters(params);
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "Sync frame request on resume failed", e);
+        }
         FLog.d(TAG, "Recording resumed");
     }
 
