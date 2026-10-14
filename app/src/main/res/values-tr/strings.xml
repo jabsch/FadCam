@@ -1188,7 +1188,7 @@
     <string name="mini_app_qr_generator_desc">Metin, URL ve kişilerden QR kodları oluşturun</string>
     <string name="mini_apps_planned_shortcuts_title">Planlanan: Kısayollar ve Otomasyon</string>
     <string name="mini_apps_planned_shortcuts_desc">Herhangi bir Mini Uygulama\'ya FadCam\'i açmadan anında erişim için ana ekran kısayolları.\n\nMini Uygulamaları programlı olarak tetiklemek için intent tabanlı otomasyon desteği (Tasker, MacroDroid, vb.) — otomatik iş akışlarınızdan QR tarama, fener ve daha fazlasını kullanın.</string>
-    <string name="app_name" translatable="false">FadCam</string>
+    <string name="app_name" translatable="false">JaCam</string>
     <string name="accessibility_thumbnail_progress">%1$d%% izlendi</string>
     <string name="readme_github_subtitle">Kaynak kodu &amp; sürümler</string>
     <string name="readme_discord_subtitle">Topluluğa katıl</string>

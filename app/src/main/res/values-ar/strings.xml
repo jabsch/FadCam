@@ -491,7 +491,7 @@
 
     <!-- ===== NEW TRANSLATED ENTRIES ===== -->
 
-    <string name="app_name" translatable="false">FadCam</string>
+    <string name="app_name" translatable="false">JaCam</string>
 
     <string name="accessibility_thumbnail_progress">تمت مشاهدة %1$d%%</string>
 
