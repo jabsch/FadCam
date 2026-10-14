@@ -326,7 +326,6 @@ public class GLWatermarkRenderer {
     private volatile long previewMinIntervalNs = 0L;
     private long lastPreviewDrawNs = 0L;
 
-    /** Caps the preview pass while recording at {@code fps} (0 = every camera frame). */
     /** True: dimmed, zoomed camera behind the letterboxed preview. False: black bars (two fewer full-screen passes). */
     private volatile boolean previewLetterboxFill = true;
 
@@ -334,6 +333,7 @@ public class GLWatermarkRenderer {
         previewLetterboxFill = fill;
     }
 
+    /** Caps the preview pass while recording at {@code fps} (0 = every camera frame). */
     public void setPreviewFrameRateCap(int fps) {
         previewMinIntervalNs = fps > 0 ? 1_000_000_000L / fps : 0L;
     }
