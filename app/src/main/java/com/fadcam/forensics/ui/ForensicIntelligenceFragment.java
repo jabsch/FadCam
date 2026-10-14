@@ -138,6 +138,13 @@ public class ForensicIntelligenceFragment extends Fragment {
     }
 
     @Nullable
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        ForensicsGalleryFragment gallery = findGallery();
+        if (gallery != null) gallery.setHostVisible(!hidden);
+    }
+
     private ForensicsGalleryFragment findGallery() {
         androidx.fragment.app.Fragment fragment = getChildFragmentManager().findFragmentByTag(TAG_GALLERY);
         if (fragment instanceof ForensicsGalleryFragment) {

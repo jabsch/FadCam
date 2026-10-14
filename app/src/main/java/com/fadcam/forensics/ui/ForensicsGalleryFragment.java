@@ -84,6 +84,8 @@ public class ForensicsGalleryFragment extends Fragment {
     private TextView emptySubtitle;
     @Nullable
     private ObjectAnimator emptyFloatAnimator;
+    /** False while the hosting Lab tab is hidden (its child stays resumed). */
+    private boolean hostVisible = true;
     private TextView statCount;
     private TextView statSize;
     private ExtendedFloatingActionButton batchFab;
@@ -355,6 +357,41 @@ public class ForensicsGalleryFragment extends Fragment {
         super.onResume();
         if (!dataLoaded && !isLoading) {
             loadData(true);
+        }
+        syncEmptyFloatAnimator();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (emptyFloatAnimator != null) emptyFloatAnimator.cancel();
+    }
+
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        syncEmptyFloatAnimator();
+    }
+
+    /** Called by the Lab host when its tab is hidden or shown again. */
+    void setHostVisible(boolean visible) {
+        hostVisible = visible;
+        syncEmptyFloatAnimator();
+    }
+
+    /**
+     * The empty-state icon floats forever, so it only runs while it can be
+     * seen: hidden tabs stay resumed, and a running animator keeps redrawing
+     * every frame even with the Lab tab in the background.
+     */
+    private void syncEmptyFloatAnimator() {
+        if (emptyFloatAnimator == null) return;
+        boolean show = hostVisible && !isHidden() && isResumed()
+                && emptyState != null && emptyState.getVisibility() == View.VISIBLE;
+        if (show) {
+            if (!emptyFloatAnimator.isRunning()) emptyFloatAnimator.start();
+        } else {
+            emptyFloatAnimator.cancel();
         }
     }
 
@@ -797,9 +834,7 @@ public class ForensicsGalleryFragment extends Fragment {
                 }
             }
             if (emptyState != null) emptyState.setVisibility(View.VISIBLE);
-            if (emptyFloatAnimator != null && !emptyFloatAnimator.isRunning()) {
-                emptyFloatAnimator.start();
-            }
+            syncEmptyFloatAnimator();
         } else {
             if (emptyState != null) emptyState.setVisibility(View.GONE);
             if (emptyFloatAnimator != null) emptyFloatAnimator.cancel();

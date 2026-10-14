@@ -2238,11 +2238,10 @@ public class RecordsFragment extends BaseFragment implements
             }
             syncDeletionUiFromStore(true);
             
-            // Always delta-scan on reappear to pick up new files (QR scans, shots, etc.)
-            // Invalidate the index FIRST so the delta scan finds new files even
-            // when videoItems is not empty (loadRecordsList skips if list is non-empty
-            // and forceReload is false).
-            com.fadcam.data.VideoIndexRepository.getInstance(requireContext()).invalidateIndex();
+            // Reload from the index on reappear; the delta scan that follows the
+            // first paint picks up new files (QR scans, shots, etc.). Invalidating
+            // the index here forced the cold path on every tab switch: skeleton
+            // shimmer, a full storage scan, then a second scan and three rebinds.
             if (!isLoading && recordsAdapter != null && recordsAdapter.getItemCount() > 0) {
                 FLog.d(TAG, "onHiddenChanged: running delta scan for new items");
                 loadRecordsList(true);
@@ -5483,6 +5482,19 @@ public class RecordsFragment extends BaseFragment implements
         }
     }
 
+    /** Order-independent hash of each file's uri, size and modified time. */
+    private static long fileListSignature(List<VideoItem> items) {
+        long signature = 0L;
+        for (VideoItem item : items) {
+            if (item == null || item.isSkeleton) continue;
+            long h = item.uri != null ? item.uri.toString().hashCode() : 0;
+            h = h * 31 + item.size;
+            h = h * 31 + item.lastModified;
+            signature += h * 0x9E3779B97F4A7C15L;
+        }
+        return signature;
+    }
+
     private void scheduleRecordsPostFirstPaintWork(@NonNull com.fadcam.data.VideoIndexRepository repository) {
         if (progressHandler == null) {
             return;
@@ -5515,10 +5527,15 @@ public class RecordsFragment extends BaseFragment implements
             }
             final ExecutorService currentDeltaExec = deltaExecutor;
             final int expectedCount = totalItems;
+            // Shown list's file signature: tab reappear reads the index without
+            // a rescan, so a file that changed size (a finished recording) must
+            // also count as a change, not just a different number of files.
+            final long expectedSignature = fileListSignature(allLoadedItems);
             currentDeltaExec.submit(() -> {
                 try {
                     List<VideoItem> deltaItems = repository.deltaScan(sharedPreferencesManager);
-                    if (deltaItems.size() != expectedCount) {
+                    if (deltaItems.size() != expectedCount
+                            || fileListSignature(deltaItems) != expectedSignature) {
                         List<VideoItem> deltaNormalized = normalizeVideoCategories(deltaItems);
                         sortItems(deltaNormalized, currentSortOption);
                         totalItems = deltaNormalized.size();
