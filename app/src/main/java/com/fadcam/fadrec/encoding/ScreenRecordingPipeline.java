@@ -167,6 +167,10 @@ public class ScreenRecordingPipeline {
         }
     };
 
+    private static final long VIDEO_DRAIN_INTERVAL_MS = 15;
+    private static final long AUDIO_DRAIN_INTERVAL_MS = 20;
+    private static final long PAUSED_DRAIN_INTERVAL_MS = 100;
+
     /** Serialises drainVideoEncoder() calls from the video-encoding poll thread and stop thread. */
     private final Object encoderDrainLock = new Object();
 
@@ -936,9 +940,12 @@ public class ScreenRecordingPipeline {
                 
                 drainVideoEncoder(false);
                 
-                // Continue loop
+                // Continue loop. Each pass drains everything that is ready, so polling
+                // once per frame interval is enough; 10 ms woke the thread ~3 times per
+                // 30 fps frame. Paused, almost nothing arrives.
                 if (isRecording && !isStopped) {
-                    videoEncodingHandler.postDelayed(this, 10);
+                    videoEncodingHandler.postDelayed(this, isPaused
+                            ? PAUSED_DRAIN_INTERVAL_MS : VIDEO_DRAIN_INTERVAL_MS);
                 }
             }
         });
@@ -1132,8 +1139,10 @@ public class ScreenRecordingPipeline {
                 
                 drainAudioEncoder(false);
                 
+                // One AAC frame is ~21 ms of audio, so 20 ms keeps up with every frame.
                 if (isRecording && !isStopped) {
-                    audioEncodingHandler.postDelayed(this, 10);
+                    audioEncodingHandler.postDelayed(this, isPaused
+                            ? PAUSED_DRAIN_INTERVAL_MS : AUDIO_DRAIN_INTERVAL_MS);
                 }
             }
         });

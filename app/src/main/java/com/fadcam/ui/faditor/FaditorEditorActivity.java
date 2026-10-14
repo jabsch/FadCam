@@ -246,6 +246,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // ── Playhead sync ────────────────────────────────────────────────
     private final Handler playheadHandler = new Handler(Looper.getMainLooper());
     private static final long PLAYHEAD_UPDATE_INTERVAL_MS = 50;
+    /** Nothing moves the playhead while paused, so only check in occasionally. */
+    private static final long PLAYHEAD_IDLE_INTERVAL_MS = 250;
 
     private final Runnable playheadUpdater = new Runnable() {
         @Override
@@ -256,9 +258,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
             } catch (Exception e) {
                 FLog.e(TAG, "Error in updatePlayheadPosition", e);
             }
-            playheadHandler.postDelayed(this, PLAYHEAD_UPDATE_INTERVAL_MS);
+            // Playback started inside this tick may already have queued a run.
+            playheadHandler.removeCallbacks(this);
+            playheadHandler.postDelayed(this, isPlaybackActive()
+                    ? PLAYHEAD_UPDATE_INTERVAL_MS : PLAYHEAD_IDLE_INTERVAL_MS);
         }
     };
+
+    private boolean isPlaybackActive() {
+        return audioTailActive || imagePlaybackActive
+                || (playerManager != null && playerManager.getPlayWhenReady());
+    }
+
+    /** (Re)starts the playhead loop now; never runs a second copy of it. */
+    private void startPlayheadUpdates() {
+        playheadHandler.removeCallbacks(playheadUpdater);
+        playheadHandler.post(playheadUpdater);
+    }
 
     // ── Segment helpers ──────────────────────────────────────────────
 
@@ -477,7 +493,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Reapply immersive fullscreen (in case it was cleared by edge swipes)
         com.fadcam.util.SystemBarUtil.hideSystemBars(getWindow().getDecorView());
         
-        playheadHandler.post(playheadUpdater);
+        startPlayheadUpdates();
     }
 
     @Override
@@ -1155,7 +1171,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         audioTailStartMs = playheadMs;
                         btnPlayPause.setText("pause");
                         syncAndPlayAudioPlayer();
-                        playheadHandler.post(playheadUpdater);
+                        startPlayheadUpdates();
                         FLog.d(TAG, "Play from audio-tail region: playhead=" + playheadMs + " videoEnd=" + videoEndMs);
                     } else {
                         // CRITICAL: Ensure player position matches timeline playhead before play
@@ -1166,6 +1182,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         
                         playerManager.play();
                         syncAndPlayAudioPlayer();
+                        startPlayheadUpdates();
                     }
                 }
             }
@@ -2734,6 +2751,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         imagePlaybackStartOffsetMs = startOffsetMs;
         imagePlaybackStartSystemMs = System.currentTimeMillis();
         updatePlayPauseButton(true);
+        startPlayheadUpdates();
     }
 
     /**
