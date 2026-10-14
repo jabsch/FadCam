@@ -224,7 +224,8 @@ public class PhotoCaptureActivity extends ComponentActivity {
             final com.fadcam.ui.LocationHelper[] lhHolder = {null};
             h.post(new Runnable() {
                 @Override public void run() {
-                    final com.fadcam.ui.LocationHelper lh = new com.fadcam.ui.LocationHelper(getApplicationContext());
+                    // Fast cadence: this helper lives only until the first fix (10 s cap).
+                    final com.fadcam.ui.LocationHelper lh = new com.fadcam.ui.LocationHelper(getApplicationContext(), true);
                     lhHolder[0] = lh;
                     final long deadline = System.currentTimeMillis() + 10000;
                     h.post(new Runnable() {
