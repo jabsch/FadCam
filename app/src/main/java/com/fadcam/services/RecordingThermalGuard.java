@@ -15,8 +15,9 @@ import com.fadcam.FLog;
  *   <li>CRITICAL or worse: stop gracefully so the file is finalized, instead of
  *   the camera HAL cutting the session off and leaving a broken file.</li>
  * </ul>
- * With frame-rate stepping on (the "1080p Auto fps" preset), MODERATE also drops
- * the camera to 30 fps, and LIGHT or cooler brings the full rate back.
+ * MODERATE also counts as "warm" until the phone is back to LIGHT or cooler.
+ * While warm, the "1080p Auto fps" preset drops to 30 fps and the "Auto"
+ * stabilization mode turns electronic stabilization off.
  */
 public final class RecordingThermalGuard {
     private static final String TAG = "RecordingThermalGuard";
@@ -29,14 +30,16 @@ public final class RecordingThermalGuard {
 
     enum Action { NONE, REDUCE, RESTORE, STOP }
 
-    enum FpsAction { NONE, LOWER, RAISE }
+    enum WarmAction { NONE, WARM, COOLED }
 
     public interface Callbacks {
         void onReduceLoad();
         void onRestoreLoad();
         void onStopForHeat();
-        void onLowerFrameRate();
-        void onRaiseFrameRate();
+        /** The phone reached MODERATE; {@code lowerFrameRate} for the Auto fps step. */
+        void onWarm(boolean lowerFrameRate);
+        /** The phone is back to LIGHT or cooler; {@code raiseFrameRate} undoes the Auto fps step. */
+        void onCooled(boolean raiseFrameRate);
     }
 
     private final Callbacks callbacks;
@@ -46,7 +49,7 @@ public final class RecordingThermalGuard {
     private boolean reduced;
     private boolean stopped;
     private boolean stepFps;
-    private boolean fpsLowered;
+    private boolean warm;
 
     public RecordingThermalGuard(Callbacks callbacks) {
         this.callbacks = callbacks;
@@ -69,18 +72,18 @@ public final class RecordingThermalGuard {
     }
 
     /**
-     * Pure frame-rate step; {@code lowered} is whether the rate is already down.
-     * Drops one level earlier than the bitrate cut (MODERATE), and like it only
+     * Pure warm step; {@code warm} is whether optional work is already shed.
+     * Steps one level earlier than the bitrate cut (MODERATE), and like it only
      * comes back once the phone is at LIGHT or cooler.
      */
-    static FpsAction decideFps(int status, boolean lowered) {
-        if (!lowered && status >= STATUS_MODERATE && status < STATUS_CRITICAL) {
-            return FpsAction.LOWER;
+    static WarmAction decideWarmStep(int status, boolean warm) {
+        if (!warm && status >= STATUS_MODERATE && status < STATUS_CRITICAL) {
+            return WarmAction.WARM;
         }
-        if (lowered && status <= STATUS_LIGHT) {
-            return FpsAction.RAISE;
+        if (warm && status <= STATUS_LIGHT) {
+            return WarmAction.COOLED;
         }
-        return FpsAction.NONE;
+        return WarmAction.NONE;
     }
 
     /**
@@ -98,7 +101,7 @@ public final class RecordingThermalGuard {
         reduced = false;
         stopped = false;
         stepFps = stepFrameRate;
-        fpsLowered = false;
+        warm = false;
         PowerManager.OnThermalStatusChangedListener l = this::onStatus;
         listener = l;
         powerManager.addThermalStatusListener(context.getMainExecutor(), l);
@@ -116,7 +119,7 @@ public final class RecordingThermalGuard {
         listener = null;
         powerManager = null;
         reduced = false;
-        fpsLowered = false;
+        warm = false;
     }
 
     private synchronized void onStatus(int status) {
@@ -143,24 +146,29 @@ public final class RecordingThermalGuard {
             default:
                 break;
         }
-        if (stopped || !stepFps) {
+        if (stopped) {
             return;
         }
-        FpsAction fpsAction = decideFps(status, fpsLowered);
-        if (fpsAction != FpsAction.NONE) {
-            FLog.w(TAG, "Thermal status " + status + " -> fps " + fpsAction);
+        WarmAction warmAction = decideWarmStep(status, warm);
+        if (warmAction != WarmAction.NONE) {
+            FLog.w(TAG, "Thermal status " + status + " -> " + warmAction);
         }
-        if (fpsAction == FpsAction.LOWER) {
-            fpsLowered = true;
-            callbacks.onLowerFrameRate();
-        } else if (fpsAction == FpsAction.RAISE) {
-            fpsLowered = false;
-            callbacks.onRaiseFrameRate();
+        if (warmAction == WarmAction.WARM) {
+            warm = true;
+            callbacks.onWarm(stepFps);
+        } else if (warmAction == WarmAction.COOLED) {
+            warm = false;
+            callbacks.onCooled(stepFps);
         }
     }
 
     /** Whether the Auto fps step currently has the camera at 30 fps. */
     public synchronized boolean isFrameRateLowered() {
-        return fpsLowered;
+        return warm && stepFps;
+    }
+
+    /** Whether the phone is at MODERATE heat or above (until it cools to LIGHT). */
+    public synchronized boolean isWarm() {
+        return warm;
     }
 }

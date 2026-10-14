@@ -1912,12 +1912,7 @@ public class RecordingService extends Service {
             }
             return START_STICKY;
         } else if (Constants.INTENT_ACTION_SET_VIDEO_STABILIZATION.equals(action)) {
-            // Toggle video stabilization (EIS/OIS) at runtime.
-            boolean enable = intent.getBooleanExtra(
-                    Constants.EXTRA_VIDEO_STABILIZATION_ENABLED, true);
-            if (sharedPreferencesManager != null) {
-                sharedPreferencesManager.setVideoStabilizationEnabled(enable);
-            }
+            // Settings saved a new stabilization mode: apply it to the live session.
             reapplyVideoStabilizationToSession();
             return START_STICKY;
         } else if (Constants.INTENT_ACTION_SET_ZOOM_RATIO.equals(action)) {
@@ -6502,14 +6497,18 @@ public class RecordingService extends Service {
      *
      * Tagged "FadCamEIS" for logcat grepping to verify the feature is active.
      */
+    /** Whether the camera last configured offers EIS; read by the Auto mode's warm toast. */
+    private volatile boolean lastStabilizationEisSupported;
+
     private void applyVideoStabilization(CaptureRequest.Builder builder) {
         try {
             if (builder == null || currentCameraCharacteristics == null) {
                 FLog.w("FadCamEIS", "applyVideoStabilization skipped (builder/chars null)");
                 return;
             }
-            boolean prefEnabled = sharedPreferencesManager != null
-                    && sharedPreferencesManager.isVideoStabilizationEnabled();
+            com.fadcam.utils.VideoStabilizationMode mode = sharedPreferencesManager != null
+                    ? com.fadcam.utils.VideoStabilizationMode.current(sharedPreferencesManager)
+                    : com.fadcam.utils.VideoStabilizationMode.OFF;
 
             boolean eisSupported = false;
             int[] stabModes = currentCameraCharacteristics.get(
@@ -6522,7 +6521,8 @@ public class RecordingService extends Service {
                     }
                 }
             }
-            int eisMode = (prefEnabled && eisSupported)
+            lastStabilizationEisSupported = eisSupported;
+            int eisMode = (mode.usesElectronic(thermalGuard.isWarm()) && eisSupported)
                     ? CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_ON
                     : CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_OFF;
             builder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, eisMode);
@@ -6538,12 +6538,12 @@ public class RecordingService extends Service {
                     }
                 }
             }
-            int oisMode = (prefEnabled && oisSupported)
+            int oisMode = (mode.usesOptical() && oisSupported)
                     ? CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_ON
                     : CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_OFF;
             builder.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, oisMode);
 
-            FLog.i("FadCamEIS", "VideoStab applied -> pref=" + prefEnabled
+            FLog.i("FadCamEIS", "VideoStab applied -> mode=" + mode.id
                     + " eisSupported=" + eisSupported + " eis=" + eisMode
                     + " oisSupported=" + oisSupported + " ois=" + oisMode
                     + " cameraId=" + (cameraDevice != null ? cameraDevice.getId() : "null"));
@@ -6558,19 +6558,21 @@ public class RecordingService extends Service {
      * session (e.g. after the user toggles it in Settings mid-recording).
      * Fully guarded — never throws.
      */
-    private void reapplyVideoStabilizationToSession() {
+    private boolean reapplyVideoStabilizationToSession() {
         try {
             if (captureSession == null || captureRequestBuilder == null
                     || cameraDevice == null || isStopping) {
                 FLog.w("FadCamEIS", "reapply skipped (session/builder/device not ready)");
-                return;
+                return false;
             }
             applyVideoStabilization(captureRequestBuilder);
             captureSession.setRepeatingRequest(
                     captureRequestBuilder.build(), null, backgroundHandler);
             FLog.i("FadCamEIS", "Repeating request re-issued with new stabilization state");
+            return true;
         } catch (Throwable t) {
             FLog.w("FadCamEIS", "reapplyVideoStabilizationToSession failed safely: " + t.getMessage());
+            return false;
         }
     }
 
@@ -7016,16 +7018,31 @@ public class RecordingService extends Service {
                 }
 
                 @Override
-                public void onLowerFrameRate() {
-                    applyRuntimeCameraFrameRate(com.fadcam.utils.RecordingPreset.AUTO_WARM_FPS);
-                    Toast.makeText(getApplicationContext(), R.string.thermal_guard_fps_lowered,
-                            Toast.LENGTH_LONG).show();
+                public void onWarm(boolean lowerFrameRate) {
+                    if (lowerFrameRate) {
+                        applyRuntimeCameraFrameRate(com.fadcam.utils.RecordingPreset.AUTO_WARM_FPS);
+                        Toast.makeText(getApplicationContext(), R.string.thermal_guard_fps_lowered,
+                                Toast.LENGTH_LONG).show();
+                    }
+                    if (isAutoStabilization()) {
+                        reapplyVideoStabilizationOnCameraThread(true);
+                    }
                 }
 
                 @Override
-                public void onRaiseFrameRate() {
-                    applyRuntimeCameraFrameRate(capForStreaming(sharedPreferencesManager
-                            .getSpecificVideoFrameRate(sharedPreferencesManager.getCameraSelection())));
+                public void onCooled(boolean raiseFrameRate) {
+                    if (raiseFrameRate) {
+                        applyRuntimeCameraFrameRate(capForStreaming(sharedPreferencesManager
+                                .getSpecificVideoFrameRate(sharedPreferencesManager.getCameraSelection())));
+                    }
+                    if (isAutoStabilization()) {
+                        reapplyVideoStabilizationOnCameraThread(false);
+                    }
+                }
+
+                private boolean isAutoStabilization() {
+                    return com.fadcam.utils.VideoStabilizationMode.current(sharedPreferencesManager)
+                            == com.fadcam.utils.VideoStabilizationMode.AUTO;
                 }
             });
 
@@ -7053,6 +7070,23 @@ public class RecordingService extends Service {
                 FLog.i(TAG, "Camera frame rate set to " + fps + " fps while recording");
             } catch (Exception e) {
                 FLog.w(TAG, "Could not change camera frame rate to " + fps, e);
+            }
+        });
+    }
+
+    /**
+     * Re-issues the repeating request with the current stabilization state on
+     * the camera thread; {@code announceEisOff} toasts once EIS really went off.
+     */
+    private void reapplyVideoStabilizationOnCameraThread(boolean announceEisOff) {
+        Handler handler = backgroundHandler;
+        if (handler == null) {
+            return;
+        }
+        handler.post(() -> {
+            if (reapplyVideoStabilizationToSession() && announceEisOff && lastStabilizationEisSupported) {
+                mainHandler.post(() -> Toast.makeText(getApplicationContext(),
+                        R.string.thermal_guard_eis_off, Toast.LENGTH_LONG).show());
             }
         });
     }

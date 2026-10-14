@@ -83,7 +83,6 @@ public class GLWatermarkRenderer {
     // Backoff for preview surface creation retries
     private long previewCreateRetryDeadlineNs = 0L;
     // Gate logging to avoid repeated warnings on frequent binds
-    private boolean warnedNoExternalTexture = false;
     // Timestamp of last warning to avoid flooding logs (ms)
     private long lastNoExternalTextureWarnMs = 0L;
     private long lastSlowRenderWarnMs = 0L;
@@ -106,7 +105,6 @@ public class GLWatermarkRenderer {
 
     // Exposure compensation value (EV stops, e.g., -2.0 to +2.0)
     private float currentExposureCompensation = 0.0f;
-    private float lastLoggedExposureCompensation = Float.NaN; // Track last logged value
 
     // ── PiP (Picture-in-Picture) fields ────────────────────────────────
     // These are only initialized when initializePiP() is called (dual camera mode).
@@ -1672,52 +1670,18 @@ public class GLWatermarkRenderer {
                 FLog.w(TAG, "drawOESTexture: Renderer released or OES texture invalid, skipping draw");
                 return;
             }
-            // Check if texture is valid before drawing
-            int[] textureArray = new int[1];
-            GLES20.glGetIntegerv(GLES11Ext.GL_TEXTURE_BINDING_EXTERNAL_OES, textureArray, 0);
-            if (textureArray[0] == 0) {
-                // Rebind proactively — common after EGL surface switches.
-                GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTextureId);
-            } else {
-                warnedNoExternalTexture = false;
-            }
-            // Clear any existing GL errors before drawing
-            int error = GLES20.glGetError();
-            if (error != GLES20.GL_NO_ERROR) {
-            }
+            // Clear any stale GL error so the draw's own check only sees its errors.
+            GLES20.glGetError();
             if (mFullFrameBlit != null) {
                 try {
                     com.fadcam.opengl.grafika.Texture2dProgram program = mFullFrameBlit.getProgram();
-                    if (program != null) {
-                        try {
-                            int[] currentProgramArray = new int[1];
-                            GLES20.glGetIntegerv(GLES20.GL_CURRENT_PROGRAM, currentProgramArray, 0);
-                            int currentProgram = currentProgramArray[0];
-                            int programHandle = program.getProgramHandle();
-                            GLES20.glUseProgram(programHandle);
-
-                            // Set exposure compensation uniform if available
-                            int exposureLoc = program.getExposureCompensationLocation();
-                            if (exposureLoc >= 0) {
-                                GLES20.glUniform1f(exposureLoc, currentExposureCompensation);
-                                // Only log when exposure value actually changes
-                                if (Float.isNaN(lastLoggedExposureCompensation) || 
-                                    Math.abs(currentExposureCompensation - lastLoggedExposureCompensation) > 0.001f) {
-                                    lastLoggedExposureCompensation = currentExposureCompensation;
-                                }
-                            }
-
-                            int mvpLoc = GLES20.glGetUniformLocation(programHandle, "uMVPMatrix");
-                            if (mvpLoc >= 0) {
-                                GLES20.glUniformMatrix4fv(mvpLoc, 1, false, mvpMatrix, 0);
-                            }
-                            GLES20.glUseProgram(currentProgram);
-                            error = GLES20.glGetError();
-                            if (error != GLES20.GL_NO_ERROR) {
-                            }
-                        } catch (Exception e) {
-                            FLog.e(TAG, "Error setting MVP matrix", e);
-                        }
+                    // The draw binds the texture and sets its own (identity) MVP, so the
+                    // only state to set up front is the exposure uniform. No glGet* calls
+                    // here: state queries can stall the GL pipeline on every frame.
+                    int exposureLoc = program != null ? program.getExposureCompensationLocation() : -1;
+                    if (exposureLoc >= 0) {
+                        GLES20.glUseProgram(program.getProgramHandle());
+                        GLES20.glUniform1f(exposureLoc, currentExposureCompensation);
                     }
                     try {
                         mFullFrameBlit.drawFrame(oesTextureId, texMatrix);
@@ -1795,15 +1759,7 @@ public class GLWatermarkRenderer {
 
             if (mFullFrameBlit != null) {
                 try {
-                    com.fadcam.opengl.grafika.Texture2dProgram program = mFullFrameBlit.getProgram();
-                    if (program != null) {
-                        int programHandle = program.getProgramHandle();
-                        GLES20.glUseProgram(programHandle);
-                        int mvpLoc = GLES20.glGetUniformLocation(programHandle, "uMVPMatrix");
-                        if (mvpLoc >= 0) {
-                            GLES20.glUniformMatrix4fv(mvpLoc, 1, false, mvpMatrix, 0);
-                        }
-                    }
+                    // drawFrame sets its own (identity) MVP, so nothing to set up here.
                     mFullFrameBlit.drawFrame(textureId, texMatrix);
                 } catch (Exception e) {
                     FLog.w(TAG, "drawOESTextureWithId: grafika draw failed, using fallback", e);

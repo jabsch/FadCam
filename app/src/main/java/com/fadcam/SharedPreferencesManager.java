@@ -359,24 +359,6 @@ public class SharedPreferencesManager {
             .apply();
     }
 
-    /**
-     * Whether video stabilization (EIS/OIS) should be requested. Defaults to ON.
-     * The capture pipeline independently verifies hardware support and silently
-     * falls back to OFF on devices that don't expose stabilization modes.
-     */
-    public boolean isVideoStabilizationEnabled() {
-        return safeGetBoolean(
-            Constants.PREF_VIDEO_STABILIZATION_ENABLED,
-            true
-        );
-    }
-
-    public void setVideoStabilizationEnabled(boolean enabled) {
-        sharedPreferences
-            .edit()
-            .putBoolean(Constants.PREF_VIDEO_STABILIZATION_ENABLED, enabled)
-            .apply();
-    }
 
     /**
      * Whether raw (unprocessed) audio capture is requested. Defaults to OFF,

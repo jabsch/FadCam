@@ -144,55 +144,43 @@ public class VideoSettingsFragment extends Fragment {
     }
 
     /**
-     * Opens the Video Stabilization bottom sheet: an AvatarToggleView switch plus
-     * the explanation footer. On devices without EIS/OIS the switch is shown but
-     * disabled with a clear "not supported" note — we never hide capability info.
+     * Opens the Video Stabilization picker: Off, Optical only, Optical +
+     * electronic, or Auto, each with a one-line explanation. On devices without
+     * EIS/OIS the options still show, with a "not supported" note, so the
+     * capability is never hidden. A change applies to a running recording too.
      */
     private void showVideoStabilizationBottomSheet() {
-        boolean supported = videoStabilizationSupported;
-        boolean enabled = prefs.isVideoStabilizationEnabled();
+        com.fadcam.utils.VideoStabilizationMode current = com.fadcam.utils.VideoStabilizationMode.current(prefs);
+        java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
+        for (com.fadcam.utils.VideoStabilizationMode m : com.fadcam.utils.VideoStabilizationMode.values()) {
+            items.add(new com.fadcam.ui.picker.OptionItem(m.id, getString(m.labelRes), getString(m.descriptionRes)));
+        }
         final String resultKey = "picker_result_video_stabilization";
-
         getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
-            if (b.containsKey(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE)) {
-                boolean state = b.getBoolean(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE);
-                prefs.setVideoStabilizationEnabled(state);
-                // If the recording service is running, apply immediately.
-                try {
-                    Intent i = new Intent(Constants.INTENT_ACTION_SET_VIDEO_STABILIZATION);
-                    i.setClass(requireContext(), RecordingService.class);
-                    i.putExtra(Constants.EXTRA_VIDEO_STABILIZATION_ENABLED, state);
-                    requireContext().startService(i);
-                } catch (Exception e) {
-                    FLog.w("FadCamEIS", "UI: failed to dispatch stabilization change: " + e.getMessage());
-                }
-                refreshAllValues();
+            com.fadcam.utils.VideoStabilizationMode picked = com.fadcam.utils.VideoStabilizationMode.fromId(
+                    b.getString(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID));
+            if (picked == null || picked == current) {
+                return;
             }
+            com.fadcam.utils.VideoStabilizationMode.save(prefs, picked);
+            // If the recording service is running, apply immediately.
+            try {
+                Intent i = new Intent(Constants.INTENT_ACTION_SET_VIDEO_STABILIZATION);
+                i.setClass(requireContext(), RecordingService.class);
+                requireContext().startService(i);
+            } catch (Exception e) {
+                FLog.w("FadCamEIS", "UI: failed to dispatch stabilization change: " + e.getMessage());
+            }
+            refreshAllValues();
         });
 
         String helper = getString(R.string.video_stabilization_footer);
-        if (!supported) {
+        if (!videoStabilizationSupported) {
             helper += "\n\n" + getString(R.string.setting_not_supported);
         }
-        java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
         com.fadcam.ui.picker.PickerBottomSheetFragment sheet = com.fadcam.ui.picker.PickerBottomSheetFragment
-                .newInstanceWithSwitch(
-                        getString(R.string.setting_video_stabilization_title),
-                        items,
-                        null,
-                        resultKey,
-                        helper,
-                        getString(R.string.setting_video_stabilization_title),
-                        enabled && supported);
-        if (!supported && sheet.getArguments() != null) {
-            // Show the switch but keep it disabled (unsupported hardware).
-            sheet.getArguments().putBoolean(
-                    com.fadcam.ui.picker.PickerBottomSheetFragment.ARG_SWITCH_ENABLED, false);
-            // Clear warning banner so users see the limitation immediately.
-            sheet.getArguments().putString(
-                    com.fadcam.ui.picker.PickerBottomSheetFragment.ARG_BANNER_TEXT,
-                    getString(R.string.setting_not_supported));
-        }
+                .newInstance(getString(R.string.setting_video_stabilization_title), items, current.id,
+                        resultKey, helper);
         sheet.show(getParentFragmentManager(), "video_stabilization_picker");
     }
 
@@ -228,8 +216,13 @@ public class VideoSettingsFragment extends Fragment {
         getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
             if (b.containsKey(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE)) {
                 boolean state = b.getBoolean(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE);
-                com.fadcam.utils.PixelOptimizedMode.setEnabled(prefs, state);
-                refreshAllValues();
+                if (state && !com.fadcam.utils.PixelOptimizedMode.isEnabled(prefs)) {
+                    // Turning it on rewrites several recording settings: ask first.
+                    confirmPixelOptimizedProfile();
+                } else {
+                    com.fadcam.utils.PixelOptimizedMode.setEnabled(prefs, state);
+                    refreshAllValues();
+                }
             }
         });
         com.fadcam.ui.picker.PickerBottomSheetFragment sheet = com.fadcam.ui.picker.PickerBottomSheetFragment
@@ -242,6 +235,35 @@ public class VideoSettingsFragment extends Fragment {
                         getString(R.string.setting_pixel_optimized_title),
                         com.fadcam.utils.PixelOptimizedMode.isEnabled(prefs));
         sheet.show(getParentFragmentManager(), "pixel_optimized_picker");
+    }
+
+    /** Lists the settings Pixel optimized mode will change and applies them on confirm. */
+    private void confirmPixelOptimizedProfile() {
+        // Close the switch sheet so a dismissed confirm doesn't leave its switch showing on.
+        androidx.fragment.app.Fragment switchSheet =
+                getParentFragmentManager().findFragmentByTag("pixel_optimized_picker");
+        if (switchSheet instanceof androidx.fragment.app.DialogFragment) {
+            ((androidx.fragment.app.DialogFragment) switchSheet).dismissAllowingStateLoss();
+        }
+        com.fadcam.ui.InputActionBottomSheetFragment sheet = com.fadcam.ui.InputActionBottomSheetFragment.newConfirm(
+                getString(R.string.setting_pixel_optimized_title),
+                getString(R.string.pixel_optimized_confirm_action),
+                getString(R.string.pixel_optimized_confirm_subtitle),
+                R.drawable.ic_check,
+                getString(R.string.pixel_optimized_confirm_changes))
+                .withNeutralConfirm();
+        sheet.setCallbacks(new com.fadcam.ui.InputActionBottomSheetFragment.Callbacks() {
+            @Override
+            public void onImportConfirmed(org.json.JSONObject json) {
+            }
+
+            @Override
+            public void onResetConfirmed() {
+                com.fadcam.utils.PixelOptimizedMode.setEnabled(prefs, true);
+                refreshAllValues();
+            }
+        });
+        sheet.show(getParentFragmentManager(), "pixel_optimized_confirm");
     }
 
     /**
@@ -377,9 +399,7 @@ public class VideoSettingsFragment extends Fragment {
         // Video stabilization row value
         if (valueVideoStabilization != null) {
             valueVideoStabilization.setText(videoStabilizationSupported
-                    ? (prefs.isVideoStabilizationEnabled()
-                            ? getString(R.string.setting_enabled_msg)
-                            : getString(R.string.setting_disabled_msg))
+                    ? getString(com.fadcam.utils.VideoStabilizationMode.current(prefs).labelRes)
                     : getString(R.string.setting_not_supported));
         }
 

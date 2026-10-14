@@ -170,11 +170,8 @@ public class Texture2dProgram {
     public void draw(float[] mvpMatrix, FloatBuffer vertexBuffer, int firstVertex,
             int vertexCount, int coordsPerVertex, int vertexStride,
             float[] texMatrix, FloatBuffer texBuffer, int textureId) {
-        GlUtil.checkGlError("draw start");
-
         // Select the program.
         GLES20.glUseProgram(mProgramHandle);
-        GlUtil.checkGlError("glUseProgram");
 
         // Set the texture.
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
@@ -182,33 +179,29 @@ public class Texture2dProgram {
 
         // Copy the model / view / projection matrix over.
         GLES20.glUniformMatrix4fv(muMVPMatrixLoc, 1, false, mvpMatrix, 0);
-        GlUtil.checkGlError("glUniformMatrix4fv");
 
         // Copy the texture transformation matrix over.
         GLES20.glUniformMatrix4fv(muTexMatrixLoc, 1, false, texMatrix, 0);
-        GlUtil.checkGlError("glUniformMatrix4fv");
 
         // Enable the "aPosition" vertex attribute.
         GLES20.glEnableVertexAttribArray(maPositionLoc);
-        GlUtil.checkGlError("glEnableVertexAttribArray");
 
         // Connect vertexBuffer to "aPosition".
         GLES20.glVertexAttribPointer(maPositionLoc, coordsPerVertex,
             GLES20.GL_FLOAT, false, vertexStride, vertexBuffer);
-        GlUtil.checkGlError("glVertexAttribPointer");
 
         // Enable the "aTextureCoord" vertex attribute.
         GLES20.glEnableVertexAttribArray(maTextureCoordLoc);
-        GlUtil.checkGlError("glEnableVertexAttribArray");
 
         // Connect texBuffer to "aTextureCoord".
         GLES20.glVertexAttribPointer(maTextureCoordLoc, 2,
                 GLES20.GL_FLOAT, false, 0, texBuffer);
-        GlUtil.checkGlError("glVertexAttribPointer");
 
-        // Draw the rect.
+        // Draw the rect. One error check per draw: glGetError reports any error
+        // raised since the last check, and each call can stall the GL driver,
+        // so checking after every call cost ~8 round trips per draw per frame.
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, firstVertex, vertexCount);
-        GlUtil.checkGlError("glDrawArrays");
+        GlUtil.checkGlError("draw");
 
         // Done -- disable vertex array, texture, and program.
         GLES20.glDisableVertexAttribArray(maPositionLoc);
