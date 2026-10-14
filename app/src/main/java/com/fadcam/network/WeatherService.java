@@ -33,6 +33,13 @@ public class WeatherService {
     private String currentWind = "";
     private long lastFetchTime = 0;
     private static final long CACHE_DURATION_MS = TimeUnit.MINUTES.toMillis(10);
+    /** Wait this long after a failed fetch before trying again. */
+    private static final long RETRY_BACKOFF_MS = TimeUnit.MINUTES.toMillis(1);
+    // The watermark asks for weather every second. Without these, a slow or
+    // failing network (offline, tunnel, no signal) meant a new HTTP request
+    // every second, keeping the modem awake for the whole recording.
+    private boolean fetchInFlight = false;
+    private long lastFailureTime = 0;
 
     private WeatherService(Context context) {
         this.prefs = SharedPreferencesManager.getInstance(context.getApplicationContext());
@@ -57,9 +64,14 @@ public class WeatherService {
 
         long now = System.currentTimeMillis();
         if (!currentWeather.isEmpty() && (now - lastFetchTime) < CACHE_DURATION_MS) {
-            FLog.d(TAG, "Weather cache hit: " + currentWeather + ", " + currentWind + " (age=" + ((now - lastFetchTime)/1000) + "s)");
             callback.onWeatherReady(currentWeather, currentWind);
             return;
+        }
+        synchronized (this) {
+            if (fetchInFlight || (lastFailureTime > 0 && now - lastFailureTime < RETRY_BACKOFF_MS)) {
+                return;
+            }
+            fetchInFlight = true;
         }
         FLog.d(TAG, "Weather cache miss, fetching from API...");
 
@@ -76,20 +88,32 @@ public class WeatherService {
             @Override
             public void onFailure(Call call, java.io.IOException e) {
                 FLog.e(TAG, "Weather API fetch failed", e);
+                finishFetch(false);
             }
 
             @Override
             public void onResponse(Call call, Response response) throws java.io.IOException {
-                if (!response.isSuccessful()) {
-                    FLog.e(TAG, "Weather API error: " + response.code());
-                    return;
+                try {
+                    if (!response.isSuccessful()) {
+                        FLog.e(TAG, "Weather API error: " + response.code());
+                        finishFetch(false);
+                        return;
+                    }
+                    String body = response.body() != null ? response.body().string() : "";
+                    long fetchedBefore = lastFetchTime;
+                    parseWeatherResponse(body);
+                    finishFetch(lastFetchTime != fetchedBefore);
+                    mainHandler.post(() -> callback.onWeatherReady(currentWeather, currentWind));
+                } finally {
+                    response.close();
                 }
-
-                String body = response.body() != null ? response.body().string() : "";
-                parseWeatherResponse(body);
-                mainHandler.post(() -> callback.onWeatherReady(currentWeather, currentWind));
             }
         });
+    }
+
+    private synchronized void finishFetch(boolean success) {
+        fetchInFlight = false;
+        lastFailureTime = success ? 0 : System.currentTimeMillis();
     }
 
     private void parseWeatherResponse(String json) {
