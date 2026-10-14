@@ -62,6 +62,9 @@ public class TorchService extends Service {
                 Intent intent = new Intent(this, RecordingService.class);
                 intent.setAction(Constants.INTENT_ACTION_TOGGLE_RECORDING_TORCH);
                 startService(intent);
+                // onStartCommand put up a "Toggling torch…" foreground
+                // notification; nothing else would take it down here.
+                manageServiceNotification(isTorchOn.get());
                 return;
             }
 
