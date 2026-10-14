@@ -51,14 +51,14 @@ public class GLWatermarkRenderer {
 
     // Watermark
     private Bitmap watermarkBitmap;
-    private Bitmap flippedWatermarkBitmap;
     // Reused every update (the clock changes it once a second) instead of
     // allocating two Canvas objects and reallocating texture storage each time.
     private final Canvas watermarkCanvas = new Canvas();
-    private final Canvas flippedWatermarkCanvas = new Canvas();
+    private final Canvas forensicsOverlayCanvas = new Canvas();
+    private int uploadedForensicsTexW = 0;
+    private int uploadedForensicsTexH = 0;
     private int uploadedWatermarkTexW;
     private int uploadedWatermarkTexH;
-    private final android.graphics.Matrix flipMatrix = new android.graphics.Matrix();
     private android.graphics.Typeface cachedUbuntuTypeface = null;
     private final java.util.HashMap<String, android.graphics.Bitmap> iconBitmapCache
         = new java.util.HashMap<>();
@@ -1163,6 +1163,8 @@ public class GLWatermarkRenderer {
         uploadedWatermarkTexW = 0;
         uploadedWatermarkTexH = 0;
         forensicsOverlayTextureId = createTexture();
+        uploadedForensicsTexW = 0;
+        uploadedForensicsTexH = 0;
         float[] overlayFullRect = new float[] {
                 -1.0f, 1.0f,
                 1.0f, 1.0f,
@@ -1342,6 +1344,10 @@ public class GLWatermarkRenderer {
         Canvas canvas = watermarkCanvas;
         canvas.setBitmap(watermarkBitmap);
         canvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR);
+        // GL textures are bottom-up: draw the text already flipped, instead of
+        // drawing it upright and copying the whole bitmap flipped every update.
+        canvas.save();
+        canvas.scale(1f, -1f, 0f, dynamicBitmapHeight / 2f);
 
         // Start text at topPadding + adjusted position for baseline alignment
         float textY = topPadding + padding - fm.ascent;
@@ -1359,33 +1365,14 @@ public class GLWatermarkRenderer {
             }
             textY += lineHeights[i];
         }
-        // Flip the bitmap vertically before uploading to OpenGL.
-        // Reuse cached flippedWatermarkBitmap if dimensions match to avoid repeated allocations.
-        if (flippedWatermarkBitmap == null
-                || flippedWatermarkBitmap.getWidth() != watermarkBitmap.getWidth()
-                || flippedWatermarkBitmap.getHeight() != watermarkBitmap.getHeight()) {
-            if (flippedWatermarkBitmap != null) flippedWatermarkBitmap.recycle();
-            flipMatrix.reset();
-            flipMatrix.preScale(1.0f, -1.0f);
-            flippedWatermarkBitmap = Bitmap.createBitmap(watermarkBitmap, 0, 0,
-                    watermarkBitmap.getWidth(), watermarkBitmap.getHeight(), flipMatrix, true);
-        } else {
-            // Clear first — without this, old text shows through transparent regions (ghost/stale artifact)
-            Canvas fc = flippedWatermarkCanvas;
-            fc.setBitmap(flippedWatermarkBitmap);
-            fc.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR);
-            fc.save();
-            fc.scale(1f, -1f, 0f, flippedWatermarkBitmap.getHeight() / 2f);
-            fc.drawBitmap(watermarkBitmap, 0f, 0f, null);
-            fc.restore();
-        }
+        canvas.restore();
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, watermarkTextureId);
-        int texW = flippedWatermarkBitmap.getWidth();
-        int texH = flippedWatermarkBitmap.getHeight();
+        int texW = watermarkBitmap.getWidth();
+        int texH = watermarkBitmap.getHeight();
         if (texW == uploadedWatermarkTexW && texH == uploadedWatermarkTexH) {
-            GLUtils.texSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, flippedWatermarkBitmap);
+            GLUtils.texSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, watermarkBitmap);
         } else {
-            GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, flippedWatermarkBitmap, 0);
+            GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, watermarkBitmap, 0);
             uploadedWatermarkTexW = texW;
             uploadedWatermarkTexH = texH;
         }
@@ -1674,18 +1661,25 @@ public class GLWatermarkRenderer {
             }
             forensicsOverlayBitmap = Bitmap.createBitmap(overlayWidth, overlayHeight, Bitmap.Config.ARGB_8888);
         }
-        Canvas canvas = new Canvas(forensicsOverlayBitmap);
+        Canvas canvas = forensicsOverlayCanvas;
+        canvas.setBitmap(forensicsOverlayBitmap);
         canvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR);
         if (payload != null && !payload.isEmpty()) {
+            // Draw already flipped for GL (bottom-up) instead of allocating a
+            // flipped full-frame copy on every overlay change.
+            canvas.save();
+            canvas.scale(1f, -1f, 0f, overlayHeight / 2f);
             drawForensicsOverlay(canvas, payload);
+            canvas.restore();
         }
-        android.graphics.Matrix flipMatrix = new android.graphics.Matrix();
-        flipMatrix.preScale(1.0f, -1.0f);
-        Bitmap flippedBitmap = Bitmap.createBitmap(forensicsOverlayBitmap, 0, 0, forensicsOverlayBitmap.getWidth(),
-                forensicsOverlayBitmap.getHeight(), flipMatrix, true);
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, forensicsOverlayTextureId);
-        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, flippedBitmap, 0);
-        flippedBitmap.recycle();
+        if (overlayWidth == uploadedForensicsTexW && overlayHeight == uploadedForensicsTexH) {
+            GLUtils.texSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, forensicsOverlayBitmap);
+        } else {
+            GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, forensicsOverlayBitmap, 0);
+            uploadedForensicsTexW = overlayWidth;
+            uploadedForensicsTexH = overlayHeight;
+        }
     }
 
     private float clamp01(float value) {
@@ -2112,16 +2106,14 @@ public class GLWatermarkRenderer {
             if (forensicsOverlayBitmap != null) {
                 forensicsOverlayBitmap.recycle();
             }
-            if (flippedWatermarkBitmap != null) {
-                flippedWatermarkBitmap.recycle();
-                flippedWatermarkBitmap = null;
-            }
             for (android.graphics.Bitmap bmp : iconBitmapCache.values()) {
                 if (bmp != null) bmp.recycle();
             }
             iconBitmapCache.clear();
             watermarkCanvas.setBitmap(null);
-            flippedWatermarkCanvas.setBitmap(null);
+            forensicsOverlayCanvas.setBitmap(null);
+            uploadedForensicsTexW = 0;
+            uploadedForensicsTexH = 0;
             if (watermarkBitmap != null) watermarkBitmap.recycle();
             watermarkBitmap = null;
             forensicsOverlayBitmap = null;
