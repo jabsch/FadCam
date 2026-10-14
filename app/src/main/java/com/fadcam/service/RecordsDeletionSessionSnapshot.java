@@ -6,7 +6,9 @@ import androidx.annotation.Nullable;
 import com.google.gson.Gson;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public class RecordsDeletionSessionSnapshot {
@@ -40,6 +42,10 @@ public class RecordsDeletionSessionSnapshot {
     public long processedBytes;
     @Nullable public String currentItemName;
     public int currentItemIndex;
+    /** Item the worker took off the queue and has not finished; requeued if the process died. */
+    @Nullable public RecordsDeletionRequestItem inFlightItem;
+    /** Bytes already copied for the in-flight item. */
+    public long currentItemBytesDone;
     public long startedAtMs;
     public long lastUpdatedAtMs;
     public long finishedAtMs;
@@ -67,10 +73,15 @@ public class RecordsDeletionSessionSnapshot {
             itemPercent = Math.max(0, Math.min(100, ((completedItemCount + failedItemCount) * 100) / totalItemCount));
         }
         if (totalBytes > 0L) {
-            int bytePercent = (int) Math.max(0L, Math.min(100L, (processedBytes * 100L) / totalBytes));
+            int bytePercent = (int) Math.max(0L, Math.min(100L, (getBytesDone() * 100L) / totalBytes));
             return Math.max(bytePercent, itemPercent);
         }
         return itemPercent;
+    }
+
+    /** Bytes of finished items plus progress on the in-flight one. */
+    public long getBytesDone() {
+        return Math.max(0L, processedBytes) + Math.max(0L, currentItemBytesDone);
     }
 
     @NonNull
@@ -96,12 +107,27 @@ public class RecordsDeletionSessionSnapshot {
     }
 
     public void appendItems(@NonNull List<RecordsDeletionRequestItem> items) {
-        if (items.isEmpty()) {
+        // Skip items already queued, in flight or done, so a repeated request can't
+        // count the same file twice.
+        Set<String> known = new HashSet<>(completedUriStrings);
+        for (RecordsDeletionRequestItem item : pendingItems) {
+            known.add(item.uriString);
+        }
+        if (inFlightItem != null) {
+            known.add(inFlightItem.uriString);
+        }
+        List<RecordsDeletionRequestItem> added = new ArrayList<>(items.size());
+        for (RecordsDeletionRequestItem item : items) {
+            if (known.add(item.uriString)) {
+                added.add(item);
+            }
+        }
+        if (added.isEmpty()) {
             return;
         }
-        pendingItems.addAll(items);
-        totalItemCount += items.size();
-        totalBytes += sumBytes(items);
+        pendingItems.addAll(added);
+        totalItemCount += added.size();
+        totalBytes += sumBytes(added);
         lastUpdatedAtMs = System.currentTimeMillis();
         if (!isFinished()) {
             state = State.QUEUED;

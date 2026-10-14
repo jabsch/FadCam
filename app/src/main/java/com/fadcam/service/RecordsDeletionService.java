@@ -40,6 +40,7 @@ public class RecordsDeletionService extends Service {
     public static final String ACTION_START_SAVE_SESSION = "com.fadcam.action.START_SAVE_SESSION";
     public static final String ACTION_ACKNOWLEDGE_DELETE_COMPLETION = "com.fadcam.action.ACKNOWLEDGE_DELETE_COMPLETION";
     public static final String ACTION_CANCEL_DELETE_SESSION = "com.fadcam.action.CANCEL_DELETE_SESSION";
+    public static final String ACTION_RESUME_SESSION = "com.fadcam.action.RESUME_DELETE_SESSION";
     public static final String EXTRA_DELETE_ITEMS_JSON = "delete_items_json";
     public static final String EXTRA_SESSION_ID = "delete_session_id";
     public static final String EXTRA_OPERATION_KIND = "operation_kind";
@@ -48,7 +49,14 @@ public class RecordsDeletionService extends Service {
     private final AtomicBoolean processing = new AtomicBoolean(false);
     private final AtomicBoolean cancelRequested = new AtomicBoolean(false);
     private final AtomicBoolean executorShuttingDown = new AtomicBoolean(false);
+    /** Guards every read-modify-write of the stored session (main thread and worker). */
+    private final Object sessionLock = new Object();
+    private static final long PROGRESS_PUBLISH_INTERVAL_MS = 500L;
+    private static final int COPY_BUFFER_BYTES = 1024 * 1024;
+    /** Last start id handled; only written under {@link #sessionLock}. */
     private int currentStartId = -1;
+    private volatile boolean inForeground;
+    private long lastProgressPublishMs;
     private ExecutorService executor;
     private RecordsDeletionSessionStore sessionStore;
     private RecordsDeletionNotificationManager notificationManager;
@@ -68,20 +76,31 @@ public class RecordsDeletionService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null) {
-            maybeResumeProcessing(startId);
-            return START_REDELIVER_INTENT;
+        String action = intent == null ? null : intent.getAction();
+        if (intent == null || ACTION_RESUME_SESSION.equals(action)) {
+            synchronized (sessionLock) {
+                currentStartId = startId;
+            }
+            maybeResumeProcessing();
+            return START_STICKY;
         }
 
-        String action = intent.getAction();
         if (ACTION_ACKNOWLEDGE_DELETE_COMPLETION.equals(action)) {
-            acknowledgeCompletion(intent.getStringExtra(EXTRA_SESSION_ID));
-            stopSelfResult(startId);
+            synchronized (sessionLock) {
+                currentStartId = startId;
+                acknowledgeCompletion(intent.getStringExtra(EXTRA_SESSION_ID));
+            }
+            if (!processing.get()) {
+                stopSelfResult(startId);
+            }
             return START_NOT_STICKY;
         }
         if (ACTION_CANCEL_DELETE_SESSION.equals(action)) {
-            requestCancellation(intent.getStringExtra(EXTRA_SESSION_ID));
-            maybeResumeProcessing(startId);
+            synchronized (sessionLock) {
+                currentStartId = startId;
+                requestCancellation(intent.getStringExtra(EXTRA_SESSION_ID));
+            }
+            maybeResumeProcessing();
             return START_NOT_STICKY;
         }
 
@@ -93,14 +112,26 @@ public class RecordsDeletionService extends Service {
         );
         String customTreeUri = intent.getStringExtra(EXTRA_CUSTOM_TREE_URI);
 
-        if (ACTION_APPEND_TO_DELETE_SESSION.equals(action)) {
-            appendItems(items, operationKind, customTreeUri);
-        } else {
-            startOrReplaceSession(items, operationKind, customTreeUri);
+        RecordsDeletionSessionSnapshot snapshot;
+        synchronized (sessionLock) {
+            currentStartId = startId;
+            if (ACTION_APPEND_TO_DELETE_SESSION.equals(action)) {
+                appendItems(items, operationKind, customTreeUri);
+            } else {
+                startOrReplaceSession(items, operationKind, customTreeUri);
+            }
+            snapshot = sessionStore.read();
+        }
+        // Go foreground right away: the start may have come through
+        // startForegroundService, which must be answered within seconds.
+        if (snapshot != null && snapshot.isActive()) {
+            ensureForeground(snapshot);
         }
 
-        maybeResumeProcessing(startId);
-        return START_REDELIVER_INTENT;
+        maybeResumeProcessing();
+        // The session lives in the store, so a restart only needs to resume it.
+        // Redelivering the intent would queue the same files a second time.
+        return START_STICKY;
     }
 
     @Nullable
@@ -177,7 +208,43 @@ public class RecordsDeletionService extends Service {
         if (customTreeUri != null) {
             intent.putExtra(EXTRA_CUSTOM_TREE_URI, customTreeUri);
         }
-        ContextCompat.startForegroundService(context, intent);
+        startServiceCompat(context, intent);
+    }
+
+    /**
+     * Restarts processing of a stored session that is still active, for example after
+     * the process died mid-delete. Does nothing when a worker is already running.
+     */
+    public static void resumeIfNeeded(@NonNull android.content.Context context) {
+        RecordsDeletionSessionSnapshot snapshot = new RecordsDeletionSessionStore(context).read();
+        if (snapshot == null || !snapshot.isActive()) {
+            return;
+        }
+        Intent intent = new Intent(context, RecordsDeletionService.class);
+        intent.setAction(ACTION_RESUME_SESSION);
+        try {
+            context.startService(intent);
+        } catch (IllegalStateException e) {
+            FLog.w(TAG, "resumeIfNeeded: app in background, will resume on next open", e);
+        }
+    }
+
+    /**
+     * Requests come from the Records screen, so a plain start is allowed and the
+     * service goes foreground itself. startForegroundService is only the fallback when
+     * the app is already in the background, because it crashes the app whenever
+     * startForeground can't follow (for example once Android's daily dataSync
+     * foreground budget is used up).
+     */
+    private static void startServiceCompat(
+            @NonNull android.content.Context context,
+            @NonNull Intent intent
+    ) {
+        try {
+            context.startService(intent);
+        } catch (IllegalStateException e) {
+            ContextCompat.startForegroundService(context, intent);
+        }
     }
 
     public static void acknowledgeCompletion(
@@ -252,137 +319,166 @@ public class RecordsDeletionService extends Service {
         publishSnapshot(snapshot, false, false, false);
     }
 
-    private void maybeResumeProcessing(int startId) {
+    private void maybeResumeProcessing() {
         if (processing.getAndSet(true)) {
             return;
         }
-        currentStartId = startId;
-        executor.submit(() -> {
-            try {
-                RecordsDeletionSessionSnapshot snapshot = sessionStore.read();
-                if (snapshot == null || snapshot.completionAcknowledged || snapshot.pendingItems.isEmpty() && !snapshot.isActive()) {
-                    processing.set(false);
-                    stopSelfResult(currentStartId);
-                    return;
-                }
-                if (snapshot.isFinished()) {
-                    startForeground(FOREGROUND_ID, notificationManager.buildForegroundNotification(snapshot));
-                    notificationManager.showCompletion(snapshot);
-                    notificationManager.cancelProgress();
-                    processing.set(false);
-                    stopSelfResult(currentStartId);
-                    return;
-                }
-
-                snapshot.state = RecordsDeletionSessionSnapshot.State.RUNNING;
-                snapshot.lastUpdatedAtMs = System.currentTimeMillis();
-                startForeground(FOREGROUND_ID, notificationManager.buildForegroundNotification(snapshot));
-                sessionStore.write(snapshot);
-                publishSnapshot(snapshot, false, false, false);
-
-                // Process items sequentially - don't return yet, let processItemsConcurrently handle finalization
-                processItemsConcurrently(snapshot);
-            } catch (Exception e) {
-                FLog.e(TAG, "Error in maybeResumeProcessing", e);
-                processing.set(false);
-                com.fadcam.Utils.stopForegroundCompat(RecordsDeletionService.this, true);
-                notificationManager.cancelProgress();
-                stopSelfResult(currentStartId);
-            }
-        });
+        try {
+            executor.execute(this::runSession);
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            FLog.w(TAG, "Executor rejected session worker, service is shutting down", e);
+            processing.set(false);
+        }
     }
 
-    private void processItemsConcurrently(@NonNull RecordsDeletionSessionSnapshot snapshot) {
-        if (snapshot.pendingItems.isEmpty()) {
-            finalizeSession(snapshot);
-            return;
-        }
-
-        // If executor is shutting down, finalize immediately
-        if (executorShuttingDown.get()) {
-            finalizeSession(snapshot);
-            return;
-        }
-
-        // Process items sequentially to avoid SAF conflicts, but asynchronously for progress updates
-        RecordsDeletionRequestItem item = snapshot.pendingItems.remove(0);
-        
-        // CRITICAL: Save the updated snapshot with item removed IMMEDIATELY to prevent infinite retries
-        // If we don't save this removal, sessionStore.read() will still have the item and retry infinitely
-        snapshot.lastUpdatedAtMs = System.currentTimeMillis();
-        sessionStore.write(snapshot);
-
-        try {
-            executor.submit(() -> {
-                try {
-                    ProcessResult result = processItemAsync(snapshot, item);
-
-                    // Update progress after processing
-                    synchronized (this) {
-                        RecordsDeletionSessionSnapshot latest = sessionStore.read();
-                        if (latest != null) {
-                            if (result.success) {
-                                latest.completedItemCount++;
-                                latest.processedBytes += result.item.sizeBytes;
-                                latest.completedUriStrings.add(result.item.uriString);
-                                latest.lastUpdatedAtMs = System.currentTimeMillis();
-                                sessionStore.write(latest);
-
-                                // Remove from index if deletion was successful
-                                if (snapshot.operationKind == RecordsDeletionSessionSnapshot.OperationKind.DELETE) {
-                                    try {
-                                        VideoIndexRepository.getInstance(this).removeFromIndex(result.item.uriString);
-                                    } catch (Exception e) {
-                                        FLog.w(TAG, "Failed to remove deleted item from index: " + result.item.uriString, e);
-                                    }
-                                }
-
-                                VideoStatsCache.invalidateStats(com.fadcam.SharedPreferencesManager.getInstance(this));
-                                publishSnapshot(latest, true, false, false);
-                            } else {
-                                latest.failedItemCount++;
-                                latest.failedUriStrings.add(result.item.uriString);
-                                latest.errorSummaries.add(result.errorMessage != null ? result.errorMessage : "Unknown error");
-                                latest.lastUpdatedAtMs = System.currentTimeMillis();
-                                sessionStore.write(latest);
-                                publishSnapshot(latest, false, false, false);
-                            }
-
-                            // Continue processing remaining items if not cancelled and executor not shutting down
-                            if (!cancelRequested.get() && !executorShuttingDown.get() && !latest.pendingItems.isEmpty()) {
-                                processItemsConcurrently(latest);
-                            } else {
-                                finalizeSession(latest);
-                            }
-                        }
+    /**
+     * Single worker loop: takes one item at a time from the stored session, runs it and
+     * records the result. Every store change happens under {@link #sessionLock}, so
+     * requests that arrive meanwhile are never overwritten by a stale copy.
+     */
+    private void runSession() {
+        boolean firstPass = true;
+        while (true) {
+            RecordsDeletionSessionSnapshot snapshot;
+            RecordsDeletionRequestItem item;
+            synchronized (sessionLock) {
+                snapshot = sessionStore.read();
+                if (snapshot == null || snapshot.completionAcknowledged || !snapshot.isActive()) {
+                    if (snapshot != null && snapshot.isFinished() && !snapshot.completionAcknowledged) {
+                        notificationManager.cancelProgress();
+                        notificationManager.showCompletion(snapshot);
                     }
-                } catch (Exception e) {
-                    FLog.e(TAG, "Error processing item " + item.displayName, e);
-                    synchronized (this) {
-                        RecordsDeletionSessionSnapshot latest = sessionStore.read();
-                        if (latest != null) {
-                            latest.failedItemCount++;
-                            latest.failedUriStrings.add(item.uriString);
-                            latest.errorSummaries.add(e.getMessage() != null ? e.getMessage() : "Processing error");
-                            latest.lastUpdatedAtMs = System.currentTimeMillis();
-                            sessionStore.write(latest);
-                            publishSnapshot(latest, false, false, false);
+                    stopProcessingLocked();
+                    return;
+                }
+                if (executorShuttingDown.get()) {
+                    // Leave the session active; it resumes on the next start.
+                    processing.set(false);
+                    return;
+                }
+                if (firstPass && snapshot.inFlightItem != null) {
+                    // A previous worker died mid-item: no other worker runs in this
+                    // process, so put that item back at the front of the queue.
+                    if (!cancelRequested.get()) {
+                        snapshot.pendingItems.add(0, snapshot.inFlightItem);
+                    }
+                    snapshot.inFlightItem = null;
+                    snapshot.currentItemBytesDone = 0L;
+                }
+                firstPass = false;
+                if (cancelRequested.get()) {
+                    finalizeCancelledSession(snapshot);
+                    return;
+                }
+                if (snapshot.pendingItems.isEmpty()) {
+                    finalizeSession(snapshot);
+                    return;
+                }
+                item = snapshot.pendingItems.remove(0);
+                snapshot.inFlightItem = item;
+                snapshot.currentItemBytesDone = 0L;
+                snapshot.currentItemName = item.displayName;
+                snapshot.currentItemIndex = snapshot.completedItemCount + snapshot.failedItemCount + 1;
+                snapshot.state = RecordsDeletionSessionSnapshot.State.RUNNING;
+                snapshot.lastUpdatedAtMs = System.currentTimeMillis();
+                sessionStore.write(snapshot);
+            }
+            ensureForeground(snapshot);
+            publishSnapshot(snapshot, false, false, false);
 
-                            // Continue processing remaining items if not cancelled and executor not shutting down
-                            if (!cancelRequested.get() && !executorShuttingDown.get() && !latest.pendingItems.isEmpty()) {
-                                processItemsConcurrently(latest);
-                            } else {
-                                finalizeSession(latest);
-                            }
-                        }
+            ProcessResult result;
+            try {
+                result = processItemAsync(snapshot, item);
+            } catch (Throwable t) {
+                FLog.e(TAG, "Error processing item " + item.displayName, t);
+                result = new ProcessResult(item, false,
+                        t.getMessage() != null ? t.getMessage() : "Processing error");
+            }
+
+            RecordsDeletionSessionSnapshot latest;
+            synchronized (sessionLock) {
+                latest = sessionStore.read();
+                if (latest == null) {
+                    stopProcessingLocked();
+                    return;
+                }
+                latest.inFlightItem = null;
+                latest.currentItemBytesDone = 0L;
+                latest.currentItemName = null;
+                latest.lastUpdatedAtMs = System.currentTimeMillis();
+                if (result.success) {
+                    latest.completedItemCount++;
+                    latest.processedBytes += result.item.sizeBytes;
+                    latest.completedUriStrings.add(result.item.uriString);
+                } else if (!cancelRequested.get()) {
+                    latest.failedItemCount++;
+                    latest.failedUriStrings.add(result.item.uriString);
+                    latest.errorSummaries.add(result.errorMessage != null ? result.errorMessage : "Unknown error");
+                }
+                sessionStore.write(latest);
+            }
+
+            if (result.success) {
+                if (latest.operationKind == RecordsDeletionSessionSnapshot.OperationKind.DELETE) {
+                    try {
+                        VideoIndexRepository.getInstance(this).removeFromIndex(result.item.uriString);
+                    } catch (Exception e) {
+                        FLog.w(TAG, "Failed to remove deleted item from index: " + result.item.uriString, e);
                     }
                 }
-            });
-        } catch (java.util.concurrent.RejectedExecutionException e) {
-            // Executor is shutting down, finalize gracefully
-            FLog.w(TAG, "Executor rejected task, shutting down gracefully", e);
-            finalizeSession(snapshot);
+                VideoStatsCache.invalidateStats(com.fadcam.SharedPreferencesManager.getInstance(this));
+            }
+            publishSnapshot(latest, result.success, false, false);
         }
+    }
+
+    /** Publishes copy progress for the in-flight item, at most twice a second. */
+    private void reportItemBytes(@NonNull RecordsDeletionRequestItem item, long bytesDone) {
+        long now = android.os.SystemClock.uptimeMillis();
+        if (now - lastProgressPublishMs < PROGRESS_PUBLISH_INTERVAL_MS) {
+            return;
+        }
+        lastProgressPublishMs = now;
+        RecordsDeletionSessionSnapshot latest;
+        synchronized (sessionLock) {
+            latest = sessionStore.read();
+            if (latest == null || !latest.isActive() || latest.inFlightItem == null
+                    || !item.uriString.equals(latest.inFlightItem.uriString)) {
+                return;
+            }
+            latest.currentItemBytesDone = item.sizeBytes > 0L
+                    ? Math.min(bytesDone, item.sizeBytes)
+                    : bytesDone;
+            latest.lastUpdatedAtMs = System.currentTimeMillis();
+            sessionStore.write(latest);
+        }
+        publishSnapshot(latest, false, false, false);
+    }
+
+    /**
+     * Shows the progress notification as a foreground service when Android allows it.
+     * If it refuses (the daily dataSync budget on Android 15+, or the app is in the
+     * background), the work still runs as a plain started service instead of the
+     * session sitting queued forever.
+     */
+    private void ensureForeground(@NonNull RecordsDeletionSessionSnapshot snapshot) {
+        if (inForeground) {
+            return;
+        }
+        try {
+            startForeground(FOREGROUND_ID, notificationManager.buildForegroundNotification(snapshot));
+            inForeground = true;
+        } catch (Exception e) {
+            FLog.w(TAG, "startForeground refused, continuing without foreground", e);
+        }
+    }
+
+    /** Call with {@link #sessionLock} held. */
+    private void stopProcessingLocked() {
+        processing.set(false);
+        inForeground = false;
+        com.fadcam.Utils.stopForegroundCompat(RecordsDeletionService.this, true);
+        stopSelfResult(currentStartId);
     }
 
     private static class ProcessResult {
@@ -440,10 +536,10 @@ public class RecordsDeletionService extends Service {
                 item.displayName,
                 item.safSource,
                 progress -> {
-                    // Progress updates are handled by the main thread
                     if (cancelRequested.get()) {
                         throw new CancellationSignalException();
                     }
+                    reportItemBytes(item, progress.bytesCopied);
                 }
         );
     }
@@ -470,7 +566,7 @@ public class RecordsDeletionService extends Service {
                     return false;
                 }
 
-                byte[] buffer = new byte[16 * 1024];
+                byte[] buffer = new byte[COPY_BUFFER_BYTES];
                 int read;
                 long totalCopied = 0L;
                 long lastGcBytes = 0L;
@@ -483,6 +579,7 @@ public class RecordsDeletionService extends Service {
                     }
                     out.write(buffer, 0, read);
                     totalCopied += read;
+                    reportItemBytes(item, totalCopied);
                     if (totalCopied - lastGcBytes >= gcInterval) {
                         lastGcBytes = totalCopied;
                         // Hint GC to free transient memory during long I/O,
@@ -581,14 +678,17 @@ public class RecordsDeletionService extends Service {
                     return false;
                 }
 
-                byte[] buffer = new byte[16 * 1024];
+                byte[] buffer = new byte[COPY_BUFFER_BYTES];
                 int read;
+                long totalCopied = 0L;
 
                 while ((read = in.read(buffer)) != -1) {
                     if (cancelRequested.get()) {
                         throw new CancellationSignalException();
                     }
                     out.write(buffer, 0, read);
+                    totalCopied += read;
+                    reportItemBytes(item, totalCopied);
                 }
                 out.flush();
             }
@@ -659,15 +759,13 @@ public class RecordsDeletionService extends Service {
         } else {
             snapshot.state = RecordsDeletionSessionSnapshot.State.COMPLETED_SUCCESS;
         }
+        snapshot.inFlightItem = null;
+        snapshot.currentItemBytesDone = 0L;
         sessionStore.write(snapshot);
         publishSnapshot(snapshot, false, true, true);
         notificationManager.cancelProgress();
         notificationManager.showCompletion(snapshot);
-        
-        // Stop service now that session is finalized
-        processing.set(false);
-        com.fadcam.Utils.stopForegroundCompat(RecordsDeletionService.this, true);
-        stopSelfResult(currentStartId);
+        stopProcessingLocked();
     }
 
     private void finalizeCancelledSession(@Nullable RecordsDeletionSessionSnapshot snapshot) {
@@ -679,15 +777,14 @@ public class RecordsDeletionService extends Service {
         snapshot.finishedAtMs = System.currentTimeMillis();
         snapshot.lastUpdatedAtMs = snapshot.finishedAtMs;
         snapshot.state = RecordsDeletionSessionSnapshot.State.CANCELLED;
+        snapshot.inFlightItem = null;
+        snapshot.currentItemBytesDone = 0L;
+        snapshot.pendingItems.clear();
         sessionStore.write(snapshot);
         publishSnapshot(snapshot, false, true, true);
         notificationManager.cancelProgress();
         notificationManager.showCompletion(snapshot);
-        
-        // Stop service now that session is finalized
-        processing.set(false);
-        com.fadcam.Utils.stopForegroundCompat(RecordsDeletionService.this, true);
-        stopSelfResult(currentStartId);
+        stopProcessingLocked();
     }
 
     private void acknowledgeCompletion(@Nullable String sessionId) {

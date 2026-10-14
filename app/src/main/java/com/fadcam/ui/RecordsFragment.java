@@ -590,6 +590,12 @@ public class RecordsFragment extends BaseFragment implements
         }
         RecordsDeletionSessionSnapshot snapshot = deletionSessionStore.read();
         deletionSnapshot = snapshot;
+        if (snapshot != null && snapshot.isActive() && getContext() != null) {
+            // A session left active (process killed, or an older build that never got
+            // to run it) would otherwise sit on "Preparing" forever. The service
+            // ignores this when it is already working.
+            RecordsDeletionService.resumeIfNeeded(getContext());
+        }
         if (snapshot != null && !snapshot.completedUriStrings.isEmpty()) {
             applyDeletedItemsToUi(parseUriList(snapshot.completedUriStrings));
         }
@@ -838,18 +844,19 @@ public class RecordsFragment extends BaseFragment implements
 
     @Nullable
     private String buildDeletionEta(@NonNull RecordsDeletionSessionSnapshot snapshot) {
-        if (snapshot.totalBytes <= 0L || snapshot.processedBytes <= 0L || snapshot.startedAtMs <= 0L) {
+        long bytesDone = snapshot.getBytesDone();
+        if (snapshot.totalBytes <= 0L || bytesDone <= 0L || snapshot.startedAtMs <= 0L) {
             return null;
         }
         long elapsedMs = System.currentTimeMillis() - snapshot.startedAtMs;
         if (elapsedMs < 1500L) {
             return null;
         }
-        long remainingBytes = snapshot.totalBytes - snapshot.processedBytes;
+        long remainingBytes = snapshot.totalBytes - bytesDone;
         if (remainingBytes <= 0L) {
             return getString(R.string.records_delete_header_finishing);
         }
-        double bytesPerMs = snapshot.processedBytes / (double) Math.max(1L, elapsedMs);
+        double bytesPerMs = bytesDone / (double) Math.max(1L, elapsedMs);
         if (bytesPerMs <= 0d) {
             return null;
         }
