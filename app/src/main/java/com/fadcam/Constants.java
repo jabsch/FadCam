@@ -240,8 +240,9 @@ public abstract class Constants {
         "com.fadcam.ACTION_SET_FRONT_VIDEO_MIRROR";
     public static final String INTENT_ACTION_SET_VIDEO_STABILIZATION =
         "com.fadcam.ACTION_SET_VIDEO_STABILIZATION";
-    public static final String INTENT_ACTION_SET_PREVIEW_FPS =
-        "com.fadcam.ACTION_SET_PREVIEW_FPS";
+    /** Preview frame-rate or letterbox setting changed; the service re-reads both. */
+    public static final String INTENT_ACTION_PREVIEW_SETTINGS_CHANGED =
+        "com.fadcam.ACTION_PREVIEW_SETTINGS_CHANGED";
     public static final String INTENT_ACTION_SET_AUDIO_MUTED =
         "com.fadcam.ACTION_SET_AUDIO_MUTED";
     public static final String INTENT_ACTION_START_PREVIEW_ONLY =

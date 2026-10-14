@@ -1894,8 +1894,13 @@ public class RecordingService extends Service {
             // Settings saved a new stabilization mode: apply it to the live session.
             reapplyVideoStabilizationToSession();
             return START_STICKY;
-        } else if (Constants.INTENT_ACTION_SET_PREVIEW_FPS.equals(action)) {
+        } else if (Constants.INTENT_ACTION_PREVIEW_SETTINGS_CHANGED.equals(action)) {
             applyPreviewFrameRateCap();
+            GLRecordingPipeline pipeline = glRecordingPipeline;
+            if (pipeline != null) {
+                pipeline.setPreviewLetterboxFill(
+                        com.fadcam.utils.PreviewLetterboxMode.current(sharedPreferencesManager).fillsBars());
+            }
             return START_STICKY;
         } else if (Constants.INTENT_ACTION_SET_ZOOM_RATIO.equals(action)) {
             if (intent.hasExtra(Constants.EXTRA_ZOOM_RATIO)) {
