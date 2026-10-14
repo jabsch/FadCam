@@ -28,8 +28,22 @@ public final class ServiceUtils {
      * @param serviceClass Service class to check
      * @return true if running, false otherwise
      */
-    @SuppressWarnings("deprecation") // getRunningServices only returns own-app services on API 26+, which is what we check
     public static boolean isServiceRunning(@NonNull Context context, @NonNull Class<?> serviceClass) {
+        return findService(context, serviceClass, false);
+    }
+
+    /**
+     * Like {@link #isServiceRunning} but only true while the service is in the
+     * foreground. Recording services are foreground for the whole session, so this
+     * tells a live recording apart from an idle sticky restart.
+     */
+    public static boolean isServiceRunningInForeground(@NonNull Context context, @NonNull Class<?> serviceClass) {
+        return findService(context, serviceClass, true);
+    }
+
+    @SuppressWarnings("deprecation") // getRunningServices only returns own-app services on API 26+, which is what we check
+    private static boolean findService(@NonNull Context context, @NonNull Class<?> serviceClass,
+                                       boolean requireForeground) {
         try {
             ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
             if (activityManager == null) {
@@ -44,7 +58,7 @@ public final class ServiceUtils {
             String targetName = serviceClass.getName();
             for (ActivityManager.RunningServiceInfo service : services) {
                 if (service != null && service.service != null && targetName.equals(service.service.getClassName())) {
-                    return true;
+                    return !requireForeground || service.foreground;
                 }
             }
 

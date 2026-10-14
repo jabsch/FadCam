@@ -113,7 +113,8 @@ public class RecordingTileService extends TileService {
         clickRunnable = new Runnable() {
             @Override
             public void run() {
-                boolean currentRecording = SharedPreferencesManager.getInstance(RecordingTileService.this).isRecordingInProgress();
+                // Clears flags left by a killed session so the tap starts instead of "stopping" nothing.
+                boolean currentRecording = com.fadcam.RecordingShortcutDispatcher.hasActiveSession(RecordingTileService.this);
                 FLog.i(TAG, "Executing single tap action. Recording state: " + currentRecording);
                 if (currentRecording) {
                     stopRecording();
@@ -276,7 +277,7 @@ public class RecordingTileService extends TileService {
     }
 
     private void refreshTile() {
-        boolean recording = SharedPreferencesManager.getInstance(this).isRecordingInProgress();
+        boolean recording = com.fadcam.RecordingShortcutDispatcher.hasActiveSession(this);
         FLog.d(TAG, "refreshTile - Active recording: " + recording);
         setTileState(recording);
     }

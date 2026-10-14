@@ -20,7 +20,7 @@ public final class RecordingShortcutDispatcher {
     /**
      * True when a recording (or paused recording) is live. The persisted flags
      * survive a process kill, so they only count while a recording service is
-     * actually running; otherwise they are stale and get cleared here, which
+     * actually running in the foreground; otherwise they are stale and get cleared here, which
      * stops a dead session from making every toggle press route to "stop".
      */
     public static boolean hasActiveSession(Context context) {
@@ -31,10 +31,12 @@ public final class RecordingShortcutDispatcher {
         if (!flaggedRecording && !hasTimeline) {
             return false;
         }
-        boolean serviceRunning = ServiceUtils.isServiceRunning(context, RecordingService.class)
-                || ServiceUtils.isServiceRunning(context, DualCameraRecordingService.class);
-        if (!serviceRunning) {
-            FLog.w(TAG, "Clearing stale recording flags: no recording service is running");
+        // A sticky restart after a process kill brings the service back idle and in
+        // the background, so only a foreground service counts as a live session.
+        boolean serviceRecording = ServiceUtils.isServiceRunningInForeground(context, RecordingService.class)
+                || ServiceUtils.isServiceRunningInForeground(context, DualCameraRecordingService.class);
+        if (!serviceRecording) {
+            FLog.w(TAG, "Clearing stale recording flags: no recording service is in the foreground");
             prefs.setRecordingInProgress(false);
             prefs.sharedPreferences.edit()
                     .remove(Constants.PREF_RECORDING_START_TIME)
