@@ -1115,7 +1115,8 @@ public class HomeFragment extends BaseFragment {
                                     final View anchor = ivPreviewAvatar;
                                     if (anchor != null) {
                                         anchor.postDelayed(() -> {
-                                            if (isAdded()) applyHomeAvatarState(false, true);
+                                            // Skipped if the preview reopened or the screen went away meanwhile.
+                                            if (isAdded() && isPreviewAvatarShowing()) applyHomeAvatarState(false, true);
                                         }, 650);
                                     } else {
                                         applyHomeAvatarState(false, true);
@@ -10594,7 +10595,7 @@ public class HomeFragment extends BaseFragment {
      * so there is no "awake" state needed here.
      */
     private void startBubbleRotation() {
-        if (ivPreviewAvatar == null) return;
+        if (ivPreviewAvatar == null || isHidden() || !isResumed()) return;
         View flAvatar = getView() != null ? getView().findViewById(R.id.fl_preview_avatar) : null;
         if (flAvatar != null && flAvatar.getVisibility() != View.VISIBLE) {
             // Hidden under the live preview: its endless animations would
@@ -10602,6 +10603,11 @@ public class HomeFragment extends BaseFragment {
             return;
         }
         applyHomeAvatarState(false, false); // always sleeping in home fragment
+    }
+
+    private boolean isPreviewAvatarShowing() {
+        View flAvatar = getView() != null ? getView().findViewById(R.id.fl_preview_avatar) : null;
+        return flAvatar != null && flAvatar.getVisibility() == View.VISIBLE && !isHidden() && isResumed();
     }
 
     /**
@@ -10623,7 +10629,7 @@ public class HomeFragment extends BaseFragment {
      * Suspends avatar animations (call on onPause / tab hidden).
      * Keeps the visual state — animations resume on next startBubbleRotation().
      */
-    private void stopBubbleRotation() {
+    protected void stopBubbleRotation() {
         stopHomeBlinkLoop();
         if (ambianceTwinkleAnim != null) { ambianceTwinkleAnim.cancel(); ambianceTwinkleAnim = null; }
         if (ivWakeSun != null) { ivWakeSun.animate().cancel(); }
@@ -10822,7 +10828,9 @@ public class HomeFragment extends BaseFragment {
                     .setInterpolator(new android.view.animation.OvershootInterpolator(2.5f)).start();
                 delay += 115;
             }
-            zzzHomeBadgeGroup.postDelayed(() -> startHomeFloatingZAnims(), 700);
+            zzzHomeBadgeGroup.postDelayed(() -> {
+                if (isPreviewAvatarShowing()) startHomeFloatingZAnims();
+            }, 700);
         } else {
             zzzHomeBadgeGroup.setVisibility(View.VISIBLE);
             resetHomeZLetters();

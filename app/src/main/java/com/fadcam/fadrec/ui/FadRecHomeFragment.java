@@ -2255,6 +2255,7 @@ public class FadRecHomeFragment extends HomeFragment {
                         .withEndAction(() -> {
                             flPreviewAvatar.setVisibility(View.INVISIBLE);
                             flPreviewAvatar.setEnabled(false);
+                            stopBubbleRotation(); // hidden under the preview
                             flPreviewAvatar.setAlpha(1f);
                             flPreviewAvatar.setScaleX(1f);
                             flPreviewAvatar.setScaleY(1f);
@@ -2278,6 +2279,7 @@ public class FadRecHomeFragment extends HomeFragment {
                 textureView.setAlpha(1f);
                 flPreviewAvatar.setVisibility(View.INVISIBLE);
                 flPreviewAvatar.setEnabled(false);
+                stopBubbleRotation();
                 runHintVisibilityAnimated(false);
             }
             return;
