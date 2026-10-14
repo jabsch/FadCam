@@ -3,7 +3,7 @@ package com.fadcam.services;
 import static org.junit.Assert.assertEquals;
 
 import com.fadcam.services.RecordingThermalGuard.Action;
-import com.fadcam.services.RecordingThermalGuard.FpsAction;
+import com.fadcam.services.RecordingThermalGuard.WarmAction;
 import org.junit.Test;
 
 public class RecordingThermalGuardTest {
@@ -36,17 +36,17 @@ public class RecordingThermalGuardTest {
 
     @Test
     public void autoFpsDropsAtModerateAndRisesOnlyWhenCool() {
-        FpsAction none = FpsAction.NONE;
-        assertEquals(none, RecordingThermalGuard.decideFps(RecordingThermalGuard.STATUS_LIGHT, false));
-        assertEquals(FpsAction.LOWER, RecordingThermalGuard.decideFps(RecordingThermalGuard.STATUS_MODERATE, false));
-        assertEquals(FpsAction.LOWER, RecordingThermalGuard.decideFps(RecordingThermalGuard.STATUS_SEVERE, false));
-        assertEquals(none, RecordingThermalGuard.decideFps(RecordingThermalGuard.STATUS_MODERATE, true));
-        assertEquals(FpsAction.RAISE, RecordingThermalGuard.decideFps(RecordingThermalGuard.STATUS_LIGHT, true));
-        assertEquals(FpsAction.RAISE, RecordingThermalGuard.decideFps(0, true));
+        WarmAction none = WarmAction.NONE;
+        assertEquals(none, RecordingThermalGuard.decideWarmStep(RecordingThermalGuard.STATUS_LIGHT, false));
+        assertEquals(WarmAction.WARM, RecordingThermalGuard.decideWarmStep(RecordingThermalGuard.STATUS_MODERATE, false));
+        assertEquals(WarmAction.WARM, RecordingThermalGuard.decideWarmStep(RecordingThermalGuard.STATUS_SEVERE, false));
+        assertEquals(none, RecordingThermalGuard.decideWarmStep(RecordingThermalGuard.STATUS_MODERATE, true));
+        assertEquals(WarmAction.COOLED, RecordingThermalGuard.decideWarmStep(RecordingThermalGuard.STATUS_LIGHT, true));
+        assertEquals(WarmAction.COOLED, RecordingThermalGuard.decideWarmStep(0, true));
     }
 
     @Test
     public void autoFpsLeavesCriticalToTheStop() {
-        assertEquals(FpsAction.NONE, RecordingThermalGuard.decideFps(RecordingThermalGuard.STATUS_CRITICAL, false));
+        assertEquals(WarmAction.NONE, RecordingThermalGuard.decideWarmStep(RecordingThermalGuard.STATUS_CRITICAL, false));
     }
 }

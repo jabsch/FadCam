@@ -75,6 +75,8 @@ public final class PixelOptimizedMode {
         prefs.setSpecificVideoFrameRate(CameraType.BACK, TUNED_FPS);
         prefs.setSpecificVideoFrameRate(CameraType.FRONT, TUNED_FPS);
         RecordingPreset.markCurrent(prefs, RecordingPreset.HD_30);
+        // OIS is nearly free; EIS warps every frame and adds heat on long recordings.
+        VideoStabilizationMode.save(prefs, VideoStabilizationMode.OPTICAL);
     }
 
     /**

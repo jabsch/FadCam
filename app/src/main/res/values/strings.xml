@@ -1347,7 +1347,15 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="video_setting_location_embed_title">Embed Location Metadata</string>
     <string name="setting_video_stabilization_title">Video Stabilization</string>
     <string name="setting_not_supported">Not supported on this device</string>
-    <string name="video_stabilization_footer">Steadies your videos by countering hand shake with electronic (EIS) and optical (OIS) stabilization. A small portion of the frame is cropped to achieve this.</string>
+    <string name="video_stabilization_footer">Optical stabilization (OIS) moves the lens to cancel hand shake and costs almost no power. Electronic stabilization (EIS) crops and warps every frame for smoother handheld video, which makes the phone work harder and run warmer on long recordings. Changes apply right away, even while recording.</string>
+    <string name="stabilization_off">Off</string>
+    <string name="stabilization_off_desc">No stabilization. Full field of view; best on a tripod or mount.</string>
+    <string name="stabilization_optical">Optical only</string>
+    <string name="stabilization_optical_desc">Lens stabilization only. No crop and almost no extra heat. Recommended for long recordings.</string>
+    <string name="stabilization_full">Optical + electronic</string>
+    <string name="stabilization_full_desc">Smoothest handheld video. Crops the frame slightly and runs warmer.</string>
+    <string name="stabilization_auto">Auto</string>
+    <string name="stabilization_auto_desc">Optical + electronic until the phone gets warm, then optical only until it cools down. The view may widen slightly when it switches.</string>
     <string name="video_setting_location_embed_enabled">Enabled</string>
     <string name="video_setting_location_embed_disabled">Disabled</string>
     <string name="helper_watermark_option">Choose overlay content: timestamp + brand, timestamp only, or none.</string>
@@ -3107,7 +3115,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="thermal_guard_reduced">Phone is hot. FadCam lowered the recording bitrate to cool down.</string>
     <string name="thermal_guard_stopped">Phone is overheating. Recording stopped and saved.</string>
     <string name="setting_pixel_optimized_title">Pixel 11 optimized</string>
-    <string name="setting_pixel_optimized_footer">Tunes recording for Pixel 11 phones: H.265 at 1080p 30 fps with auto bitrate, which stays cool on long recordings. It also hides settings that do nothing on this phone. Turning it on re-applies these values; you can still change any of them afterwards. Turn it off to show every setting again.</string>
+    <string name="setting_pixel_optimized_footer">Tunes recording for Pixel 11 phones: H.265 at 1080p 30 fps with auto bitrate and optical-only stabilization, which stays cool on long recordings. It also hides settings that do nothing on this phone. Turning it on re-applies these values; you can still change any of them afterwards. Turn it off to show every setting again.</string>
     <string name="shortcut_voice_recording">Voice</string>
     <string name="shortcut_voice_recording_long">Start/stop voice recording</string>
     <string name="shortcut_purpose_voice">This shortcut starts an audio-only voice recording, or stops and saves the one in progress. Recordings are saved as .m4a files in a Voice folder next to your videos.</string>
@@ -3128,6 +3136,10 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="setting_recording_preset_helper">Sets resolution and frame rate in one tap. Max uses the highest rate your camera offers at that size, up to 60 fps. Auto fps records at 1080p max and drops to 30 fps while the phone is warm, then goes back up once it cools. Applies to the next recording.</string>
     <string name="preset_tile_label">Video preset</string>
     <string name="preset_applies_next_recording">%1$s. Applies to your next recording.</string>
+    <string name="thermal_guard_eis_off">Phone is warm. Electronic stabilization is off until it cools down.</string>
+    <string name="pixel_optimized_confirm_action">Turn on and apply</string>
+    <string name="pixel_optimized_confirm_subtitle">Changes the recording settings listed above</string>
+    <string name="pixel_optimized_confirm_changes">Turning on Pixel optimized mode changes these settings:\n• Resolution: 1080p\n• Frame rate: 30 fps (front and back)\n• Codec: H.265 (HEVC)\n• Bitrate: Auto\n• Stabilization: Optical only\n\nYou can change any of them again afterwards.</string>
     <string name="thermal_guard_fps_lowered">Phone is warm. Recording at 30 fps until it cools down.</string>
     <string name="hardware_buttons_heading">Hardware buttons</string>
     <string name="hardware_buttons_service_label">FadCam hardware buttons</string>

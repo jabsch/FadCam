@@ -405,11 +405,9 @@ public abstract class Constants {
     public static final String EXTRA_ZOOM_RATIO = "com.fadcam.EXTRA_ZOOM_RATIO"; // float
     /** Pan offset X for zoom: float -1.0 (full left) to +1.0 (full right), 0.0 = centre */
     public static final String EXTRA_PAN_X = "com.fadcam.EXTRA_PAN_X"; // float
-    public static final String EXTRA_VIDEO_STABILIZATION_ENABLED =
-        "com.fadcam.EXTRA_VIDEO_STABILIZATION_ENABLED"; // boolean
     public static final String EXTRA_AUDIO_MUTED =
         "com.fadcam.EXTRA_AUDIO_MUTED"; // boolean
-    // Video stabilization (EIS/OIS) — default ON
+    // Old on/off stabilization switch; read once to seed VideoStabilizationMode.
     public static final String PREF_VIDEO_STABILIZATION_ENABLED =
         "pref_video_stabilization_enabled";
     // Raw (unprocessed) audio capture — OFF by default (platform-processed CAMCORDER)
