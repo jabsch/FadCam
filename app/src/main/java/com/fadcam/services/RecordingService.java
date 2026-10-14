@@ -4583,16 +4583,7 @@ public class RecordingService extends Service {
                     sharedPreferencesManager.getSpecificVideoFrameRate(cameraType));
             
             // Apply streaming FPS cap only when server is actually ON
-            boolean isStreamingForFps1 = com.fadcam.streaming.RemoteStreamManager.getInstance().isStreamingEnabled();
-            android.content.SharedPreferences fadcamPrefs = getSharedPreferences("FadCamPrefs", Context.MODE_PRIVATE);
-            if (isStreamingForFps1) {
-                int streamFpsCap = fadcamPrefs.getInt("stream_fps_cap", -1);
-                if (streamFpsCap > 0 && targetFrameRate > streamFpsCap) {
-                    FLog.i(TAG, "[STREAM PRESET] Capping camera FPS: " + targetFrameRate + " → " + streamFpsCap + "fps (server ON)");
-                    targetFrameRate = streamFpsCap;
-                }
-            } else {
-            }
+            targetFrameRate = capForStreaming(targetFrameRate);
             
             boolean isHighFrameRate = targetFrameRate >= 120;
             boolean useHighSpeedSession = false;
@@ -4666,16 +4657,7 @@ public class RecordingService extends Service {
                     sharedPreferencesManager.getSpecificVideoFrameRate(cameraType));
             
             // Apply streaming FPS cap only when server is actually ON
-            boolean isStreamingForFps2 = com.fadcam.streaming.RemoteStreamManager.getInstance().isStreamingEnabled();
-            android.content.SharedPreferences fadcamPrefs = getSharedPreferences("FadCamPrefs", Context.MODE_PRIVATE);
-            if (isStreamingForFps2) {
-                int streamFpsCap = fadcamPrefs.getInt("stream_fps_cap", -1);
-                if (streamFpsCap > 0 && targetFrameRate > streamFpsCap) {
-                    FLog.i(TAG, "[STREAM PRESET] Capping camera FPS: " + targetFrameRate + " → " + streamFpsCap + "fps (server ON)");
-                    targetFrameRate = streamFpsCap;
-                }
-            } else {
-            }
+            targetFrameRate = capForStreaming(targetFrameRate);
             maybeAttachMotionAnalysisSurface(surfaces, targetFrameRate);
 
             // Log device info once for debugging
@@ -7042,8 +7024,8 @@ public class RecordingService extends Service {
 
                 @Override
                 public void onRaiseFrameRate() {
-                    applyRuntimeCameraFrameRate(sharedPreferencesManager.getSpecificVideoFrameRate(
-                            sharedPreferencesManager.getCameraSelection()));
+                    applyRuntimeCameraFrameRate(capForStreaming(sharedPreferencesManager
+                            .getSpecificVideoFrameRate(sharedPreferencesManager.getCameraSelection())));
                 }
             });
 
@@ -7073,6 +7055,20 @@ public class RecordingService extends Service {
                 FLog.w(TAG, "Could not change camera frame rate to " + fps, e);
             }
         });
+    }
+
+    /** Caps the camera rate to the stream preset while the streaming server is on. */
+    private int capForStreaming(int targetFrameRate) {
+        if (!com.fadcam.streaming.RemoteStreamManager.getInstance().isStreamingEnabled()) {
+            return targetFrameRate;
+        }
+        int streamFpsCap = getSharedPreferences("FadCamPrefs", Context.MODE_PRIVATE)
+                .getInt("stream_fps_cap", -1);
+        if (streamFpsCap > 0 && targetFrameRate > streamFpsCap) {
+            FLog.i(TAG, "[STREAM PRESET] Capping camera FPS: " + targetFrameRate + " → " + streamFpsCap + "fps (server ON)");
+            return streamFpsCap;
+        }
+        return targetFrameRate;
     }
 
     /** Session frame rate, honoring the Auto fps preset's warm-phone step. */

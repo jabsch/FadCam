@@ -662,6 +662,8 @@ public class VideoSettingsFragment extends Fragment {
                                 .putInt(Constants.PREF_VIDEO_RESOLUTION_WIDTH, w)
                                 .putInt(Constants.PREF_VIDEO_RESOLUTION_HEIGHT, h)
                                 .apply();
+                        // A hand-picked resolution or fps is no longer one of the quick presets.
+                        com.fadcam.utils.RecordingPreset.clear(prefs);
                         onResolutionOrFramerateChanged();
                     }
                 } catch (Exception ignored) {
@@ -694,6 +696,8 @@ public class VideoSettingsFragment extends Fragment {
                     int fps = Integer.parseInt(sel);
                     if (fps != current) {
                         prefs.setSpecificVideoFrameRate(cam, fps);
+                        // A hand-picked resolution or fps is no longer one of the quick presets.
+                        com.fadcam.utils.RecordingPreset.clear(prefs);
                         onResolutionOrFramerateChanged();
                     }
                 } catch (Exception ignored) {
@@ -1535,8 +1539,6 @@ public class VideoSettingsFragment extends Fragment {
     }
 
     private void onResolutionOrFramerateChanged() {
-        // A hand-picked resolution or fps is no longer one of the quick presets.
-        com.fadcam.utils.RecordingPreset.clear(prefs);
         refreshAllValues();
     }
 
