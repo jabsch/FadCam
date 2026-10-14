@@ -1038,6 +1038,7 @@ public class HomeFragment extends BaseFragment {
                                 // intercepting touches on the preview beneath it.
                                 capturedAvatar.setVisibility(View.INVISIBLE);
                                 capturedAvatar.setEnabled(false);
+                                stopBubbleRotation(); // hidden under the preview
                                 capturedAvatar.setAlpha(1f);
                                 capturedAvatar.setScaleX(1f);
                                 capturedAvatar.setScaleY(1f);
@@ -1114,7 +1115,8 @@ public class HomeFragment extends BaseFragment {
                                     final View anchor = ivPreviewAvatar;
                                     if (anchor != null) {
                                         anchor.postDelayed(() -> {
-                                            if (isAdded()) applyHomeAvatarState(false, true);
+                                            // Skipped if the preview reopened or the screen went away meanwhile.
+                                            if (isAdded() && isPreviewAvatarShowing()) applyHomeAvatarState(false, true);
                                         }, 650);
                                     } else {
                                         applyHomeAvatarState(false, true);
@@ -1146,23 +1148,11 @@ public class HomeFragment extends BaseFragment {
                     // Neither animated condition fired (e.g. state is already correct).
                     // Use INVISIBLE (not GONE) so the view keeps its layout dimensions
                     // for a future createCircularReveal on close.
-                    if (livePreviewShowing) {
-                        flAvatar.setVisibility(View.INVISIBLE);
-                        flAvatar.setEnabled(false);
-                    } else {
-                        flAvatar.setVisibility(View.VISIBLE);
-                        flAvatar.setEnabled(true);
-                    }
+                    setPreviewAvatarShown(flAvatar, !livePreviewShowing);
                 }
             } else {
                 // Non-animated path: same INVISIBLE rule.
-                if (livePreviewShowing) {
-                    flAvatar.setVisibility(View.INVISIBLE);
-                    flAvatar.setEnabled(false);
-                } else {
-                    flAvatar.setVisibility(View.VISIBLE);
-                    flAvatar.setEnabled(true);
-                }
+                setPreviewAvatarShown(flAvatar, !livePreviewShowing);
             }
         }
 
@@ -6226,6 +6216,58 @@ public class HomeFragment extends BaseFragment {
         showDisplayOptionsDialog();
     }
 
+    private int clockStyleOption = -1;
+    private boolean clockStyleLandscape;
+    @Nullable private TextView clockStyledView;
+
+    /** Sizes, paddings and alignment of the Home clock for a display option. */
+    private void applyClockStyle(int displayOption) {
+        if (displayOption == 0) {
+            tvClock.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, isLandscapeMode() ? 18f : 16f);
+            tvClock.setPadding(0, 0, 0, 0);
+        } else if (displayOption == 1) {
+            tvClock.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, isLandscapeMode() ? 16f : 14f);
+            tvClock.setPadding(0, 0, 0, 0);
+        } else {
+            tvClock.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, isLandscapeMode() ? 15f : 13f);
+            tvClock.setPadding(0, 0, 0, 0);
+        }
+
+        if (layoutClockInner != null) {
+            int horizontalPadding = dpToPxInt(4);
+            int verticalPadding = displayOption == 0 ? dpToPxInt(4) : dpToPxInt(3);
+            layoutClockInner.setPadding(
+                    horizontalPadding,
+                    verticalPadding,
+                    horizontalPadding,
+                    verticalPadding);
+            layoutClockInner.setGravity(Gravity.CENTER_VERTICAL);
+        }
+        if (layoutClockContent != null) {
+            layoutClockContent.setGravity(Gravity.CENTER_VERTICAL);
+            int contentVerticalPadding = displayOption == 0 ? dpToPxInt(1) : 0;
+            layoutClockContent.setPadding(0, contentVerticalPadding, 0, contentVerticalPadding);
+            layoutClockContent.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        }
+
+        tvDateEnglish.setPadding(0, 0, 0, 0);
+        tvDateEnglish.setSingleLine(true);
+        tvDateEnglish.setEllipsize(null);
+        tvDateEnglish.setHorizontallyScrolling(false);
+        tvDateEnglish.setGravity(Gravity.START);
+
+        tvDateArabic.setPadding(0, 0, 0, 0);
+        tvDateArabic.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        tvDateArabic.setTextAlignment(View.TEXT_ALIGNMENT_TEXT_END);
+        tvDateArabic.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        tvDateArabic.setTextDirection(View.TEXT_DIRECTION_RTL);
+        ViewGroup.LayoutParams arabicParams = tvDateArabic.getLayoutParams();
+        if (arabicParams instanceof LinearLayout.LayoutParams) {
+            ((LinearLayout.LayoutParams) arabicParams).gravity = Gravity.END;
+            tvDateArabic.setLayoutParams(arabicParams);
+        }
+    }
+
     // Method to update the clock and dates
     private void updateClock() {
         if (!isAdded()) return; // Prevent crash if fragment is not attached
@@ -6316,59 +6358,25 @@ public class HomeFragment extends BaseFragment {
         tvDateEnglish.setVisibility(showEnglish ? View.VISIBLE : View.GONE);
         tvDateArabic.setVisibility(showArabic ? View.VISIBLE : View.GONE);
 
-        if (displayOption == 0) {
-            tvClock.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, isLandscapeMode() ? 18f : 16f);
-            tvClock.setPadding(0, 0, 0, 0);
-        } else if (displayOption == 1) {
-            tvClock.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, isLandscapeMode() ? 16f : 14f);
-            tvClock.setPadding(0, 0, 0, 0);
-        } else {
-            tvClock.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, isLandscapeMode() ? 15f : 13f);
-            tvClock.setPadding(0, 0, 0, 0);
+        boolean landscape = isLandscapeMode();
+        if (displayOption != clockStyleOption || landscape != clockStyleLandscape
+                || tvDateArabic != clockStyledView) {
+            // Layout setup only; done every tick it re-laid out the Home screen each second.
+            applyClockStyle(displayOption);
+            clockStyleOption = displayOption;
+            clockStyleLandscape = landscape;
+            clockStyledView = tvDateArabic;
         }
-
-        if (layoutClockInner != null) {
-            int horizontalPadding = dpToPxInt(4);
-            int verticalPadding = displayOption == 0 ? dpToPxInt(4) : dpToPxInt(3);
-            layoutClockInner.setPadding(
-                    horizontalPadding,
-                    verticalPadding,
-                    horizontalPadding,
-                    verticalPadding);
-            layoutClockInner.setGravity(Gravity.CENTER_VERTICAL);
-        }
-        if (layoutClockContent != null) {
-            layoutClockContent.setGravity(Gravity.CENTER_VERTICAL);
-            int contentVerticalPadding = displayOption == 0 ? dpToPxInt(1) : 0;
-            layoutClockContent.setPadding(0, contentVerticalPadding, 0, contentVerticalPadding);
-            layoutClockContent.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-        }
-
         if (tvDateEnglish instanceof com.fadcam.ui.utils.AnimatedTextView) {
             ((com.fadcam.ui.utils.AnimatedTextView) tvDateEnglish).animateSlot(displayDateEnglish, 400);
         } else {
             tvDateEnglish.setText(displayDateEnglish);
         }
-        tvDateEnglish.setPadding(0, 0, 0, 0);
-        tvDateEnglish.setSingleLine(true);
-        tvDateEnglish.setEllipsize(null);
-        tvDateEnglish.setHorizontallyScrolling(false);
-        tvDateEnglish.setGravity(Gravity.START);
 
         if (tvDateArabic instanceof com.fadcam.ui.utils.AnimatedTextView) {
             ((com.fadcam.ui.utils.AnimatedTextView) tvDateArabic).animateSlot(displayDateArabic, 400);
         } else {
             tvDateArabic.setText(displayDateArabic);
-        }
-        tvDateArabic.setPadding(0, 0, 0, 0);
-        tvDateArabic.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-        tvDateArabic.setTextAlignment(View.TEXT_ALIGNMENT_TEXT_END);
-        tvDateArabic.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        tvDateArabic.setTextDirection(View.TEXT_DIRECTION_RTL);
-        ViewGroup.LayoutParams arabicParams = tvDateArabic.getLayoutParams();
-        if (arabicParams instanceof LinearLayout.LayoutParams) {
-            ((LinearLayout.LayoutParams) arabicParams).gravity = Gravity.END;
-            tvDateArabic.setLayoutParams(arabicParams);
         }
 
         // Live max-duration countdown badge (runs on the same 1s tick).
@@ -10587,15 +10595,41 @@ public class HomeFragment extends BaseFragment {
      * so there is no "awake" state needed here.
      */
     private void startBubbleRotation() {
-        if (ivPreviewAvatar == null) return;
+        if (ivPreviewAvatar == null || isHidden() || !isResumed()) return;
+        View flAvatar = getView() != null ? getView().findViewById(R.id.fl_preview_avatar) : null;
+        if (flAvatar != null && flAvatar.getVisibility() != View.VISIBLE) {
+            // Hidden under the live preview: its endless animations would
+            // still redraw the screen every frame.
+            return;
+        }
         applyHomeAvatarState(false, false); // always sleeping in home fragment
+    }
+
+    private boolean isPreviewAvatarShowing() {
+        View flAvatar = getView() != null ? getView().findViewById(R.id.fl_preview_avatar) : null;
+        return flAvatar != null && flAvatar.getVisibility() == View.VISIBLE && !isHidden() && isResumed();
+    }
+
+    /**
+     * Shows or hides the preview avatar without animation. INVISIBLE, not GONE,
+     * keeps its size for the circular reveal; hiding also stops its animations.
+     */
+    private void setPreviewAvatarShown(View flAvatar, boolean shown) {
+        boolean wasShown = flAvatar.getVisibility() == View.VISIBLE;
+        flAvatar.setVisibility(shown ? View.VISIBLE : View.INVISIBLE);
+        flAvatar.setEnabled(shown);
+        if (shown && !wasShown) {
+            startBubbleRotation();
+        } else if (!shown) {
+            stopBubbleRotation();
+        }
     }
 
     /**
      * Suspends avatar animations (call on onPause / tab hidden).
      * Keeps the visual state — animations resume on next startBubbleRotation().
      */
-    private void stopBubbleRotation() {
+    protected void stopBubbleRotation() {
         stopHomeBlinkLoop();
         if (ambianceTwinkleAnim != null) { ambianceTwinkleAnim.cancel(); ambianceTwinkleAnim = null; }
         if (ivWakeSun != null) { ivWakeSun.animate().cancel(); }
@@ -10794,7 +10828,9 @@ public class HomeFragment extends BaseFragment {
                     .setInterpolator(new android.view.animation.OvershootInterpolator(2.5f)).start();
                 delay += 115;
             }
-            zzzHomeBadgeGroup.postDelayed(() -> startHomeFloatingZAnims(), 700);
+            zzzHomeBadgeGroup.postDelayed(() -> {
+                if (isPreviewAvatarShowing()) startHomeFloatingZAnims();
+            }, 700);
         } else {
             zzzHomeBadgeGroup.setVisibility(View.VISIBLE);
             resetHomeZLetters();
