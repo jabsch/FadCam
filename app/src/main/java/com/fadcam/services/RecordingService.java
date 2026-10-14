@@ -2183,6 +2183,7 @@ public class RecordingService extends Service {
         // going away; a stale entry would block future repairs of this file).
         IN_FLIGHT_FINALIZATIONS.clear();
         releaseDurationLimitController();
+        thermalGuard.stop();
 
         // Stop any active reconnection attempts
         stopReconnectionAttempts();
@@ -2274,6 +2275,7 @@ public class RecordingService extends Service {
 
     // --- Core Recording Logic ---
     private void stopRecording() {
+        thermalGuard.stop();
         if (durationLimitController != null && durationLimitController.stopSession()) {
             FLog.d(TAG, "Cancelled maximum recording duration for current session");
         }
@@ -6770,6 +6772,7 @@ public class RecordingService extends Service {
 
                 persistRecordingTimelineState();
                 startDurationLimitSession();
+                thermalGuard.start(getApplicationContext());
 
                 // Tactile confirmation that recording actually started — fired
                 // from the SERVICE so it works for widgets, tiles, shortcuts and
@@ -6924,6 +6927,34 @@ public class RecordingService extends Service {
 
     // Add these fields to RecordingService class
     private GLRecordingPipeline glRecordingPipeline;
+
+    private final RecordingThermalGuard thermalGuard = new RecordingThermalGuard(
+            new RecordingThermalGuard.Callbacks() {
+                @Override
+                public void onReduceLoad() {
+                    GLRecordingPipeline pipeline = glRecordingPipeline;
+                    if (pipeline != null) {
+                        pipeline.setRuntimeVideoBitrate(pipeline.getConfiguredVideoBitrate() / 2);
+                    }
+                    Toast.makeText(getApplicationContext(), R.string.thermal_guard_reduced,
+                            Toast.LENGTH_LONG).show();
+                }
+
+                @Override
+                public void onRestoreLoad() {
+                    GLRecordingPipeline pipeline = glRecordingPipeline;
+                    if (pipeline != null) {
+                        pipeline.setRuntimeVideoBitrate(pipeline.getConfiguredVideoBitrate());
+                    }
+                }
+
+                @Override
+                public void onStopForHeat() {
+                    Toast.makeText(getApplicationContext(), R.string.thermal_guard_stopped,
+                            Toast.LENGTH_LONG).show();
+                    stopRecording();
+                }
+            });
     private WatermarkInfoProvider watermarkInfoProvider;
     private com.fadcam.watermark.WatermarkManager watermarkManager;
     

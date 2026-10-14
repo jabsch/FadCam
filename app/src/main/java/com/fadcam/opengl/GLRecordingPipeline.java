@@ -1558,6 +1558,17 @@ public class GLRecordingPipeline {
         drainHandler.post(new DrainRunnable());
     }
 
+    /**
+     * Poll interval for the encoder drain loop: about three polls per frame,
+     * clamped to 2..8 ms. A fixed 2 ms poll meant ~500 wakeups/s whatever the
+     * frame rate, which keeps CPU cores out of idle states and heats the phone
+     * on long recordings; at 30 fps this is 8 ms, still well under a frame.
+     */
+    private long drainIntervalMs() {
+        int fps = videoFramerate > 0 ? videoFramerate : 30;
+        return Math.max(2L, Math.min(8L, 1000L / (fps * 3L)));
+    }
+
     private final class DrainRunnable implements Runnable {
         @Override
         public void run() {
@@ -1578,7 +1589,7 @@ public class GLRecordingPipeline {
                 rolloverIoHandler.post(() -> performAsyncRolloverIO());
             }
             if (isRecording && !isStopped && drainHandler != null) {
-                drainHandler.postDelayed(this, 2); // 2ms instead of 10ms
+                drainHandler.postDelayed(this, drainIntervalMs());
             }
         }
     }
@@ -2912,6 +2923,31 @@ public class GLRecordingPipeline {
      */
     public Surface getCameraInputSurface() {
         return cameraInputSurface;
+    }
+
+    /** Bitrate the encoder was configured with for this session (bps). */
+    public int getConfiguredVideoBitrate() {
+        return videoBitrate;
+    }
+
+    /**
+     * Changes the live encoder's target bitrate without restarting it. Used by the
+     * thermal guard to shed encoder and storage load while the phone is hot; the
+     * configured bitrate (and therefore the next session) is left untouched.
+     */
+    public void setRuntimeVideoBitrate(int bitrateBps) {
+        MediaCodec encoder = videoEncoder;
+        if (encoder == null || bitrateBps <= 0) {
+            return;
+        }
+        try {
+            android.os.Bundle params = new android.os.Bundle();
+            params.putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, bitrateBps);
+            encoder.setParameters(params);
+            FLog.i(TAG, "Runtime video bitrate set to " + bitrateBps + " bps");
+        } catch (Exception e) {
+            FLog.w(TAG, "Encoder rejected runtime bitrate change", e);
+        }
     }
 
     /**
