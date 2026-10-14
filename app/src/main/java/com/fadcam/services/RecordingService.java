@@ -5274,9 +5274,13 @@ public class RecordingService extends Service {
             return "";
         }
 
-        // Throttled GPS provider check — same API as HomeFragment banner, cached for 5s
+        // Throttled GPS provider check — same API as HomeFragment banner, cached for 5s.
+        // Only the GPS fields read it, so skip the system call when none is shown.
         long now = System.currentTimeMillis();
-        if (now - lastGpsProviderCheckMs >= GPS_PROVIDER_CHECK_INTERVAL_MS) {
+        boolean gpsFieldShown = sharedPreferencesManager.isSpeedEnabled()
+                || sharedPreferencesManager.isAltitudeEnabled()
+                || sharedPreferencesManager.isAccuracyEnabled();
+        if (gpsFieldShown && now - lastGpsProviderCheckMs >= GPS_PROVIDER_CHECK_INTERVAL_MS) {
             android.location.LocationManager lm = (android.location.LocationManager)
                     getSystemService(Context.LOCATION_SERVICE);
             cachedGpsProviderEnabled = lm != null
