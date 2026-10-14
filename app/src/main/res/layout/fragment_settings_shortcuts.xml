@@ -610,6 +610,145 @@ app:layout_constraintTop_toTopOf="parent"
 
             </LinearLayout>
 
+    <!-- Hardware buttons section: run any shortcut by holding a volume key -->
+    <TextView
+        android:id="@+id/heading_hardware_buttons"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="24dp"
+        android:layout_marginBottom="6dp"
+        android:text="@string/hardware_buttons_heading"
+        android:textColor="?attr/colorHeading"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:id="@+id/hardware_buttons_group_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/settings_group_card_bg">
+
+        <LinearLayout
+            android:id="@+id/row_hw_service"
+            style="@style/SettingsGroupRow"
+            android:clickable="true"
+            android:focusable="true">
+            <TextView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginEnd="16dp"
+                android:fontFamily="@font/materialicons"
+                android:gravity="center"
+                android:text="accessibility"
+                android:textSize="18sp"
+                android:textColor="@android:color/darker_gray" />
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/hardware_buttons_service_row"
+                android:textStyle="bold"
+                android:textSize="15sp"
+                android:textColor="?attr/colorHeading"/>
+            <TextView
+                android:id="@+id/value_hw_service"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="-"
+                android:textColor="@android:color/darker_gray"
+                android:textSize="13sp"/>
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:src="@drawable/ic_arrow_right"
+                android:tint="@android:color/darker_gray"/>
+        </LinearLayout>
+        <View style="@style/SettingsDivider" />
+        <LinearLayout
+            android:id="@+id/row_hw_volume_up"
+            style="@style/SettingsGroupRow"
+            android:clickable="true"
+            android:focusable="true">
+            <TextView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginEnd="16dp"
+                android:fontFamily="@font/materialicons"
+                android:gravity="center"
+                android:text="volume_up"
+                android:textSize="18sp"
+                android:textColor="@android:color/darker_gray" />
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/hardware_buttons_volume_up_hold"
+                android:textStyle="bold"
+                android:textSize="15sp"
+                android:textColor="?attr/colorHeading"/>
+            <TextView
+                android:id="@+id/value_hw_volume_up"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="-"
+                android:textColor="@android:color/darker_gray"
+                android:textSize="13sp"/>
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:src="@drawable/ic_arrow_right"
+                android:tint="@android:color/darker_gray"/>
+        </LinearLayout>
+        <View style="@style/SettingsDivider" />
+        <LinearLayout
+            android:id="@+id/row_hw_volume_down"
+            style="@style/SettingsGroupRow"
+            android:clickable="true"
+            android:focusable="true">
+            <TextView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginEnd="16dp"
+                android:fontFamily="@font/materialicons"
+                android:gravity="center"
+                android:text="volume_down"
+                android:textSize="18sp"
+                android:textColor="@android:color/darker_gray" />
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/hardware_buttons_volume_down_hold"
+                android:textStyle="bold"
+                android:textSize="15sp"
+                android:textColor="?attr/colorHeading"/>
+            <TextView
+                android:id="@+id/value_hw_volume_down"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="-"
+                android:textColor="@android:color/darker_gray"
+                android:textSize="13sp"/>
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:src="@drawable/ic_arrow_right"
+                android:tint="@android:color/darker_gray"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="24dp"
+        android:text="@string/hardware_buttons_helper"
+        android:textColor="@android:color/darker_gray"
+        android:textSize="12sp" />
+
         </LinearLayout>
     </ScrollView>
 </androidx.constraintlayout.widget.ConstraintLayout>

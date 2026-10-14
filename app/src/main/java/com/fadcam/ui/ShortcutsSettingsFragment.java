@@ -24,6 +24,7 @@ import androidx.core.graphics.drawable.IconCompat;
 import androidx.fragment.app.Fragment;
 
 import com.fadcam.R;
+import com.fadcam.shortcuts.HardwareButtonBindings;
 import com.fadcam.shortcuts.ShortcutsManager;
 import com.fadcam.shortcuts.ShortcutsPreferences;
 
@@ -132,8 +133,95 @@ public class ShortcutsSettingsFragment extends Fragment {
         if (widgetCell != null)
             widgetCell.setOnClickListener(widgetClick);
 
+        wireHardwareButtons(view);
+
         // Initialize preview with current preferences
         updatePreview();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // The user may have just come back from Accessibility settings.
+        refreshHardwareButtons(getView());
+    }
+
+    private void wireHardwareButtons(View root) {
+        View service = root.findViewById(R.id.row_hw_service);
+        if (service != null) {
+            service.setOnClickListener(v -> openAccessibilitySettings());
+        }
+        View up = root.findViewById(R.id.row_hw_volume_up);
+        if (up != null) {
+            up.setOnClickListener(v -> showHardwareBindingPicker(
+                    android.view.KeyEvent.KEYCODE_VOLUME_UP, R.string.hardware_buttons_volume_up_hold));
+        }
+        View down = root.findViewById(R.id.row_hw_volume_down);
+        if (down != null) {
+            down.setOnClickListener(v -> showHardwareBindingPicker(
+                    android.view.KeyEvent.KEYCODE_VOLUME_DOWN, R.string.hardware_buttons_volume_down_hold));
+        }
+        refreshHardwareButtons(root);
+    }
+
+    private void refreshHardwareButtons(@Nullable View root) {
+        if (root == null || !isAdded()) return;
+        TextView service = root.findViewById(R.id.value_hw_service);
+        if (service != null) {
+            service.setText(HardwareButtonBindings.isServiceEnabled(requireContext())
+                    ? R.string.setting_enabled_msg : R.string.setting_disabled_msg);
+        }
+        TextView up = root.findViewById(R.id.value_hw_volume_up);
+        if (up != null) {
+            up.setText(bindingLabel(android.view.KeyEvent.KEYCODE_VOLUME_UP));
+        }
+        TextView down = root.findViewById(R.id.value_hw_volume_down);
+        if (down != null) {
+            down.setText(bindingLabel(android.view.KeyEvent.KEYCODE_VOLUME_DOWN));
+        }
+    }
+
+    private String bindingLabel(int keyCode) {
+        String id = HardwareButtonBindings.getHoldBinding(requireContext(), keyCode);
+        return id == null ? getString(R.string.hardware_buttons_none)
+                : ShortcutsManager.defaultLabelFor(requireContext(), id);
+    }
+
+    private void showHardwareBindingPicker(int keyCode, int titleRes) {
+        final String resultKey = "picker_result_hw_binding_" + keyCode;
+        final String noneId = "none";
+        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
+            String selected = b.getString(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID);
+            if (selected == null) return;
+            HardwareButtonBindings.setHoldBinding(requireContext(), keyCode,
+                    noneId.equals(selected) ? null : selected);
+            refreshHardwareButtons(getView());
+            if (!noneId.equals(selected) && !HardwareButtonBindings.isServiceEnabled(requireContext())) {
+                android.widget.Toast.makeText(requireContext(), R.string.hardware_buttons_enable_prompt,
+                        android.widget.Toast.LENGTH_LONG).show();
+                openAccessibilitySettings();
+            }
+        });
+        java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
+        items.add(new com.fadcam.ui.picker.OptionItem(noneId, getString(R.string.hardware_buttons_none)));
+        for (String id : ShortcutsManager.ALL_IDS) {
+            items.add(new com.fadcam.ui.picker.OptionItem(id,
+                    ShortcutsManager.defaultLabelFor(requireContext(), id)));
+        }
+        String current = HardwareButtonBindings.getHoldBinding(requireContext(), keyCode);
+        com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(
+                getString(titleRes), items, current == null ? noneId : current, resultKey,
+                getString(R.string.hardware_buttons_helper))
+                .show(getParentFragmentManager(), "hw_binding_picker");
+    }
+
+    private void openAccessibilitySettings() {
+        try {
+            startActivity(new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (Exception e) {
+            com.fadcam.FLog.w("ShortcutsSettings", "Could not open Accessibility settings", e);
+        }
     }
 
     private void wireShortcutRow(View root, int rowId, int iconId, int iconRes, String title, Intent intent,

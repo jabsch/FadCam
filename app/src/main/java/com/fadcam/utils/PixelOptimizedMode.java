@@ -70,7 +70,6 @@ public final class PixelOptimizedMode {
                 .putInt(Constants.PREF_VIDEO_RESOLUTION_WIDTH, TUNED_WIDTH)
                 .putInt(Constants.PREF_VIDEO_RESOLUTION_HEIGHT, TUNED_HEIGHT)
                 .putBoolean("bitrate_mode_custom", false)
-                .putBoolean(Constants.PREF_VIDEO_STABILIZATION_ENABLED, true)
                 .putInt(PREF_PROFILE_VERSION, PROFILE_VERSION)
                 .apply();
         prefs.setSpecificVideoFrameRate(CameraType.BACK, TUNED_FPS);

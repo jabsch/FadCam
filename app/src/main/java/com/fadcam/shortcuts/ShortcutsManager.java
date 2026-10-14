@@ -32,6 +32,75 @@ public class ShortcutsManager {
     public static final String ID_SHOT_FRONT = "capture_photo_front";
     public static final String ID_SCREENSHOT = "capture_screenshot";
 
+    /** Every shortcut id, in the order the shortcuts screen lists them. */
+    public static final String[] ALL_IDS = {
+        ID_TOGGLE, ID_START, ID_STOP, ID_TORCH, ID_START_FRONT, ID_START_CURRENT,
+        ID_START_DUAL, ID_SHOT, ID_SHOT_FRONT, ID_SCREENSHOT
+    };
+
+    /**
+     * Intent that performs the given shortcut, or null for an unknown id. Used by
+     * entry points other than the launcher (e.g. hardware button bindings).
+     */
+    @Nullable
+    public static Intent intentFor(@NonNull Context context, @NonNull String id) {
+        switch (id) {
+            case ID_TOGGLE:
+                return activityIntent(context, "com.fadcam.RecordingToggleActivity");
+            case ID_START:
+                return startIntent(context, com.fadcam.RecordingStartActivity.CAMERA_MODE_BACK);
+            case ID_START_FRONT:
+                return startIntent(context, com.fadcam.RecordingStartActivity.CAMERA_MODE_FRONT);
+            case ID_START_CURRENT:
+                return startIntent(context, com.fadcam.RecordingStartActivity.CAMERA_MODE_CURRENT);
+            case ID_START_DUAL:
+                return startIntent(context, com.fadcam.RecordingStartActivity.CAMERA_MODE_DUAL);
+            case ID_STOP:
+                return activityIntent(context, "com.fadcam.RecordingStopActivity");
+            case ID_TORCH:
+                return activityIntent(context, "com.fadcam.TorchToggleActivity");
+            case ID_SHOT:
+                return activityIntent(context, "com.fadcam.PhotoCaptureActivity");
+            case ID_SHOT_FRONT:
+                return activityIntent(context, "com.fadcam.PhotoCaptureActivity").putExtra(
+                    com.fadcam.PhotoCaptureActivity.EXTRA_SHORTCUT_PHOTO_CAMERA_MODE,
+                    com.fadcam.PhotoCaptureActivity.PHOTO_CAMERA_MODE_FRONT);
+            case ID_SCREENSHOT:
+                return activityIntent(context, "com.fadcam.ScreenShotCaptureActivity");
+            default:
+                return null;
+        }
+    }
+
+    /** User-facing name of a shortcut id (the default, not a custom label). */
+    @NonNull
+    public static String defaultLabelFor(@NonNull Context context, @NonNull String id) {
+        int res;
+        switch (id) {
+            case ID_TOGGLE: res = com.fadcam.R.string.shortcut_toggle_recording; break;
+            case ID_START: res = com.fadcam.R.string.shortcut_start_back; break;
+            case ID_START_FRONT: res = com.fadcam.R.string.shortcut_start_front; break;
+            case ID_START_CURRENT: res = com.fadcam.R.string.shortcut_start_current; break;
+            case ID_START_DUAL: res = com.fadcam.R.string.shortcut_start_dual; break;
+            case ID_STOP: res = com.fadcam.R.string.stop_recording; break;
+            case ID_TORCH: res = com.fadcam.R.string.torch_shortcut_short_label; break;
+            case ID_SHOT: res = com.fadcam.R.string.shortcut_take_photo; break;
+            case ID_SHOT_FRONT: res = com.fadcam.R.string.shortcut_take_photo_front; break;
+            case ID_SCREENSHOT: res = com.fadcam.R.string.shortcut_take_screenshot; break;
+            default: return id;
+        }
+        return context.getString(res);
+    }
+
+    private static Intent activityIntent(Context context, String className) {
+        return new Intent(Intent.ACTION_VIEW).setClassName(context, className);
+    }
+
+    private static Intent startIntent(Context context, String mode) {
+        return activityIntent(context, "com.fadcam.RecordingStartActivity")
+            .putExtra(com.fadcam.RecordingStartActivity.EXTRA_SHORTCUT_CAMERA_MODE, mode);
+    }
+
     private final Context ctx;
     private final ShortcutsPreferences prefs;
 
