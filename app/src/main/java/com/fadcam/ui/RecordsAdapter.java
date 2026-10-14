@@ -155,6 +155,26 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             return size() > 1024; // keep more entries for saved positions
         }
     };
+    // Decoded cached thumbnails. Every rebind (scroll, refresh) used to decode the
+    // JPEG again on the main thread. An entry is only used while the cached JPEG
+    // it came from is still the current one, so a new thumbnail replaces it.
+    private static final class DecodedThumbnail {
+        final byte[] source;
+        final android.graphics.Bitmap bitmap;
+
+        DecodedThumbnail(byte[] source, android.graphics.Bitmap bitmap) {
+            this.source = source;
+            this.bitmap = bitmap;
+        }
+    }
+
+    private final android.util.LruCache<String, DecodedThumbnail> decodedThumbnails =
+            new android.util.LruCache<String, DecodedThumbnail>(8 * 1024 * 1024) {
+                @Override
+                protected int sizeOf(String key, DecodedThumbnail value) {
+                    return value.bitmap.getByteCount();
+                }
+            };
     // Reuse a single main-thread handler for UI updates
     private final android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     // Simple file-based cache for durations (persist across sessions)
@@ -591,8 +611,16 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     progressFill.setVisibility(View.GONE);
                     final String key = videoUri.toString();
                     // Try caches first
-                    Long cachedSaved = savedPositionCache.get(key);
-                    Long cachedDur = durationCache.get(key);
+                    // Access-ordered maps change on get(), and the executor writes them,
+                    // so reads take the same locks as the writes.
+                    Long cachedSaved;
+                    synchronized (savedPositionCache) {
+                        cachedSaved = savedPositionCache.get(key);
+                    }
+                    Long cachedDur;
+                    synchronized (durationCache) {
+                        cachedDur = durationCache.get(key);
+                    }
                     // Also check DB-backed duration cache (avoids FFprobe entirely)
                     if (cachedDur == null) {
                         try {
@@ -632,7 +660,10 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                                     }
                                 }
                                 synchronized (savedPositionCache) {
-                                    if (savedMs > 0)
+                                    // Cache "never played" (0) too: otherwise every rebind of an
+                                    // unplayed video re-read prefs and queried the file name again.
+                                    // The player's position broadcast replaces it when one plays.
+                                    if (savedMs >= 0)
                                         savedPositionCache.put(key, savedMs);
                                 }
                                 final long fSaved = savedMs;
@@ -1012,8 +1043,16 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         if (cachedThumbnail != null) {
             // Load from cache - instant display
             try {
-                android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeByteArray(cachedThumbnail, 0,
-                        cachedThumbnail.length);
+                DecodedThumbnail decoded = decodedThumbnails.get(uriString);
+                android.graphics.Bitmap bitmap = decoded != null && decoded.source == cachedThumbnail
+                        ? decoded.bitmap : null;
+                if (bitmap == null) {
+                    bitmap = android.graphics.BitmapFactory.decodeByteArray(cachedThumbnail, 0,
+                            cachedThumbnail.length);
+                    if (bitmap != null) {
+                        decodedThumbnails.put(uriString, new DecodedThumbnail(cachedThumbnail, bitmap));
+                    }
+                }
                 if (bitmap != null) {
                     holder.imageViewThumbnail.setImageBitmap(bitmap);
                     holder.imageViewThumbnail.setScaleType(ImageView.ScaleType.CENTER_CROP);
