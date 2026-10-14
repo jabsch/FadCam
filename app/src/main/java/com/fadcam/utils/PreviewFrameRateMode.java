@@ -6,10 +6,12 @@ import com.fadcam.R;
 import com.fadcam.SharedPreferencesManager;
 
 /**
- * How often the on-screen preview is redrawn while recording. The recording
+ * How often the on-screen preview is redrawn. While recording, the recording
  * itself always gets every camera frame; this only limits the extra full-screen
- * draw (and the display composition) that the preview costs. {@link #AUTO}
- * keeps the full rate until the phone is warm, then drops to 15 fps.
+ * draw (and the display composition) that the preview costs, and {@link #AUTO}
+ * keeps the full rate until the phone is warm, then drops to 15 fps. When only
+ * previewing (nothing recording), the camera itself runs at the cap, so the
+ * sensor, ISP and GPU all do less; {@link #AUTO} uses 30 fps there.
  */
 public enum PreviewFrameRateMode {
     FULL("full", 0, R.string.preview_fps_full, R.string.preview_fps_full_desc),
@@ -19,6 +21,7 @@ public enum PreviewFrameRateMode {
 
     private static final String PREF_MODE = "pref_preview_fps_mode";
     static final int WARM_FPS = 15;
+    static final int AUTO_PREVIEW_ONLY_FPS = 30;
 
     public final String id;
     private final int capFps;
@@ -35,6 +38,11 @@ public enum PreviewFrameRateMode {
     /** Preview frame-rate cap in fps, 0 for uncapped; {@code warm} is the thermal guard's warm step. */
     public int capFps(boolean warm) {
         return this == AUTO ? (warm ? WARM_FPS : 0) : capFps;
+    }
+
+    /** Camera frame-rate cap while only previewing, 0 for none (the recording frame rate). */
+    public int previewOnlyFps() {
+        return this == AUTO ? AUTO_PREVIEW_ONLY_FPS : capFps;
     }
 
     @Nullable

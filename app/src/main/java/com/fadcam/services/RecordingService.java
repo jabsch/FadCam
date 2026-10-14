@@ -4553,6 +4553,7 @@ public class RecordingService extends Service {
             // supports it
             int targetFrameRate = capForThermalFrameRate(
                     sharedPreferencesManager.getSpecificVideoFrameRate(cameraType));
+            targetFrameRate = capForPreviewOnly(targetFrameRate);
             
             // Apply streaming FPS cap only when server is actually ON
             targetFrameRate = capForStreaming(targetFrameRate);
@@ -4627,6 +4628,7 @@ public class RecordingService extends Service {
             // Get target frame rate from settings for specific camera
             int targetFrameRate = capForThermalFrameRate(
                     sharedPreferencesManager.getSpecificVideoFrameRate(cameraType));
+            targetFrameRate = capForPreviewOnly(targetFrameRate);
             
             // Apply streaming FPS cap only when server is actually ON
             targetFrameRate = capForStreaming(targetFrameRate);
@@ -7167,6 +7169,18 @@ public class RecordingService extends Service {
     }
 
     /** Session frame rate, honoring the Auto fps preset's warm-phone step. */
+    /**
+     * Just previewing (nothing recording): run the camera at the Preview Frame
+     * Rate cap. Starting a recording creates a new session at the full rate.
+     */
+    private int capForPreviewOnly(int targetFrameRate) {
+        if (!previewOnlyActive || isWorkingInProgress() || sharedPreferencesManager == null) {
+            return targetFrameRate;
+        }
+        int cap = com.fadcam.utils.PreviewFrameRateMode.current(sharedPreferencesManager).previewOnlyFps();
+        return cap > 0 ? Math.min(targetFrameRate, cap) : targetFrameRate;
+    }
+
     private int capForThermalFrameRate(int targetFrameRate) {
         return thermalGuard.isFrameRateLowered()
                 ? Math.min(targetFrameRate, com.fadcam.utils.RecordingPreset.AUTO_WARM_FPS)

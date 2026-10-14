@@ -22,6 +22,14 @@ public class PreviewFrameRateModeTest {
     }
 
     @Test
+    public void previewOnlyCapsTheCamera() {
+        assertEquals(0, PreviewFrameRateMode.FULL.previewOnlyFps());
+        assertEquals(30, PreviewFrameRateMode.FPS_30.previewOnlyFps());
+        assertEquals(15, PreviewFrameRateMode.FPS_15.previewOnlyFps());
+        assertEquals(PreviewFrameRateMode.AUTO_PREVIEW_ONLY_FPS, PreviewFrameRateMode.AUTO.previewOnlyFps());
+    }
+
+    @Test
     public void idsRoundTrip() {
         for (PreviewFrameRateMode m : PreviewFrameRateMode.values()) {
             assertEquals(m, PreviewFrameRateMode.fromId(m.id));
