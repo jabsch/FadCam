@@ -5272,22 +5272,18 @@ public class RecordingService extends Service {
 
         if (sharedPreferencesManager.isSpeedEnabled() && sensorDataProvider != null) {
             if (!cachedGpsProviderEnabled) {
-                FLog.d(TAG, "Extended: speed=GPS is off");
                 sb.append("\nSpeed: GPS is off");
             } else {
                 float speed = sensorDataProvider.getSpeedKmh();
-                FLog.d(TAG, "Extended: speed=" + speed + " km/h");
                 sb.append("\nSpeed: ").append(String.format("%.0f", speed)).append(" km/h");
             }
         }
 
         if (sharedPreferencesManager.isAltitudeEnabled() && sensorDataProvider != null) {
             if (!cachedGpsProviderEnabled) {
-                FLog.d(TAG, "Extended: altitude=GPS is off");
                 sb.append("\nAlt: GPS is off");
             } else {
                 double alt = sensorDataProvider.getAltitude();
-                FLog.d(TAG, "Extended: altitude=" + alt + " m");
                 sb.append("\nAlt: ").append(String.format("%.0f", alt)).append("m");
             }
         }
@@ -5295,11 +5291,9 @@ public class RecordingService extends Service {
         // Accuracy — gated behind its own toggle like other GPS features
         if (sharedPreferencesManager.isAccuracyEnabled() && sensorDataProvider != null) {
             if (!cachedGpsProviderEnabled) {
-                FLog.d(TAG, "Extended: accuracy=GPS is off");
                 sb.append("\nAccuracy: GPS is off");
             } else {
                 float acc = sensorDataProvider.getAccuracy();
-                FLog.d(TAG, "Extended: accuracy=" + acc + " m");
                 sb.append("\nAccuracy: ").append(String.format("%.0f", acc)).append("m");
             }
         }
@@ -5330,7 +5324,6 @@ public class RecordingService extends Service {
                 if (wind != null && !wind.isEmpty()) {
                     sb.append("\nWind: ").append(wind);
                 }
-                FLog.d(TAG, "Extended: weather=" + weather + ", wind=" + wind);
             }
         }
 
