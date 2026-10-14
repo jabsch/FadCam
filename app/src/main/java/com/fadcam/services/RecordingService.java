@@ -7168,19 +7168,20 @@ public class RecordingService extends Service {
         return targetFrameRate;
     }
 
-    /** Session frame rate, honoring the Auto fps preset's warm-phone step. */
     /**
      * Just previewing (nothing recording): run the camera at the Preview Frame
      * Rate cap. Starting a recording creates a new session at the full rate.
      */
     private int capForPreviewOnly(int targetFrameRate) {
-        if (!previewOnlyActive || isWorkingInProgress() || sharedPreferencesManager == null) {
+        // Not isWorkingInProgress(): that counts preview-only as working.
+        if (!previewOnlyActive || recordingState != RecordingState.NONE || sharedPreferencesManager == null) {
             return targetFrameRate;
         }
         int cap = com.fadcam.utils.PreviewFrameRateMode.current(sharedPreferencesManager).previewOnlyFps();
         return cap > 0 ? Math.min(targetFrameRate, cap) : targetFrameRate;
     }
 
+    /** Session frame rate, honoring the Auto fps preset's warm-phone step. */
     private int capForThermalFrameRate(int targetFrameRate) {
         return thermalGuard.isFrameRateLowered()
                 ? Math.min(targetFrameRate, com.fadcam.utils.RecordingPreset.AUTO_WARM_FPS)
