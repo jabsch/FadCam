@@ -7608,6 +7608,11 @@ public class HomeFragment extends BaseFragment {
 
     // --- Updated updateStats Method ---
 
+    // Library totals reused across the 3 s stats refreshes while recording.
+    private static final long RECORDING_QUICK_STATS_TTL_MS = 30_000L;
+    private volatile long[] recordingQuickStats;
+    private volatile long recordingQuickStatsAtMs;
+
     private void updateStats() {
 
         // -----------
@@ -7639,7 +7644,18 @@ public class HomeFragment extends BaseFragment {
             try {
                 com.fadcam.data.VideoIndexRepository repo =
                     com.fadcam.data.VideoIndexRepository.getInstance(requireContext());
-                long[] quickStats = repo.getQuickStats();
+                long[] quickStats;
+                long nowMs = android.os.SystemClock.elapsedRealtime();
+                if (isRecording && recordingQuickStats != null
+                        && nowMs - recordingQuickStatsAtMs < RECORDING_QUICK_STATS_TTL_MS) {
+                    // The library only changes when a recording finishes; the live
+                    // segment size is added below on every refresh.
+                    quickStats = recordingQuickStats;
+                } else {
+                    quickStats = repo.getQuickStats();
+                    recordingQuickStats = isRecording ? quickStats : null;
+                    recordingQuickStatsAtMs = nowMs;
+                }
                 int dbCount = (int) quickStats[0];
                 long dbTotalBytes = quickStats[1];
                 long dbTotalMB = dbTotalBytes / (1024 * 1024);
