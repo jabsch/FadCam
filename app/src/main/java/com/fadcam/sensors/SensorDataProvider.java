@@ -18,6 +18,9 @@ public class SensorDataProvider implements SensorEventListener {
 
     private static final int BEARING_MIN_DISTANCE_M = 2;
     private static final float BEARING_SMOOTHING_ALPHA = 0.4f;
+    // The overlay reads the heading about once a second, so ~5 Hz is plenty;
+    // SENSOR_DELAY_UI (~16 Hz) kept the sensor hub and CPU awake for nothing.
+    private static final int SENSOR_RATE = SensorManager.SENSOR_DELAY_NORMAL;
     private static final float MAX_ACCURACY_FOR_SPEED_M = 30f;
     private static final long MIN_TIME_DELTA_MS = 200;
     private static final long MAX_TIME_DELTA_MS = 10000;
@@ -99,17 +102,17 @@ public class SensorDataProvider implements SensorEventListener {
 
         if (rotationVectorSensor != null) {
             boolean ok = sensorManager.registerListener(this, rotationVectorSensor,
-                    SensorManager.SENSOR_DELAY_UI, sensorHandler);
+                    SENSOR_RATE, sensorHandler);
             FLog.d(TAG, "Rotation vector sensor registered: " + ok);
         } else {
             if (accelerometer != null) {
                 boolean ok = sensorManager.registerListener(this, accelerometer,
-                        SensorManager.SENSOR_DELAY_UI, sensorHandler);
+                        SENSOR_RATE, sensorHandler);
                 FLog.d(TAG, "Accelerometer registered: " + ok);
             }
             if (magnetometer != null) {
                 boolean ok = sensorManager.registerListener(this, magnetometer,
-                        SensorManager.SENSOR_DELAY_UI, sensorHandler);
+                        SENSOR_RATE, sensorHandler);
                 FLog.d(TAG, "Magnetometer registered: " + ok);
             }
         }
@@ -267,9 +270,8 @@ public class SensorDataProvider implements SensorEventListener {
         if (type == Sensor.TYPE_ROTATION_VECTOR) {
             rotationVectorValues = event.values.clone();
             if (rotationVectorValues != null) {
-                float[] rot = new float[9];
-                SensorManager.getRotationMatrixFromVector(rot, rotationVectorValues);
-                SensorManager.getOrientation(rot, orientation);
+                SensorManager.getRotationMatrixFromVector(rotationMatrix, rotationVectorValues);
+                SensorManager.getOrientation(rotationMatrix, orientation);
                 sensorAzimuth = (float) Math.toDegrees(orientation[0]);
                 sensorAzimuth = (sensorAzimuth + 360f) % 360f;
                 if (!compassDataReceived) {
@@ -307,7 +309,9 @@ public class SensorDataProvider implements SensorEventListener {
 
     private float[] lowPassFilter(float[] input, float[] output) {
         if (output == null) return input;
-        final float alpha = 0.15f;
+        // Tuned for SENSOR_RATE (~5 Hz): about the same ~0.4 s settle time that
+        // 0.15 gave at the old ~16 Hz rate.
+        final float alpha = 0.4f;
         for (int i = 0; i < input.length; i++) {
             output[i] = output[i] + alpha * (input[i] - output[i]);
         }
