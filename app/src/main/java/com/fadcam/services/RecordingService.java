@@ -1570,6 +1570,7 @@ public class RecordingService extends Service {
 
             if (watermarkActive && sharedPreferencesManager != null && (sharedPreferencesManager.isSpeedEnabled()
                     || sharedPreferencesManager.isAltitudeEnabled()
+                    || sharedPreferencesManager.isAccuracyEnabled()
                     || sharedPreferencesManager.isCompassEnabled())) {
                 if (sensorDataProvider == null) {
                     sensorDataProvider = com.fadcam.sensors.SensorDataProvider.getInstance(getApplicationContext());

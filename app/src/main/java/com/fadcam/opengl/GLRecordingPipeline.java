@@ -3674,10 +3674,6 @@ public class GLRecordingPipeline {
     }
 
     /**
-     * Starts the audio thread to read PCM and feed the encoder.
-     * Handles pause/resume for camera switch scenarios.
-     */
-    /**
      * Blocks the audio thread until {@link #wakeAudioThread()} or the timeout.
      * With {@code whilePaused} it returns at once if the pause already ended.
      * Returns false if the thread was interrupted.
@@ -3703,6 +3699,10 @@ public class GLRecordingPipeline {
         }
     }
 
+    /**
+     * Starts the audio thread to read PCM and feed the encoder.
+     * Handles pause/resume for camera switch scenarios.
+     */
     private void startAudioThread() {
         if (!audioRecordingEnabled || audioThreadRunning)
             return;
