@@ -1359,11 +1359,11 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="preview_fps_auto">Auto</string>
     <string name="preview_fps_auto_desc">While recording, full until the phone gets warm, then 15 fps until it cools down. Previewing alone runs at 30 fps.</string>
     <string name="setting_person_check_title">Person Check</string>
-    <string name="person_check_footer">After the quick motion check, Motion Lab runs an AI detector to tell people and objects apart. The detector is the heaviest part of motion analysis, running a neural network on several CPU cores for every analysed frame. When nothing in the scene is moving, nobody new can have appeared, so the detector can rest and keep its last answer. It checks again every 2 seconds as a safety net.</string>
+    <string name="person_check_footer">After the quick motion check, Motion Lab runs an AI detector to tell people and objects apart. The detector is the heaviest part of motion analysis: a neural network on several CPU cores for every analysed frame. When almost no pixels change between frames, the detector can rest and keep its last answer, checking again every 2 seconds as a safety net. Faint or distant movement still gets checked on every frame.</string>
     <string name="person_check_movement">When something moves</string>
-    <string name="person_check_movement_desc">Runs the AI only while the motion check sees movement, plus a refresh every 2 s. Much cooler during long standby.</string>
+    <string name="person_check_movement_desc">Runs the AI only when something in the picture changes, plus a refresh every 2 s. Cooler while a scene sits still.</string>
     <string name="person_check_every">Every frame</string>
-    <string name="person_check_every_desc">Runs the AI on every analysed frame. Most CPU and heat; reacts the same either way once something moves.</string>
+    <string name="person_check_every_desc">Runs the AI on every analysed frame, even when nothing changes. Most CPU and heat.</string>
     <string name="setting_preview_bars_title">Preview Edges</string>
     <string name="preview_bars_footer">When the preview window is a different shape from your video, there are empty edges around it. Filling them with a dimmed, zoomed copy of the camera costs two extra full-screen draws on every preview frame. Black edges skip those draws and keep the phone cooler. Your recorded video is the same either way.</string>
     <string name="preview_bars_fill">Camera fill</string>
