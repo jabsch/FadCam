@@ -339,6 +339,11 @@ public class RemoteFragment extends BaseFragment {
         
         // Recording mode row click listener
         recordingModeRow.setOnClickListener(v -> showRecordingModePicker());
+        View cloudRateRow = view.findViewById(R.id.cloud_update_rate_row);
+        if (cloudRateRow != null) {
+            cloudRateRow.setOnClickListener(v -> showCloudUpdateRatePicker());
+            refreshCloudUpdateRateValue(view);
+        }
         
         // View endpoints row click listener
         viewEndpointsRow.setOnClickListener(v -> showEndpointsPicker());
@@ -926,6 +931,37 @@ public class RemoteFragment extends BaseFragment {
         sheet.show(getParentFragmentManager(), "client_details");
     }
     
+    /** Cloud Update Rate picker; CloudStatusManager reads the setting on every reschedule, so it applies live. */
+    private void showCloudUpdateRatePicker() {
+        com.fadcam.SharedPreferencesManager prefs = com.fadcam.SharedPreferencesManager.getInstance(requireContext());
+        com.fadcam.utils.CloudUpdateRate current = com.fadcam.utils.CloudUpdateRate.current(prefs);
+        java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
+        for (com.fadcam.utils.CloudUpdateRate r : com.fadcam.utils.CloudUpdateRate.values()) {
+            items.add(new com.fadcam.ui.picker.OptionItem(r.id, getString(r.labelRes), getString(r.descriptionRes)));
+        }
+        final String resultKey = "picker_result_cloud_rate";
+        getParentFragmentManager().setFragmentResultListener(resultKey, getViewLifecycleOwner(), (k, b) -> {
+            com.fadcam.utils.CloudUpdateRate picked = com.fadcam.utils.CloudUpdateRate.fromId(
+                    b.getString(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID));
+            if (picked == null || picked == current) {
+                return;
+            }
+            com.fadcam.utils.CloudUpdateRate.save(prefs, picked);
+            refreshCloudUpdateRateValue(getView());
+        });
+        com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(getString(R.string.setting_cloud_rate_title),
+                items, current.id, resultKey, getString(R.string.cloud_rate_footer))
+                .show(getParentFragmentManager(), "cloud_rate_picker");
+    }
+
+    private void refreshCloudUpdateRateValue(@Nullable View root) {
+        TextView value = root != null ? root.findViewById(R.id.cloud_update_rate_value) : null;
+        if (value != null) {
+            value.setText(com.fadcam.utils.CloudUpdateRate.current(
+                    com.fadcam.SharedPreferencesManager.getInstance(requireContext())).labelRes);
+        }
+    }
+
     private void showRecordingModePicker() {
         java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
         items.add(new com.fadcam.ui.picker.OptionItem(

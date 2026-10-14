@@ -45,9 +45,8 @@ public class CloudStatusManager {
     
     // ❌ REMOVED: UsageReportingErrorListener (moved to relay server)
     
-    // Push interval: 2 seconds for status, 1.5 seconds for commands (Realtime disabled)
-    private static final long STATUS_PUSH_INTERVAL_MS = 2000;
-    private static final long COMMAND_POLL_INTERVAL_MS = 1500; // Reduced from 3000 since Realtime is disabled
+    // Status push / command poll intervals come from the user's Cloud Update Rate
+    // setting (com.fadcam.utils.CloudUpdateRate), read on every reschedule.
     private static final long VIEWERS_POLL_INTERVAL_MS = 30000;
     private static final long USAGE_REPORT_INTERVAL_MS = 5000;  // Report usage every 5 seconds (dev mode)
     
@@ -58,7 +57,7 @@ public class CloudStatusManager {
     private static final int MAX_CONSECUTIVE_FAILURES = 10;
     private static final long MAX_BACKOFF_MS = 8000;  // Max delay after repeated failures
     private int consecutiveFailures = 0;
-    private long currentBackoffMs = STATUS_PUSH_INTERVAL_MS;
+    private long currentBackoffMs = 0L; // 0 = no failure backoff, use the configured rate
     private long lastSuccessfulPushTime = 0;
     
     // Singleton instance
@@ -229,7 +228,7 @@ public class CloudStatusManager {
         
         // Reset failure counters on fresh start
         consecutiveFailures = 0;
-        currentBackoffMs = STATUS_PUSH_INTERVAL_MS;
+        currentBackoffMs = 0L;
         lastSuccessfulPushTime = System.currentTimeMillis();
         
         // Start command poll loop (slightly offset from status push)
@@ -248,7 +247,7 @@ public class CloudStatusManager {
                 }
                 
                 // Always reschedule regardless of errors
-                handler.postDelayed(this, COMMAND_POLL_INTERVAL_MS);
+                handler.postDelayed(this, updateRate().commandIntervalMs);
             }
         };
         handler.postDelayed(commandRunnable, 500); // Start 500ms after status push
@@ -263,8 +262,9 @@ public class CloudStatusManager {
         };
         handler.postDelayed(viewersRunnable, 2000);
         
-        FLog.i(TAG, "☁️ Cloud status manager started (status: " + STATUS_PUSH_INTERVAL_MS + 
-              "ms, commands: " + COMMAND_POLL_INTERVAL_MS + "ms)");
+        com.fadcam.utils.CloudUpdateRate rate = updateRate();
+        FLog.i(TAG, "☁️ Cloud status manager started (status: " + rate.statusIntervalMs +
+              "ms, commands: " + rate.commandIntervalMs + "ms)");
     }
     
 
@@ -454,7 +454,7 @@ public class CloudStatusManager {
             });
         }
         consecutiveFailures = 0;
-        currentBackoffMs = STATUS_PUSH_INTERVAL_MS;
+        currentBackoffMs = 0L;
         lastSuccessfulPushTime = System.currentTimeMillis();
     }
     
@@ -474,12 +474,13 @@ public class CloudStatusManager {
         } else if (consecutiveFailures % 10 == 0) {
             // Log every 10 failures after max to avoid log spam
             FLog.e(TAG, "☁️ ❌ Status push offline for " + consecutiveFailures + " cycles (~" + 
-                    (consecutiveFailures * currentBackoffMs / 1000) + "s)");
+                    (consecutiveFailures * getCurrentPushDelay() / 1000) + "s)");
         }
         
-        // Exponential backoff: 2s → 4s → 8s max
-        if (consecutiveFailures >= 3 && currentBackoffMs < MAX_BACKOFF_MS) {
-            currentBackoffMs = Math.min(currentBackoffMs * 2, MAX_BACKOFF_MS);
+        // Exponential backoff from the configured interval up to 8 s
+        long base = Math.max(currentBackoffMs, updateRate().statusIntervalMs);
+        if (consecutiveFailures >= 3 && base < MAX_BACKOFF_MS) {
+            currentBackoffMs = Math.min(base * 2, MAX_BACKOFF_MS);
             FLog.d(TAG, "☁️ Increasing push interval to " + currentBackoffMs + "ms due to failures");
         }
     }
@@ -488,7 +489,11 @@ public class CloudStatusManager {
      * Get current push delay (with exponential backoff if failing)
      */
     private long getCurrentPushDelay() {
-        return currentBackoffMs;
+        return Math.max(currentBackoffMs, updateRate().statusIntervalMs);
+    }
+
+    private com.fadcam.utils.CloudUpdateRate updateRate() {
+        return com.fadcam.utils.CloudUpdateRate.current(com.fadcam.SharedPreferencesManager.getInstance(context));
     }
     
     /**
