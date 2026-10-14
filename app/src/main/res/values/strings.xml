@@ -1358,6 +1358,14 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="preview_fps_15_desc">Visibly choppier preview, least heat. Good for mounted or dashcam use.</string>
     <string name="preview_fps_auto">Auto</string>
     <string name="preview_fps_auto_desc">While recording, full until the phone gets warm, then 15 fps until it cools down. Previewing alone runs at 30 fps.</string>
+    <string name="setting_cloud_rate_title">Cloud Update Rate</string>
+    <string name="cloud_rate_footer">How often cloud remote mode sends this phone\'s status to your dashboard and checks for commands from it. Each check is a small internet request, and frequent requests keep the phone\'s cellular or Wi-Fi radio in its high-power state, which adds heat and battery drain over long sessions. Only applies while cloud remote is linked and running.</string>
+    <string name="cloud_rate_fast">Fast</string>
+    <string name="cloud_rate_fast_desc">Status every 2 s, commands checked every 1.5 s. Quickest response, radio never rests.</string>
+    <string name="cloud_rate_balanced">Balanced</string>
+    <string name="cloud_rate_balanced_desc">Status every 4 s, commands every 3 s. Commands take a moment longer; about half the requests.</string>
+    <string name="cloud_rate_saver">Saver</string>
+    <string name="cloud_rate_saver_desc">Status every 8 s, commands every 6 s. Slowest response, least radio use.</string>
     <string name="setting_person_check_title">Person Check</string>
     <string name="person_check_footer">After the quick motion check, Motion Lab runs an AI detector to tell people and objects apart. The detector is the heaviest part of motion analysis: a neural network on several CPU cores for every analysed frame. When almost no pixels change between frames, the detector can rest and keep its last answer, checking again every 2 seconds as a safety net. Faint or distant movement still gets checked on every frame.</string>
     <string name="person_check_movement">When something moves</string>
