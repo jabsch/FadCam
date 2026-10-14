@@ -1714,7 +1714,10 @@ public class RecordingService extends Service {
                     boolean previewEnabled = sharedPreferencesManager != null
                             && sharedPreferencesManager.isPreviewEnabled();
                     boolean hasValidPreview = (previewSurface != null && previewSurface.isValid());
-                    waitForPreviewBeforeStart = previewEnabled && !hasValidPreview;
+                    // Shortcut/tile/remote starts have no UI, so no preview surface will
+                    // ever arrive; waiting would only delay the start by the full timeout.
+                    boolean headlessStart = intent.getBooleanExtra(Constants.INTENT_EXTRA_HEADLESS_START, false);
+                    waitForPreviewBeforeStart = previewEnabled && !hasValidPreview && !headlessStart;
 
                     if (waitForPreviewBeforeStart) {
                         // Install a short timeout to avoid getting stuck if preview never arrives

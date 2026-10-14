@@ -169,6 +169,10 @@ android {
     // Dynamic APK output names: FadCam_<flavor>_v<versionName><suffix>-<abi>.apk
     // (default flavor has no <flavor> part; universal APK gets the literal "-universal")
     applicationVariants.all {
+        // res/xml/shortcuts.xml must name the installed package, which differs per
+        // variant (.beta, .pro, ...). A hardcoded "com.fadcam" made every static
+        // launcher shortcut fail with "app isn't installed" on non-release builds.
+        resValue("string", "shortcut_target_package", applicationId)
         val versionName = "${defaultConfig.versionName}${buildType.versionNameSuffix.orEmpty()}"
         val flavor = if (flavorName != "default") "${flavorName}_" else ""
         outputs.all {

@@ -331,9 +331,11 @@
             </intent-filter>
         </receiver>
 
-        <activity android:name=".RecordingStartActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="true" android:configChanges="keyboardHidden|orientation|screenSize" android:windowSoftInputMode="stateAlwaysHidden" android:screenOrientation="portrait" />
-        <activity android:name=".RecordingStopActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="true" android:configChanges="keyboardHidden|orientation|screenSize" android:windowSoftInputMode="stateAlwaysHidden" android:screenOrientation="portrait" />
-        <activity android:name=".RecordingToggleActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="true" />
+        <!-- Recording trampolines run in their own empty task (taskAffinity="") so a
+             shortcut/tile press never clears, resumes or backgrounds the main app task. -->
+        <activity android:name=".RecordingStartActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="true" android:configChanges="keyboardHidden|orientation|screenSize" android:windowSoftInputMode="stateAlwaysHidden" android:documentLaunchMode="never" android:clearTaskOnLaunch="true" android:taskAffinity="" android:allowTaskReparenting="false" />
+        <activity android:name=".RecordingStopActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="true" android:configChanges="keyboardHidden|orientation|screenSize" android:windowSoftInputMode="stateAlwaysHidden" android:documentLaunchMode="never" android:clearTaskOnLaunch="true" android:taskAffinity="" android:allowTaskReparenting="false" />
+        <activity android:name=".RecordingToggleActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="true" android:configChanges="keyboardHidden|orientation|screenSize" android:documentLaunchMode="never" android:clearTaskOnLaunch="true" android:taskAffinity="" android:allowTaskReparenting="false" />
         <activity
             android:name=".PhotoCaptureActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"

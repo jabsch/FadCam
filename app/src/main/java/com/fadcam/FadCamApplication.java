@@ -54,6 +54,12 @@ public class FadCamApplication extends Application implements DefaultLifecycleOb
     public void onStop(@androidx.annotation.NonNull LifecycleOwner owner) {
         // App is in background, reset AppLock session
         SharedPreferencesManager.getInstance(this).setAppLockSessionUnlocked(false);
+        // Only notify a running service. Starting it just to say "backgrounded" spins
+        // up RecordingService (GPS, camera thread, wakelock object) after every
+        // shortcut press and leaves it alive as a sticky idle service.
+        if (!com.fadcam.utils.ServiceUtils.isServiceRunning(this, com.fadcam.services.RecordingService.class)) {
+            return;
+        }
         Intent intent = new Intent(this, com.fadcam.services.RecordingService.class);
         intent.setAction("ACTION_APP_BACKGROUND");
         startService(intent);

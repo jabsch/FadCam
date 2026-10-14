@@ -461,6 +461,13 @@ public abstract class Constants {
     public static final String INTENT_EXTRA_INITIAL_TORCH_STATE =
         "com.fadcam.EXTRA_INITIAL_TORCH_STATE";
     /**
+     * Extra for INTENT_ACTION_START_RECORDING: true when the start comes from a
+     * no-UI entry point (launcher shortcut, Quick Settings tile, remote control).
+     * No preview surface will ever arrive, so the service must not wait for one.
+     */
+    public static final String INTENT_EXTRA_HEADLESS_START =
+        "com.fadcam.EXTRA_HEADLESS_START";
+    /**
      * Extra for INTENT_ACTION_SWITCH_CAMERA: the target CameraType enum value as string.
      * Example: CameraType.FRONT.toString() or CameraType.BACK.toString()
      */
