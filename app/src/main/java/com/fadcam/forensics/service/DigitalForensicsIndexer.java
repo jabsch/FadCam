@@ -55,6 +55,26 @@ public class DigitalForensicsIndexer {
         String uriString = item.uri.toString();
         MediaAssetEntity existingByUri = mediaAssetDao.findByCurrentUri(uriString);
 
+        // Every Records load passes the whole library here. A row already probed
+        // for this exact file only needs its last-seen time; opening each video
+        // twice with MediaMetadataRetriever on every load was the bulk of the work.
+        if (existingByUri != null
+                && existingByUri.sizeBytes == item.size
+                && existingByUri.durationMs > 0
+                && existingByUri.codecInfo != null) {
+            mediaAssetDao.updateLinkAndMetadata(
+                existingByUri.mediaUid,
+                uriString,
+                item.displayName,
+                item.size,
+                existingByUri.durationMs,
+                existingByUri.codecInfo,
+                now,
+                existingByUri.linkStatus == null ? "EXACT" : existingByUri.linkStatus
+            );
+            return;
+        }
+
         long durationMs = ForensicsMetadataUtils.extractDurationMs(appContext, item.uri);
         String codecInfo = ForensicsMetadataUtils.extractCodecInfo(appContext, item.uri);
 
