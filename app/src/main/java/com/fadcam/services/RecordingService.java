@@ -1915,6 +1915,9 @@ public class RecordingService extends Service {
             // Settings saved a new stabilization mode: apply it to the live session.
             reapplyVideoStabilizationToSession();
             return START_STICKY;
+        } else if (Constants.INTENT_ACTION_SET_PREVIEW_FPS.equals(action)) {
+            applyPreviewFrameRateCap();
+            return START_STICKY;
         } else if (Constants.INTENT_ACTION_SET_ZOOM_RATIO.equals(action)) {
             if (intent.hasExtra(Constants.EXTRA_ZOOM_RATIO)) {
                 float zoomRatio = intent.getFloatExtra(Constants.EXTRA_ZOOM_RATIO, 1.0f);
@@ -6980,6 +6983,18 @@ public class RecordingService extends Service {
         }
     }
 
+    /** Applies the preview frame-rate setting, honoring the thermal guard's warm step for Auto. */
+    private void applyPreviewFrameRateCap() {
+        GLRecordingPipeline pipeline = glRecordingPipeline;
+        if (pipeline == null || sharedPreferencesManager == null) {
+            return;
+        }
+        int cap = com.fadcam.utils.PreviewFrameRateMode.current(sharedPreferencesManager)
+                .capFps(thermalGuard.isWarm());
+        pipeline.setPreviewFrameRateCap(cap);
+        FLog.i(TAG, "Preview frame-rate cap: " + (cap > 0 ? cap + " fps" : "none"));
+    }
+
     private void applyScreenStateToPipeline() {
         GLRecordingPipeline pipeline = glRecordingPipeline;
         if (pipeline == null) {
@@ -7027,6 +7042,7 @@ public class RecordingService extends Service {
                     if (isAutoStabilization()) {
                         reapplyVideoStabilizationOnCameraThread(true);
                     }
+                    applyPreviewFrameRateCap();
                 }
 
                 @Override
@@ -7038,6 +7054,7 @@ public class RecordingService extends Service {
                     if (isAutoStabilization()) {
                         reapplyVideoStabilizationOnCameraThread(false);
                     }
+                    applyPreviewFrameRateCap();
                 }
 
                 private boolean isAutoStabilization() {
@@ -7557,6 +7574,7 @@ public class RecordingService extends Service {
 
             glRecordingPipeline.prepareSurfaces();
             applyScreenStateToPipeline();
+            applyPreviewFrameRateCap();
 
             // Notify RemoteStreamManager that recording started
             try {
