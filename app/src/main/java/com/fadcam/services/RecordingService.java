@@ -3990,7 +3990,7 @@ public class RecordingService extends Service {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 for (String id : basicCameraIds) {
                     try {
-                        CameraCharacteristics chars = cameraManager.getCameraCharacteristics(id);
+                        CameraCharacteristics chars = characteristicsFor(cameraManager, id);
                         Set<String> physicalIds = chars.getPhysicalCameraIds();
                         if (physicalIds != null && !physicalIds.isEmpty()) {
                             allAvailableCameraIds.addAll(physicalIds);
@@ -4006,7 +4006,7 @@ public class RecordingService extends Service {
 
             if (selectedType == CameraType.FRONT) {
                 for (String id : availableCameraIds) {
-                    CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(id);
+                    CameraCharacteristics characteristics = characteristicsFor(cameraManager, id);
                     Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
                     if (facing != null && facing == CameraCharacteristics.LENS_FACING_FRONT) {
                         cameraToOpenId = id;
@@ -4021,7 +4021,7 @@ public class RecordingService extends Service {
                 for (String id : availableCameraIds) {
                     if (id.equals(preferredBackId)) {
                         try {
-                            CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(id);
+                            CameraCharacteristics characteristics = characteristicsFor(cameraManager, id);
                             Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
 
                             // For physical cameras, they might not have LENS_FACING_BACK set
@@ -4066,7 +4066,7 @@ public class RecordingService extends Service {
                     boolean defaultExistsAndIsBack = false;
                     for (String id : availableCameraIds) {
                         if (id.equals(cameraToOpenId)) {
-                            CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(id);
+                            CameraCharacteristics characteristics = characteristicsFor(cameraManager, id);
                             Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
                             if (facing != null && facing == CameraCharacteristics.LENS_FACING_BACK) {
                                 defaultExistsAndIsBack = true;
@@ -4079,7 +4079,7 @@ public class RecordingService extends Service {
                                 + "' not found or not back-facing! Cannot select default back camera.");
                         String fallbackBackId = null;
                         for (String id : availableCameraIds) {
-                            CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(id);
+                            CameraCharacteristics characteristics = characteristicsFor(cameraManager, id);
                             Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
                             if (facing != null && facing == CameraCharacteristics.LENS_FACING_BACK) {
                                 FLog.w(TAG, "Using first available back camera as final fallback: " + id);
@@ -4571,7 +4571,7 @@ public class RecordingService extends Service {
             CameraCharacteristics characteristics = null;
             if (cameraId != null) {
                 try {
-                    characteristics = cameraManager.getCameraCharacteristics(cameraId);
+                    characteristics = characteristicsFor(cameraManager, cameraId);
                 } catch (Exception e) {
                     FLog.e(TAG, "Error getting camera characteristics", e);
                 }
@@ -4649,7 +4649,7 @@ public class RecordingService extends Service {
             CameraCharacteristics characteristics = null;
 
             if (cameraId != null) {
-                characteristics = cameraManager.getCameraCharacteristics(cameraId);
+                characteristics = characteristicsFor(cameraManager, cameraId);
             }
 
             // Get target frame rate from settings for specific camera
@@ -4882,7 +4882,7 @@ public class RecordingService extends Service {
                 CameraCharacteristics characteristics = null;
 
                 if (cameraId != null) {
-                    characteristics = cameraManager.getCameraCharacteristics(cameraId);
+                    characteristics = characteristicsFor(cameraManager, cameraId);
                 }
                 // fallback --------------
                 int targetFrameRate = sharedPreferencesManager.getSpecificVideoFrameRate(cameraType);
@@ -5849,7 +5849,7 @@ public class RecordingService extends Service {
         try {
             if (cameraManager == null) return null;
             for (String id : cameraManager.getCameraIdList()) {
-                CameraCharacteristics chars = cameraManager.getCameraCharacteristics(id);
+                CameraCharacteristics chars = characteristicsFor(cameraManager, id);
                 Integer facing = chars.get(CameraCharacteristics.LENS_FACING);
                 if (facing != null && facing == CameraCharacteristics.LENS_FACING_BACK) {
                     return id;
@@ -6749,7 +6749,7 @@ public class RecordingService extends Service {
                 // For front camera, find the first front-facing camera
                 String[] cameraIds = cameraManager.getCameraIdList();
                 for (String id : cameraIds) {
-                    CameraCharacteristics chars = cameraManager.getCameraCharacteristics(id);
+                    CameraCharacteristics chars = characteristicsFor(cameraManager, id);
                     Integer facing = chars.get(CameraCharacteristics.LENS_FACING);
                     if (facing != null && facing == CameraCharacteristics.LENS_FACING_FRONT) {
                         return id;
@@ -6888,7 +6888,7 @@ public class RecordingService extends Service {
                 CameraManager cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
                 String cameraId = getCameraId(cameraManager, cameraType);
                 if (cameraId != null) {
-                    CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(cameraId);
+                    CameraCharacteristics characteristics = characteristicsFor(cameraManager, cameraId);
                     Integer so = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
                     if (so != null) sensorOrientation = so;
                 }
@@ -7055,6 +7055,21 @@ public class RecordingService extends Service {
                 FLog.w(TAG, "Could not change camera frame rate to " + fps, e);
             }
         });
+    }
+
+    // Built-in camera characteristics never change, but every query is a binder
+    // round trip to cameraserver; the start path asked for the same ones ~10 times.
+    private final java.util.Map<String, CameraCharacteristics> characteristicsCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private CameraCharacteristics characteristicsFor(CameraManager manager, String cameraId)
+            throws CameraAccessException {
+        CameraCharacteristics cached = characteristicsCache.get(cameraId);
+        if (cached == null) {
+            cached = manager.getCameraCharacteristics(cameraId);
+            characteristicsCache.put(cameraId, cached);
+        }
+        return cached;
     }
 
     /** Caps the camera rate to the stream preset while the streaming server is on. */
@@ -7355,7 +7370,7 @@ public class RecordingService extends Service {
             int sensorOrientation = 0;
             if (cameraId != null) {
                 try {
-                    CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(cameraId);
+                    CameraCharacteristics characteristics = characteristicsFor(cameraManager, cameraId);
                     Integer so = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
                     if (so != null)
                         sensorOrientation = so;
@@ -7645,7 +7660,7 @@ public class RecordingService extends Service {
         try {
             // Check if this camera ID is a physical camera from any logical back camera
             for (String logicalId : basicCameraIds) {
-                CameraCharacteristics logicalChars = cameraManager.getCameraCharacteristics(logicalId);
+                CameraCharacteristics logicalChars = characteristicsFor(cameraManager, logicalId);
                 Integer logicalFacing = logicalChars.get(CameraCharacteristics.LENS_FACING);
 
                 // Only check logical cameras that are back-facing
