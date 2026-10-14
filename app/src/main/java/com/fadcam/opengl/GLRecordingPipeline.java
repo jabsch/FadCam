@@ -178,7 +178,9 @@ public class GLRecordingPipeline {
     private int videoTrackIndex = -1; // Track index for video in the muxer
     private boolean audioEncoderStarted = false;
     private boolean audioRecordingEnabled = false;
-    private boolean audioThreadRunning = false;
+    private volatile boolean audioThreadRunning = false;
+    /** The audio thread waits on this while paused instead of polling every 10 ms. */
+    private final Object audioPauseLock = new Object();
     /** Realtime mute: when true, captured mic frames are zeroed so the AAC track
      *  stays continuous (no desync) but silent. Toggled live from the home UI. */
     private volatile boolean audioMuted = false;
@@ -923,6 +925,7 @@ public class GLRecordingPipeline {
             try {
                 // Stop the audio thread - this will trigger EOS signaling
                 audioThreadRunning = false;
+                wakeAudioThread();
                 
                 // Wait for audio thread to signal EOS and exit
                 if (audioThread != null) {
@@ -3091,6 +3094,7 @@ public class GLRecordingPipeline {
                 FLog.e(TAG, "Error resuming audio recording", e);
             }
         }
+        wakeAudioThread();
 
         // Set recording flag to true to resume encoding frames
         isRecording = true;
@@ -3670,6 +3674,32 @@ public class GLRecordingPipeline {
     }
 
     /**
+     * Blocks the audio thread until {@link #wakeAudioThread()} or the timeout.
+     * With {@code whilePaused} it returns at once if the pause already ended.
+     * Returns false if the thread was interrupted.
+     */
+    private boolean awaitAudioWake(boolean whilePaused, long timeoutMs) {
+        synchronized (audioPauseLock) {
+            if (!audioThreadRunning || (whilePaused && !isPaused)) {
+                return true;
+            }
+            try {
+                audioPauseLock.wait(timeoutMs);
+                return true;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+    }
+
+    private void wakeAudioThread() {
+        synchronized (audioPauseLock) {
+            audioPauseLock.notifyAll();
+        }
+    }
+
+    /**
      * Starts the audio thread to read PCM and feed the encoder.
      * Handles pause/resume for camera switch scenarios.
      */
@@ -3692,22 +3722,19 @@ public class GLRecordingPipeline {
                 while (audioThreadRunning) {
                     // Check if we're paused - wait for resume
                     if (isPaused) {
-                        // During pause, don't read audio - just wait
-                        try {
-                            Thread.sleep(10);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
+                        // During pause, don't read audio: sleep until resume or stop
+                        // wakes us (the timeout is only a safety net).
+                        if (!awaitAudioWake(true, 1000L)) {
+                            break;
                         }
                         continue;
                     }
                     
                     // Check if audioRecord is actually recording
                     if (audioRecord.getRecordingState() != android.media.AudioRecord.RECORDSTATE_RECORDING) {
-                        // AudioRecord is stopped (during pause), wait a bit
-                        try {
-                            Thread.sleep(10);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
+                        // AudioRecord not restarted yet (resume in progress); resume wakes us.
+                        if (!awaitAudioWake(false, 50L)) {
+                            break;
                         }
                         continue;
                     }

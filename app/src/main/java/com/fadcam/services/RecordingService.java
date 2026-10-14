@@ -1563,12 +1563,6 @@ public class RecordingService extends Service {
 
             ensureLocationFeed();
 
-            // Shared watermark manager (DRY — used by both single and dual camera)
-            if (watermarkManager == null) {
-                watermarkManager = new com.fadcam.watermark.WatermarkManager(this, sharedPreferencesManager);
-            }
-            watermarkManager.initialize(locationHelper);
-
             // Only start sensor/noise/weather providers if the master watermark
             // is enabled AND individual features are turned on.
             boolean watermarkActive = !"no_watermark".equals(
@@ -1576,6 +1570,7 @@ public class RecordingService extends Service {
 
             if (watermarkActive && sharedPreferencesManager != null && (sharedPreferencesManager.isSpeedEnabled()
                     || sharedPreferencesManager.isAltitudeEnabled()
+                    || sharedPreferencesManager.isAccuracyEnabled()
                     || sharedPreferencesManager.isCompassEnabled())) {
                 if (sensorDataProvider == null) {
                     sensorDataProvider = com.fadcam.sensors.SensorDataProvider.getInstance(getApplicationContext());
@@ -2472,12 +2467,6 @@ public class RecordingService extends Service {
                 weatherService = null;
                 FLog.d(TAG, "All extended sensor providers cleaned up");
 
-                // Also destroy shared WatermarkManager
-                if (watermarkManager != null) {
-                    watermarkManager.destroy();
-                    watermarkManager = null;
-                }
-
                 // Final cleanup on the main thread
                 mainHandler.post(() -> {
                     // Release wake lock if held
@@ -2602,7 +2591,6 @@ public class RecordingService extends Service {
         if (sensorDataProvider != null) {
             sensorDataProvider.stop();
         }
-        if (watermarkManager != null) watermarkManager.pauseSensors();
         
         setupRecordingResumeNotification();
         showRecordingInPausedToast();
@@ -2646,7 +2634,6 @@ public class RecordingService extends Service {
             android.location.Location androidLoc = locationHelper != null ? locationHelper.getRawLocation() : null;
             startSensorDataProvider(androidLoc);
         }
-        if (watermarkManager != null) watermarkManager.resumeSensors(locationHelper);
         
         setupRecordingInProgressNotification();
         showRecordingResumedToast();
@@ -7186,7 +7173,6 @@ public class RecordingService extends Service {
                 : targetFrameRate;
     }
     private WatermarkInfoProvider watermarkInfoProvider;
-    private com.fadcam.watermark.WatermarkManager watermarkManager;
     
     // Track current segment file for streaming
     private File currentSegmentFile;

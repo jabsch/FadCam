@@ -64,7 +64,8 @@ public class WatermarkManager implements WatermarkInfoProvider {
         String option = prefs.getWatermarkOption();
         if ("no_watermark".equals(option)) return;
 
-        if (locationHelper == null) {
+        // Only run GPS when a watermark feature actually uses it.
+        if (locationHelper == null && com.fadcam.services.LocationFeedGate.needsLocationData(prefs)) {
             locationHelper = new LocationHelper(context,
                     com.fadcam.services.LocationFeedGate.needsFastLocation(prefs));
             locationHelper.startLocationUpdates();
@@ -76,7 +77,7 @@ public class WatermarkManager implements WatermarkInfoProvider {
             // Seed with the REAL last fix, never a fabricated coords-only Location.
             android.location.Location androidLoc = locationHelper != null
                     ? locationHelper.getRawLocation() : null;
-            sensorDataProvider.start(androidLoc);
+            startSensors(androidLoc);
         }
 
         if (prefs.isNoiseEnabled()) {
@@ -90,6 +91,18 @@ public class WatermarkManager implements WatermarkInfoProvider {
 
         locationGeocoder = new LocationGeocoder();
         FLog.d(TAG, "Watermark providers initialised");
+    }
+
+    /**
+     * Speed, altitude and accuracy come from GPS fixes; only the compass needs
+     * the rotation-vector sensors (same rule as RecordingService).
+     */
+    private void startSensors(android.location.Location seed) {
+        if (prefs.isCompassEnabled()) {
+            sensorDataProvider.start(seed);
+        } else if (seed != null) {
+            sensorDataProvider.updateLocation(seed);
+        }
     }
 
     /** Tear down all providers. Safe to call multiple times. */
@@ -134,7 +147,7 @@ public class WatermarkManager implements WatermarkInfoProvider {
             // Seed with the REAL last fix, never a fabricated coords-only Location.
             android.location.Location androidLoc = locationHelper != null
                     ? locationHelper.getRawLocation() : null;
-            sensorDataProvider.start(androidLoc);
+            startSensors(androidLoc);
         }
         if (prefs.isNoiseEnabled()) {
             if (noiseMonitor == null) noiseMonitor = NoiseMonitor.getInstance();
