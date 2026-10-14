@@ -1601,7 +1601,7 @@ public class RecordingService extends Service {
                 // Seed with the REAL last fix (carries speed/altitude), not a
                 // fabricated coords-only Location. Null is fine — next fix updates it.
                 android.location.Location androidLoc = locationHelper != null ? locationHelper.getRawLocation() : null;
-                sensorDataProvider.start(androidLoc);
+                startSensorDataProvider(androidLoc);
                 // setup log removed
             }
 
@@ -2659,7 +2659,7 @@ public class RecordingService extends Service {
             // fabricated coords-only Location. Null is fine — the next live fix
             // updates the provider anyway.
             android.location.Location androidLoc = locationHelper != null ? locationHelper.getRawLocation() : null;
-            sensorDataProvider.start(androidLoc);
+            startSensorDataProvider(androidLoc);
         }
         if (watermarkManager != null) watermarkManager.resumeSensors(locationHelper);
         
@@ -5244,6 +5244,18 @@ public class RecordingService extends Service {
         }
 
         return sb.toString();
+    }
+
+    /**
+     * Speed and altitude come from GPS fixes alone; only the compass needs the
+     * rotation/magnetic sensors, so they stay off unless the compass is shown.
+     */
+    private void startSensorDataProvider(android.location.Location seed) {
+        if (sharedPreferencesManager != null && sharedPreferencesManager.isCompassEnabled()) {
+            sensorDataProvider.start(seed);
+        } else if (seed != null) {
+            sensorDataProvider.updateLocation(seed);
+        }
     }
 
     private String getExtendedSensorData() {
