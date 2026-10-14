@@ -2989,6 +2989,8 @@ public class RecordingService extends Service {
         motionAutoPaused = false;
         motionSafeMode = RuntimeCompat.shouldUseSafeMotionAnalysis(getApplicationContext());
         motionConsecutivePersonHits = 0;
+        motionLastPersonDetections = java.util.Collections.emptyList();
+        motionLastPersonDetectMs = 0L;
         motionFramesAnalyzed = 0L;
         motionTriggerActionCount = 0L;
         motionSuppressedSignalCount = 0L;
@@ -3122,6 +3124,37 @@ public class RecordingService extends Service {
         }
     }
 
+    private List<com.fadcam.motion.domain.detector.EfficientDetLite1Detector.DetectionResult>
+            motionLastPersonDetections = java.util.Collections.emptyList();
+    private long motionLastPersonDetectMs = 0L;
+
+    /** Below this changed / strong-change area the frame shows no motion at all (far-subject lane starts at 0.008). */
+    private static final float PERSON_CHECK_STILL_AREA = 0.003f;
+
+    /**
+     * Whether to run the AI detector on this frame (Motion Lab "Person Check").
+     * The scene counts as still only when the motion check scored zero AND
+     * almost no pixels changed: a zero score alone also covers faint real
+     * motion below the noise floor, which the far-subject lane relies on the
+     * AI to confirm. A suppressed whole-frame change (shake, light switch) is
+     * never still.
+     */
+    private boolean personCheckDue(float rawMotionScore, long nowMs) {
+        boolean sceneStill = false;
+        if (rawMotionScore <= 0f
+                && motionDetector instanceof com.fadcam.motion.domain.detector.MotionDebugInfoProvider) {
+            com.fadcam.motion.domain.detector.MotionDebugInfoProvider info =
+                    (com.fadcam.motion.domain.detector.MotionDebugInfoProvider) motionDetector;
+            sceneStill = !info.isLastGlobalMotionSuppressed()
+                    && info.getLastChangedAreaRatio() < PERSON_CHECK_STILL_AREA
+                    && info.getLastStrongAreaRatio() < PERSON_CHECK_STILL_AREA;
+        }
+        com.fadcam.utils.PersonCheckMode mode = sharedPreferencesManager != null
+                ? com.fadcam.utils.PersonCheckMode.current(sharedPreferencesManager)
+                : com.fadcam.utils.PersonCheckMode.EVERY_FRAME;
+        return mode.shouldDetect(sceneStill, nowMs - motionLastPersonDetectMs);
+    }
+
     private void processMotionFrame(
             float rawMotionScore,
             @Nullable com.fadcam.motion.domain.detector.EfficientDetLite1Detector.FramePacket framePacket,
@@ -3142,22 +3175,35 @@ public class RecordingService extends Service {
             motionScoreEma = (alpha * rawMotionScore) + ((1f - alpha) * motionScoreEma);
         }
         float motionScore = motionScoreEma;
-        List<com.fadcam.motion.domain.detector.EfficientDetLite1Detector.DetectionResult> detections =
-                (efficientDetDetector != null && framePacket != null)
-                        ? efficientDetDetector.detect(framePacket)
-                        : java.util.Collections.emptyList();
+        List<com.fadcam.motion.domain.detector.EfficientDetLite1Detector.DetectionResult> detections;
+        boolean freshDetections = false;
+        if (efficientDetDetector == null) {
+            detections = java.util.Collections.emptyList();
+        } else if (framePacket != null && personCheckDue(rawMotionScore, nowMs)) {
+            detections = efficientDetDetector.detect(framePacket);
+            motionLastPersonDetections = detections;
+            motionLastPersonDetectMs = nowMs;
+            freshDetections = true;
+        } else {
+            // Still scene: nothing new can have appeared, so the last result stands.
+            detections = motionLastPersonDetections;
+        }
         com.fadcam.motion.domain.detector.EfficientDetLite1Detector.DetectionResult primaryDetection =
                 efficientDetDetector != null ? efficientDetDetector.choosePrimary(detections) : null;
         float personConfidence = efficientDetDetector != null ? efficientDetDetector.bestPersonConfidence(detections) : 0f;
         boolean personDetectedRaw = efficientDetDetector != null && efficientDetDetector.hasPerson(detections);
-        if (personDetectedRaw) {
-            motionConsecutivePersonHits++;
-        } else {
-            motionConsecutivePersonHits = Math.max(0, motionConsecutivePersonHits - 1);
+        // Hit counting and the person-likely window only advance on a fresh
+        // detector run; a reused result must not count as extra confirmations.
+        if (freshDetections) {
+            if (personDetectedRaw) {
+                motionConsecutivePersonHits++;
+            } else {
+                motionConsecutivePersonHits = Math.max(0, motionConsecutivePersonHits - 1);
+            }
         }
         int requiredHits = motionSafeMode ? 3 : 2;
         boolean personDetected = personDetectedRaw && motionConsecutivePersonHits >= requiredHits;
-        if (personDetectedRaw && personConfidence >= 0.62f) {
+        if (freshDetections && personDetectedRaw && personConfidence >= 0.62f) {
             motionPersonLikelyUntilMs = nowMs + 2500L;
         }
         // Keep person-confirmed signal stable across single-frame classifier misses.
