@@ -1372,6 +1372,12 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="person_check_movement_desc">Runs the AI only when something in the picture changes, plus a refresh every 2 s. Cooler while a scene sits still.</string>
     <string name="person_check_every">Every frame</string>
     <string name="person_check_every_desc">Runs the AI on every analysed frame, even when nothing changes. Most CPU and heat.</string>
+    <string name="setting_motion_standby_title">Standby Camera</string>
+    <string name="motion_standby_footer">While Motion Lab waits for motion, recording is paused but the camera stays on so it can keep watching. Nothing is recorded or shown during that wait, so the camera doesn\'t need to make full-size video frames. Low power stops them and slows the camera to 15 fps until motion starts recording again. Applies from the next pause.</string>
+    <string name="motion_standby_low">Low power</string>
+    <string name="motion_standby_low_desc">While waiting, the camera only feeds the small motion check, at 15 fps. Cooler. The first fraction of a second after motion starts can be missed while the full video feed comes back.</string>
+    <string name="motion_standby_ready">Ready</string>
+    <string name="motion_standby_ready_desc">Keeps the full-size video feed running at the recording frame rate while waiting, so recording picks up on the next frame. More camera work and heat.</string>
     <string name="setting_preview_bars_title">Preview Edges</string>
     <string name="preview_bars_footer">When the preview window is a different shape from your video, there are empty edges around it. Filling them with a dimmed, zoomed copy of the camera costs two extra full-screen draws on every preview frame. Black edges skip those draws and keep the phone cooler. Your recorded video is the same either way.</string>
     <string name="preview_bars_fill">Camera fill</string>
