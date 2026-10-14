@@ -6,8 +6,6 @@ import android.content.pm.PackageManager;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
-import android.os.Handler;
-import android.os.Looper;
 
 import androidx.core.content.ContextCompat;
 
@@ -22,16 +20,24 @@ public class NoiseMonitor {
     private static final int AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
 
     private AudioRecord audioRecord = null;
-    private boolean isRecording = false;
+    /** Whether a noise level is wanted (watermark noise on and monitor started). */
+    private volatile boolean isRecording = false;
+    /** Whether this monitor's own AudioRecord loop is running. */
+    private volatile boolean ownCaptureRunning = false;
     private Thread recordingThread = null;
+    private Context appContext;
 
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private double currentDb = 0f;
-    private double maxDb = 120f;
-    private int logCounter = 0;
+    private volatile double currentDb = 0f;
 
     private static final double REF_AMPLITUDE = 32767.0;
     private static final double DB_REFERENCE = 90.0;
+
+    /**
+     * Set while a video recording's audio thread is reading the mic. The level
+     * then comes from that PCM ({@link #reportPcm16}) instead of a second
+     * AudioRecord, so the mic isn't captured twice during a recording.
+     */
+    private static volatile boolean externalFeedActive = false;
 
     private NoiseMonitor() {
         FLog.d(TAG, "NoiseMonitor initialized");
@@ -44,11 +50,67 @@ public class NoiseMonitor {
         return instance;
     }
 
-    public boolean start(Context context) {
+    /** Called by the recording pipeline when its audio capture starts or stops. */
+    public static void setExternalFeedActive(boolean active) {
+        NoiseMonitor monitor;
+        synchronized (NoiseMonitor.class) {
+            externalFeedActive = active;
+            monitor = instance;
+        }
+        // Going inactive leaves the last level in place: it happens when the
+        // recording stops, and the service stops the monitor right after.
+        if (active && monitor != null && monitor.isRecording) {
+            monitor.stopOwnCapture();
+        }
+    }
+
+    /**
+     * Updates the level from the recording's 16-bit little-endian PCM. Cheap
+     * no-op unless the noise watermark is running.
+     */
+    public static void reportPcm16(byte[] pcm, int length) {
+        NoiseMonitor monitor = instance;
+        if (monitor == null || !monitor.isRecording || length < 2) {
+            return;
+        }
+        long sum = 0;
+        int samples = length / 2;
+        for (int i = 0; i + 1 < length; i += 2) {
+            sum += Math.abs((short) ((pcm[i] & 0xff) | (pcm[i + 1] << 8)));
+        }
+        monitor.currentDb = toDb((double) sum / samples);
+    }
+
+    private static double toDb(double averageAmplitude) {
+        double db = DB_REFERENCE + 20 * Math.log10(averageAmplitude / REF_AMPLITUDE);
+        return Math.max(0, Math.min(120.0, db));
+    }
+
+    public synchronized boolean start(Context context) {
         if (isRecording) {
             return true;
         }
+        appContext = context.getApplicationContext();
+        isRecording = true;
+        if (externalFeedActive) {
+            FLog.d(TAG, "NoiseMonitor started on the recording's audio feed");
+            return true;
+        }
+        if (!startOwnCapture()) {
+            isRecording = false;
+            return false;
+        }
+        return true;
+    }
 
+    private synchronized boolean startOwnCapture() {
+        if (ownCaptureRunning) {
+            return true;
+        }
+        Context context = appContext;
+        if (context == null) {
+            return false;
+        }
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
             FLog.w(TAG, "RECORD_AUDIO permission not granted");
@@ -79,25 +141,20 @@ public class NoiseMonitor {
             }
 
             audioRecord.startRecording();
-            isRecording = true;
+            ownCaptureRunning = true;
 
+            final AudioRecord record = audioRecord;
             final int localBufferSize = bufferSize;
             recordingThread = new Thread(() -> {
                 short[] buffer = new short[localBufferSize];
-                while (isRecording) {
-                    int read = audioRecord.read(buffer, 0, buffer.length);
+                while (ownCaptureRunning) {
+                    int read = record.read(buffer, 0, buffer.length);
                     if (read > 0) {
                         double sum = 0;
                         for (int i = 0; i < read; i++) {
                             sum += Math.abs(buffer[i]);
                         }
-                        double average = sum / read;
-                        double db = DB_REFERENCE + 20 * Math.log10(average / REF_AMPLITUDE);
-                        currentDb = Math.max(0, Math.min(maxDb, db));
-                        logCounter++;
-                        if (logCounter % 50 == 0) {
-                        // Noise level log removed for performance
-                        }
+                        currentDb = toDb(sum / read);
                     }
                     try {
                         Thread.sleep(100);
@@ -108,19 +165,19 @@ public class NoiseMonitor {
             }, "NoiseMonitorThread");
             recordingThread.start();
 
-            FLog.d(TAG, "NoiseMonitor started, bufferSize=" + localBufferSize);
+            FLog.d(TAG, "NoiseMonitor own capture started, bufferSize=" + localBufferSize);
             return true;
 
         } catch (Exception e) {
             FLog.e(TAG, "Error starting NoiseMonitor", e);
+            ownCaptureRunning = false;
             release();
             return false;
         }
     }
 
-    public void stop() {
-        isRecording = false;
-        logCounter = 0;
+    private synchronized void stopOwnCapture() {
+        ownCaptureRunning = false;
         if (recordingThread != null) {
             try {
                 recordingThread.join(500);
@@ -130,6 +187,11 @@ public class NoiseMonitor {
             recordingThread = null;
         }
         release();
+    }
+
+    public synchronized void stop() {
+        isRecording = false;
+        stopOwnCapture();
         FLog.d(TAG, "NoiseMonitor stopped");
     }
 

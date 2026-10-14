@@ -287,6 +287,28 @@ public class GLWatermarkRenderer {
         previewSuspended = suspended;
     }
 
+    /** Minimum time between preview draws while recording; 0 draws every frame. */
+    private volatile long previewMinIntervalNs = 0L;
+    private long lastPreviewDrawNs = 0L;
+
+    /** Caps the preview pass while recording at {@code fps} (0 = every camera frame). */
+    public void setPreviewFrameRateCap(int fps) {
+        previewMinIntervalNs = fps > 0 ? 1_000_000_000L / fps : 0L;
+    }
+
+    /**
+     * Whether this frame's preview draw fits under the cap. Allows 20% early so
+     * camera timing jitter doesn't drop every other frame at an exact multiple.
+     */
+    private boolean previewDrawDue(long nowNs) {
+        long interval = previewMinIntervalNs;
+        if (interval <= 0L || nowNs - lastPreviewDrawNs >= interval - interval / 5) {
+            lastPreviewDrawNs = nowNs;
+            return true;
+        }
+        return false;
+    }
+
     // Reference to recording pipeline for timestamp synchronization
     private GLRecordingPipeline recordingPipeline;
     private boolean isScreenRecording = false; // true for ScreenRecordingPipeline, false for GLRecordingPipeline
@@ -370,9 +392,12 @@ public class GLWatermarkRenderer {
                 }
             }
 
-            // Then try to render to preview (non-critical)
+            // Then try to render to preview (non-critical), at most at the preview cap.
             try {
                 long prevStart = System.nanoTime();
+                if (!previewDrawDue(prevStart)) {
+                    return;
+                }
                 renderToPreview();
                 long prevMs = (System.nanoTime() - prevStart) / 1_000_000L;
                 if (prevMs > 80) {

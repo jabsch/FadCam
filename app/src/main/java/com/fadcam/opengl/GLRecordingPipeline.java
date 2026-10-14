@@ -617,6 +617,7 @@ public class GLRecordingPipeline {
                 glRenderer.setUserOrientationSetting(orientation);
                 glRenderer.setRecordingPipeline(this); // Set reference for timestamp synchronization
                 glRenderer.setPreviewSuspended(previewSuspended);
+                glRenderer.setPreviewFrameRateCap(previewFrameRateCap);
                 glRenderer.setFrontVideoMirrorEnabled(frontVideoMirrorEnabled);
                 // Propagate encoder dimensions that were computed during initializeEncoder().
                 // initializeEncoder() runs BEFORE the renderer is created, so its
@@ -2942,6 +2943,17 @@ public class GLRecordingPipeline {
         }
     }
 
+    private volatile int previewFrameRateCap = 0;
+
+    /** Caps how often the on-screen preview is redrawn while recording (0 = every frame). */
+    public void setPreviewFrameRateCap(int fps) {
+        previewFrameRateCap = fps;
+        GLWatermarkRenderer renderer = glRenderer;
+        if (renderer != null) {
+            renderer.setPreviewFrameRateCap(fps);
+        }
+    }
+
     /** Bitrate the encoder was configured with for this session (bps). */
     public int getConfiguredVideoBitrate() {
         return videoBitrate;
@@ -3656,6 +3668,8 @@ public class GLRecordingPipeline {
             return;
         audioThreadRunning = true;
         audioThread = new Thread(() -> {
+            // The noise watermark reads its level from this PCM instead of opening a second mic stream.
+            com.fadcam.audio.NoiseMonitor.setExternalFeedActive(true);
             try {
                 audioRecord.startRecording();
                 // Use a large byte[] buffer and feed encoder in sane chunks aligned to frames
@@ -3690,6 +3704,7 @@ public class GLRecordingPipeline {
                     
                     int read = audioRecord.read(readBuffer, 0, readBuffer.length);
                     if (read > 0) {
+                        com.fadcam.audio.NoiseMonitor.reportPcm16(readBuffer, read);
                         if (audioMuted) {
                             // Realtime mute: encode silence (track stays continuous).
                             java.util.Arrays.fill(readBuffer, 0, read, (byte) 0);
@@ -3766,6 +3781,8 @@ public class GLRecordingPipeline {
                 }
             } catch (Exception e) {
                 FLog.e(TAG, "Audio thread error", e);
+            } finally {
+                com.fadcam.audio.NoiseMonitor.setExternalFeedActive(false);
             }
             // NOTE: Do NOT stop/release audioRecord here - let stopRecording() handle it
             // This prevents race conditions and ensures proper cleanup order

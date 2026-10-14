@@ -1348,6 +1348,16 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="setting_video_stabilization_title">Video Stabilization</string>
     <string name="setting_not_supported">Not supported on this device</string>
     <string name="video_stabilization_footer">Optical stabilization (OIS) moves the lens to cancel hand shake and costs almost no power. Electronic stabilization (EIS) crops and warps every frame for smoother handheld video, which makes the phone work harder and run warmer on long recordings. Changes apply right away, even while recording.</string>
+    <string name="setting_preview_fps_title">Preview While Recording</string>
+    <string name="preview_fps_footer">How often the on-screen preview is redrawn while recording. Your video always records at its full frame rate; only the preview you watch changes. Each preview frame is an extra full-screen draw, so a lower rate keeps the phone cooler when you leave the app open. With the screen off or the app in the background, the preview isn\'t drawn at all.</string>
+    <string name="preview_fps_full">Full</string>
+    <string name="preview_fps_full_desc">Redraw every camera frame. Smoothest preview, most GPU work.</string>
+    <string name="preview_fps_30">30 fps</string>
+    <string name="preview_fps_30_desc">Smooth enough to frame shots. Halves preview work when recording at 60 fps.</string>
+    <string name="preview_fps_15">15 fps</string>
+    <string name="preview_fps_15_desc">Visibly choppier preview, least heat. Good for mounted or dashcam use.</string>
+    <string name="preview_fps_auto">Auto</string>
+    <string name="preview_fps_auto_desc">Full until the phone gets warm, then 15 fps until it cools down.</string>
     <string name="stabilization_off">Off</string>
     <string name="stabilization_off_desc">No stabilization. Full field of view; best on a tripod or mount.</string>
     <string name="stabilization_optical">Optical only</string>

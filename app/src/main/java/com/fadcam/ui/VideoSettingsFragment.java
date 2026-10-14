@@ -184,6 +184,35 @@ public class VideoSettingsFragment extends Fragment {
         sheet.show(getParentFragmentManager(), "video_stabilization_picker");
     }
 
+    /** Opens the preview-while-recording frame rate picker; applies live to a running recording. */
+    private void showPreviewFrameRateBottomSheet() {
+        com.fadcam.utils.PreviewFrameRateMode current = com.fadcam.utils.PreviewFrameRateMode.current(prefs);
+        java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
+        for (com.fadcam.utils.PreviewFrameRateMode m : com.fadcam.utils.PreviewFrameRateMode.values()) {
+            items.add(new com.fadcam.ui.picker.OptionItem(m.id, getString(m.labelRes), getString(m.descriptionRes)));
+        }
+        final String resultKey = "picker_result_preview_fps";
+        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
+            com.fadcam.utils.PreviewFrameRateMode picked = com.fadcam.utils.PreviewFrameRateMode.fromId(
+                    b.getString(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID));
+            if (picked == null || picked == current) {
+                return;
+            }
+            com.fadcam.utils.PreviewFrameRateMode.save(prefs, picked);
+            try {
+                Intent i = new Intent(Constants.INTENT_ACTION_SET_PREVIEW_FPS);
+                i.setClass(requireContext(), RecordingService.class);
+                requireContext().startService(i);
+            } catch (Exception e) {
+                FLog.w(TAG, "UI: failed to dispatch preview fps change: " + e.getMessage());
+            }
+            refreshAllValues();
+        });
+        com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(getString(R.string.setting_preview_fps_title),
+                items, current.id, resultKey, getString(R.string.preview_fps_footer))
+                .show(getParentFragmentManager(), "preview_fps_picker");
+    }
+
     /**
      * Opens the Pixel optimized mode sheet. Turning it on re-applies the tuned
      * recording profile; either way the other settings screens pick up the
@@ -329,13 +358,14 @@ public class VideoSettingsFragment extends Fragment {
         // Pill-style tap animation for every tappable arrow row.
         // Wide full-width rows: smaller scale (1.03) so the growth stays subtle.
         int[] rowIds = {
-            R.id.row_camera_type, R.id.row_video_stabilization, R.id.row_lens,
+            R.id.row_camera_type, R.id.row_video_stabilization, R.id.row_preview_fps, R.id.row_lens,
             R.id.row_resolution, R.id.row_framerate, R.id.row_codec, R.id.row_bitrate,
             R.id.row_orientation, R.id.row_zoom_ratio, R.id.row_video_splitting,
             R.id.row_location_embed, R.id.row_dual_camera_settings
         };
         root.findViewById(R.id.row_camera_type).setOnClickListener(v -> showCameraBottomSheet());
         root.findViewById(R.id.row_video_stabilization).setOnClickListener(v -> showVideoStabilizationBottomSheet());
+        root.findViewById(R.id.row_preview_fps).setOnClickListener(v -> showPreviewFrameRateBottomSheet());
         if (com.fadcam.utils.PixelOptimizedMode.isSupported()) {
             root.findViewById(R.id.row_pixel_optimized).setVisibility(View.VISIBLE);
             root.findViewById(R.id.divider_pixel_optimized).setVisibility(View.VISIBLE);
@@ -401,6 +431,11 @@ public class VideoSettingsFragment extends Fragment {
             valueVideoStabilization.setText(videoStabilizationSupported
                     ? getString(com.fadcam.utils.VideoStabilizationMode.current(prefs).labelRes)
                     : getString(R.string.setting_not_supported));
+        }
+
+        TextView valuePreviewFps = getView() != null ? getView().findViewById(R.id.value_preview_fps) : null;
+        if (valuePreviewFps != null) {
+            valuePreviewFps.setText(com.fadcam.utils.PreviewFrameRateMode.current(prefs).labelRes);
         }
 
         // Show/hide Dual Camera Settings row and its divider
