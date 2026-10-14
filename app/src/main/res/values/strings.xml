@@ -3138,7 +3138,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="preset_applies_next_recording">%1$s. Applies to your next recording.</string>
     <string name="thermal_guard_eis_off">Phone is warm. Electronic stabilization is off until it cools down.</string>
     <string name="pixel_optimized_confirm_action">Turn on and apply</string>
-    <string name="pixel_optimized_confirm_subtitle">Changes the recording settings listed above</string>
+    <string name="pixel_optimized_confirm_subtitle">Changes the recording settings listed below</string>
     <string name="pixel_optimized_confirm_changes">Turning on Pixel optimized mode changes these settings:\n• Resolution: 1080p\n• Frame rate: 30 fps (front and back)\n• Codec: H.265 (HEVC)\n• Bitrate: Auto\n• Stabilization: Optical only\n\nYou can change any of them again afterwards.</string>
     <string name="thermal_guard_fps_lowered">Phone is warm. Recording at 30 fps until it cools down.</string>
     <string name="hardware_buttons_heading">Hardware buttons</string>

@@ -36,6 +36,7 @@ public class InputActionBottomSheetFragment extends BottomSheetDialogFragment {
     private static final String ARG_INPUT_VALUE = "input_value";
     private static final String ARG_INPUT_HINT = "input_hint";
     private static final String ARG_HELPER_TEXT = "helper_text";
+    private static final String ARG_CONFIRM_NEUTRAL = "confirm_neutral";
     private static final String MODE_PREVIEW = "preview";
     private static final String MODE_RESET = "reset";
     private static final String MODE_INPUT = "input";
@@ -55,6 +56,17 @@ public class InputActionBottomSheetFragment extends BottomSheetDialogFragment {
 
     public void setCallbacks(Callbacks cb) {
         this.callbacks = cb;
+    }
+
+    /** Styles a confirm sheet's action as a normal (non-destructive) action. */
+    public InputActionBottomSheetFragment withNeutralConfirm() {
+        Bundle args = getArguments();
+        if (args == null) {
+            args = new Bundle();
+            setArguments(args);
+        }
+        args.putBoolean(ARG_CONFIRM_NEUTRAL, true);
+        return this;
     }
 
     /**
@@ -220,8 +232,9 @@ public class InputActionBottomSheetFragment extends BottomSheetDialogFragment {
         int actionIcon = args != null ? args.getInt(ARG_ACTION_ICON, R.drawable.ic_delete) : R.drawable.ic_delete;
         final String finalActionTitle = actionTitle != null ? actionTitle : getString(R.string.prefs_reset_label);
         final String finalActionSubtitle = actionSubtitle != null ? actionSubtitle : "";
-        // Destructive styling for confirm-only (used for delete/reset actions)
-        parent.addView(actionRow(actionIcon, finalActionTitle, finalActionSubtitle, true, v -> {
+        // Destructive styling for confirm-only (delete/reset) unless the caller opted out.
+        boolean destructive = args == null || !args.getBoolean(ARG_CONFIRM_NEUTRAL, false);
+        parent.addView(actionRow(actionIcon, finalActionTitle, finalActionSubtitle, destructive, v -> {
             // Dismiss first for snappy UX, then callback
             try { dismiss(); } catch (Exception ignored) {}
             if (callbacks != null) callbacks.onResetConfirmed();

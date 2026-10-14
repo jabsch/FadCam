@@ -239,12 +239,19 @@ public class VideoSettingsFragment extends Fragment {
 
     /** Lists the settings Pixel optimized mode will change and applies them on confirm. */
     private void confirmPixelOptimizedProfile() {
+        // Close the switch sheet so a dismissed confirm doesn't leave its switch showing on.
+        androidx.fragment.app.Fragment switchSheet =
+                getParentFragmentManager().findFragmentByTag("pixel_optimized_picker");
+        if (switchSheet instanceof androidx.fragment.app.DialogFragment) {
+            ((androidx.fragment.app.DialogFragment) switchSheet).dismissAllowingStateLoss();
+        }
         com.fadcam.ui.InputActionBottomSheetFragment sheet = com.fadcam.ui.InputActionBottomSheetFragment.newConfirm(
                 getString(R.string.setting_pixel_optimized_title),
                 getString(R.string.pixel_optimized_confirm_action),
                 getString(R.string.pixel_optimized_confirm_subtitle),
                 R.drawable.ic_check,
-                getString(R.string.pixel_optimized_confirm_changes));
+                getString(R.string.pixel_optimized_confirm_changes))
+                .withNeutralConfirm();
         sheet.setCallbacks(new com.fadcam.ui.InputActionBottomSheetFragment.Callbacks() {
             @Override
             public void onImportConfirmed(org.json.JSONObject json) {
@@ -257,7 +264,6 @@ public class VideoSettingsFragment extends Fragment {
             }
         });
         sheet.show(getParentFragmentManager(), "pixel_optimized_confirm");
-        refreshAllValues();
     }
 
     /**

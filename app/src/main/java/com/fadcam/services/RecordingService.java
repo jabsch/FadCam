@@ -6497,6 +6497,9 @@ public class RecordingService extends Service {
      *
      * Tagged "FadCamEIS" for logcat grepping to verify the feature is active.
      */
+    /** Whether the camera last configured offers EIS; read by the Auto mode's warm toast. */
+    private volatile boolean lastStabilizationEisSupported;
+
     private void applyVideoStabilization(CaptureRequest.Builder builder) {
         try {
             if (builder == null || currentCameraCharacteristics == null) {
@@ -6518,6 +6521,7 @@ public class RecordingService extends Service {
                     }
                 }
             }
+            lastStabilizationEisSupported = eisSupported;
             int eisMode = (mode.usesElectronic(thermalGuard.isWarm()) && eisSupported)
                     ? CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_ON
                     : CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_OFF;
@@ -6554,19 +6558,21 @@ public class RecordingService extends Service {
      * session (e.g. after the user toggles it in Settings mid-recording).
      * Fully guarded — never throws.
      */
-    private void reapplyVideoStabilizationToSession() {
+    private boolean reapplyVideoStabilizationToSession() {
         try {
             if (captureSession == null || captureRequestBuilder == null
                     || cameraDevice == null || isStopping) {
                 FLog.w("FadCamEIS", "reapply skipped (session/builder/device not ready)");
-                return;
+                return false;
             }
             applyVideoStabilization(captureRequestBuilder);
             captureSession.setRepeatingRequest(
                     captureRequestBuilder.build(), null, backgroundHandler);
             FLog.i("FadCamEIS", "Repeating request re-issued with new stabilization state");
+            return true;
         } catch (Throwable t) {
             FLog.w("FadCamEIS", "reapplyVideoStabilizationToSession failed safely: " + t.getMessage());
+            return false;
         }
     }
 
@@ -7019,9 +7025,7 @@ public class RecordingService extends Service {
                                 Toast.LENGTH_LONG).show();
                     }
                     if (isAutoStabilization()) {
-                        reapplyVideoStabilizationOnCameraThread();
-                        Toast.makeText(getApplicationContext(), R.string.thermal_guard_eis_off,
-                                Toast.LENGTH_LONG).show();
+                        reapplyVideoStabilizationOnCameraThread(true);
                     }
                 }
 
@@ -7032,7 +7036,7 @@ public class RecordingService extends Service {
                                 .getSpecificVideoFrameRate(sharedPreferencesManager.getCameraSelection())));
                     }
                     if (isAutoStabilization()) {
-                        reapplyVideoStabilizationOnCameraThread();
+                        reapplyVideoStabilizationOnCameraThread(false);
                     }
                 }
 
@@ -7070,12 +7074,21 @@ public class RecordingService extends Service {
         });
     }
 
-    /** Re-issues the repeating request with the current stabilization state on the camera thread. */
-    private void reapplyVideoStabilizationOnCameraThread() {
+    /**
+     * Re-issues the repeating request with the current stabilization state on
+     * the camera thread; {@code announceEisOff} toasts once EIS really went off.
+     */
+    private void reapplyVideoStabilizationOnCameraThread(boolean announceEisOff) {
         Handler handler = backgroundHandler;
-        if (handler != null) {
-            handler.post(this::reapplyVideoStabilizationToSession);
+        if (handler == null) {
+            return;
         }
+        handler.post(() -> {
+            if (reapplyVideoStabilizationToSession() && announceEisOff && lastStabilizationEisSupported) {
+                mainHandler.post(() -> Toast.makeText(getApplicationContext(),
+                        R.string.thermal_guard_eis_off, Toast.LENGTH_LONG).show());
+            }
+        });
     }
 
     // Built-in camera characteristics never change, but every query is a binder
