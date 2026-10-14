@@ -3042,6 +3042,19 @@ public class GLRecordingPipeline {
     }
     
     /**
+     * Drops camera frames queued while paused, so resuming starts from a new
+     * frame. Call before {@link #resumeRecording()}: both run in order on the
+     * GL thread.
+     */
+    public void discardPendingCameraFrames() {
+        GLWatermarkRenderer renderer = glRenderer;
+        if (renderer == null || handler == null || isRecording || isStopped) {
+            return;
+        }
+        handler.post(renderer::discardPendingCameraFrames);
+    }
+
+    /**
      * Prepares for a camera switch by setting the appropriate flags.
      * Call this before pauseRecording() when switching cameras.
      */

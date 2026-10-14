@@ -548,6 +548,41 @@ public class GLWatermarkRenderer {
         }
     }
 
+    /**
+     * Drops every camera frame that arrived but was never drawn, so the next
+     * render waits for a new one instead of encoding an old picture (frames
+     * queued while a recording was paused). GL thread only.
+     */
+    public void discardPendingCameraFrames() {
+        synchronized (renderLock) {
+            if (released || !initialized || cameraSurfaceTexture == null) {
+                return;
+            }
+            synchronized (frameSyncObject) {
+                if (!frameAvailable) {
+                    return;
+                }
+                frameAvailable = false;
+            }
+            try {
+                // Each call takes the oldest queued frame; stop once nothing new arrives.
+                long last = cameraSurfaceTexture.getTimestamp();
+                for (int i = 0; i < 8; i++) {
+                    cameraSurfaceTexture.updateTexImage();
+                    long ts = cameraSurfaceTexture.getTimestamp();
+                    if (ts == last) {
+                        break;
+                    }
+                    last = ts;
+                }
+                cameraSurfaceTexture.getTransformMatrix(latestTexMatrix);
+                hasLatestTexMatrix = true;
+            } catch (Exception e) {
+                FLog.w(TAG, "discardPendingCameraFrames failed", e);
+            }
+        }
+    }
+
     public void setSuppressWatermarkForSnapshot(boolean suppress) {
         suppressWatermarkForSnapshot = suppress;
     }

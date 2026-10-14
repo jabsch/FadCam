@@ -2582,6 +2582,10 @@ public class RecordingService extends Service {
             releaseDummyBackgroundSurface();
             releaseMotionAnalysisReader();
             closeCameraResourcesForSwitch();
+        } else if (motionLabEnabledForSession && !isSwitchingCamera
+                && com.fadcam.utils.MotionStandbyMode.current(sharedPreferencesManager)
+                        == com.fadcam.utils.MotionStandbyMode.LOW_POWER) {
+            requestMotionStandby(true);
         }
 
         // Pause noise monitor and sensors — no audio recorded, no watermark data needed
@@ -2607,7 +2611,13 @@ public class RecordingService extends Service {
             FLog.d(TAG, "Reopening camera for resume (was released during pause)");
             openCamera();
         }
+        // No-op unless the paused camera was in Motion Lab standby.
+        requestMotionStandby(false);
 
+        if (glRecordingPipeline != null && motionLabEnabledForSession && !isSwitchingCamera) {
+            // The camera stayed open while paused; frames left from then are old.
+            glRecordingPipeline.discardPendingCameraFrames();
+        }
         if (glRecordingPipeline != null)
             glRecordingPipeline.resumeRecording(); // if supported
         if (pauseStartedAt > 0L) {
@@ -2987,6 +2997,7 @@ public class RecordingService extends Service {
         motionLabEnabledForSession = sharedPreferencesManager != null && sharedPreferencesManager.isMotionModeEnabled();
         lastMotionAnalysisTimestampMs = 0L;
         motionAutoPaused = false;
+        motionStandbyWanted = false;
         motionSafeMode = RuntimeCompat.shouldUseSafeMotionAnalysis(getApplicationContext());
         motionConsecutivePersonHits = 0;
         motionLastPersonDetections = java.util.Collections.emptyList();
@@ -6347,6 +6358,7 @@ public class RecordingService extends Service {
             // Configure a builder for high-speed recording
             captureRequestBuilder = HighSpeedCaptureHelper.configureHighSpeedRequestBuilder(
                     cameraDevice, null, targetFrameRate, characteristics);
+            motionStandbyApplied = false;
 
             // Apply saved user camera prefs (if any) so recording respects user choices on
             // start
@@ -6408,6 +6420,7 @@ public class RecordingService extends Service {
             // Create standard request builder
             captureRequestBuilder = cameraDevice.createCaptureRequest(
                     previewOnlyActive ? CameraDevice.TEMPLATE_PREVIEW : CameraDevice.TEMPLATE_RECORD);
+            motionStandbyApplied = false;
 
             // Add surfaces as targets
             for (Surface surface : surfaces) {
@@ -6907,6 +6920,10 @@ public class RecordingService extends Service {
         } else if (recordingState == RecordingState.PAUSED) {
             // Handle paused state
             FLog.d(TAG, "Session configured while in PAUSED state");
+            if (motionStandbyWanted && motionLabEnabledForSession && !isSwitchingCamera) {
+                // A new session starts from a fresh, full-rate request.
+                requestMotionStandby(true);
+            }
             setupRecordingResumeNotification();
         }
     }
@@ -7158,6 +7175,11 @@ public class RecordingService extends Service {
                     || session instanceof CameraConstrainedHighSpeedCaptureSession) {
                 return;
             }
+            if (motionStandbyApplied) {
+                // Leaving standby re-reads the thermal cap, so nothing is lost.
+                FLog.d(TAG, "Motion Lab standby: deferring camera frame rate " + fps);
+                return;
+            }
             try {
                 applyFrameRateSettings(builder, fps, currentCameraCharacteristics);
                 session.setRepeatingRequest(builder.build(), null, backgroundHandler);
@@ -7166,6 +7188,85 @@ public class RecordingService extends Service {
                 FLog.w(TAG, "Could not change camera frame rate to " + fps, e);
             }
         });
+    }
+
+    // Motion Lab standby. While a Motion Lab recording is paused nothing is
+    // encoded or drawn, yet the camera stays open for the motion check, so the
+    // full-size GL target only costs sensor and ISP work.
+    private volatile boolean motionStandbyWanted = false;
+    // Set on the camera thread (and reset with each new request builder):
+    // the current repeating request is in standby.
+    private volatile boolean motionStandbyApplied = false;
+    private int motionStandbyRetries = 0;
+    private static final int MOTION_STANDBY_MAX_RETRIES = 5;
+    private static final long MOTION_STANDBY_RETRY_MS = 200L;
+
+    /**
+     * Enters or leaves Motion Lab standby on the camera thread. In standby the
+     * repeating request feeds only the small motion analysis reader, at
+     * {@link com.fadcam.utils.MotionStandbyMode#STANDBY_FPS}.
+     */
+    private void requestMotionStandby(boolean standby) {
+        motionStandbyWanted = standby;
+        Handler handler = backgroundHandler;
+        if (handler != null) {
+            handler.post(this::syncMotionStandbyRequest);
+        }
+    }
+
+    private void syncMotionStandbyRequest() {
+        boolean standby = motionStandbyWanted;
+        if (standby == motionStandbyApplied) {
+            motionStandbyRetries = 0;
+            return;
+        }
+        CameraCaptureSession session = captureSession;
+        CaptureRequest.Builder builder = captureRequestBuilder;
+        com.fadcam.opengl.GLRecordingPipeline pipeline = glRecordingPipeline;
+        Surface glSurface = pipeline != null ? pipeline.getCameraInputSurface() : null;
+        if (session == null || builder == null || glSurface == null || sharedPreferencesManager == null
+                || session instanceof CameraConstrainedHighSpeedCaptureSession) {
+            return;
+        }
+        if (standby && motionAnalysisReader == null) {
+            // A request needs a target; without the reader there is nothing to keep.
+            return;
+        }
+        int recordingFps = capForStreaming(capForThermalFrameRate(sharedPreferencesManager
+                .getSpecificVideoFrameRate(sharedPreferencesManager.getCameraSelection())));
+        try {
+            if (standby) {
+                builder.removeTarget(glSurface);
+                applyFrameRateSettings(builder,
+                        com.fadcam.utils.MotionStandbyMode.standbyFps(recordingFps), currentCameraCharacteristics);
+            } else {
+                builder.addTarget(glSurface);
+                applyFrameRateSettings(builder, recordingFps, currentCameraCharacteristics);
+            }
+            session.setRepeatingRequest(builder.build(), null, backgroundHandler);
+            motionStandbyApplied = standby;
+            motionStandbyRetries = 0;
+            FLog.i(TAG, standby ? "Motion Lab standby: analysis feed only" : "Motion Lab standby ended at "
+                    + recordingFps + " fps");
+        } catch (Exception e) {
+            if (standby) {
+                // Stay out of standby: the builder goes back to full rate with
+                // every target, matching the request that is still running.
+                builder.addTarget(glSurface);
+                applyFrameRateSettings(builder, recordingFps, currentCameraCharacteristics);
+                FLog.w(TAG, "Motion Lab standby could not start", e);
+                return;
+            }
+            // Leaving standby failed, so the camera may still skip the video
+            // feed. The builder is already full; keep retrying. A new session
+            // resets motionStandbyApplied and ends the retries.
+            Handler handler = backgroundHandler;
+            if (handler != null && motionStandbyRetries < MOTION_STANDBY_MAX_RETRIES) {
+                motionStandbyRetries++;
+                handler.postDelayed(this::syncMotionStandbyRequest, MOTION_STANDBY_RETRY_MS);
+            }
+            FLog.e(TAG, "Motion Lab standby could not end (attempt " + motionStandbyRetries + ")", e);
+        }
     }
 
     /**

@@ -131,6 +131,8 @@ public class MotionLabSettingsFragment extends Fragment {
         view.findViewById(R.id.row_motion_analysis_fps).setOnClickListener(v -> showAnalysisFpsPicker());
         view.findViewById(R.id.row_motion_person_check).setOnClickListener(v -> showPersonCheckPicker());
         refreshPersonCheckValue(view);
+        view.findViewById(R.id.row_motion_standby).setOnClickListener(v -> showStandbyPicker());
+        refreshStandbyValue(view);
         view.findViewById(R.id.row_motion_debounce).setOnClickListener(v -> showDebounceInput());
         view.findViewById(R.id.row_motion_post_roll).setOnClickListener(v -> showPostRollInput());
         view.findViewById(R.id.row_motion_pre_roll).setOnClickListener(v -> showPreRollInput());
@@ -193,6 +195,37 @@ public class MotionLabSettingsFragment extends Fragment {
         TextView value = root != null ? root.findViewById(R.id.value_motion_person_check) : null;
         if (value != null) {
             value.setText(com.fadcam.utils.PersonCheckMode.current(
+                    SharedPreferencesManager.getInstance(requireContext())).labelRes);
+        }
+    }
+
+    /** Opens the Standby Camera picker; the service reads it each time a Motion Lab recording pauses. */
+    private void showStandbyPicker() {
+        SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(requireContext());
+        com.fadcam.utils.MotionStandbyMode current = com.fadcam.utils.MotionStandbyMode.current(prefs);
+        java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
+        for (com.fadcam.utils.MotionStandbyMode m : com.fadcam.utils.MotionStandbyMode.values()) {
+            items.add(new com.fadcam.ui.picker.OptionItem(m.id, getString(m.labelRes), getString(m.descriptionRes)));
+        }
+        final String resultKey = "picker_result_motion_standby";
+        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
+            com.fadcam.utils.MotionStandbyMode picked = com.fadcam.utils.MotionStandbyMode.fromId(
+                    b.getString(PickerBottomSheetFragment.BUNDLE_SELECTED_ID));
+            if (picked == null || picked == current) {
+                return;
+            }
+            com.fadcam.utils.MotionStandbyMode.save(prefs, picked);
+            refreshStandbyValue(getView());
+        });
+        PickerBottomSheetFragment.newInstance(getString(R.string.setting_motion_standby_title),
+                items, current.id, resultKey, getString(R.string.motion_standby_footer))
+                .show(getParentFragmentManager(), "motion_standby_picker");
+    }
+
+    private void refreshStandbyValue(@Nullable View root) {
+        TextView value = root != null ? root.findViewById(R.id.value_motion_standby) : null;
+        if (value != null) {
+            value.setText(com.fadcam.utils.MotionStandbyMode.current(
                     SharedPreferencesManager.getInstance(requireContext())).labelRes);
         }
     }
