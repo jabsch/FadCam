@@ -123,6 +123,11 @@ public final class FLog {
     }
 
     private static void log(int priority, String tag, String message, Throwable t) {
+        // Release builds strip android.util.Log, so with the in-app debug log
+        // off nothing below would be written: skip the redaction regexes.
+        if (!BuildConfig.DEBUG && !Log.isDebugLoggingEnabled()) {
+            return;
+        }
         String safeTag = (tag == null || tag.isEmpty()) ? DEFAULT_TAG : tag;
         String baseMsg = message == null ? "" : message;
         if (t != null) {
