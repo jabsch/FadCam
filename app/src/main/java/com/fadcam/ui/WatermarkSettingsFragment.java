@@ -439,7 +439,7 @@ public class WatermarkSettingsFragment extends Fragment {
 
     private void startLocationHelperIfNeeded() {
         if (locationHelper == null) {
-            locationHelper = new LocationHelper(requireContext());
+            locationHelper = new LocationHelper(requireContext(), true);
         }
     }
 

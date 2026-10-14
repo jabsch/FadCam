@@ -267,7 +267,8 @@ public class RecordingService extends Service {
         // GPS feed would otherwise never start and those watermarks would be
         // stuck at 0 (the exact bug users reported).
         if (sharedPreferencesManager != null && needsLocationData()) {
-            locationHelper = new LocationHelper(this); // For watermark text
+            locationHelper = new LocationHelper(this,
+                    LocationFeedGate.needsFastLocation(sharedPreferencesManager)); // For watermark text
             // Also initialize geocoder for reverse geocoding (non-blocking, cached)
             // Uses Nominatim (free, open-source) - no API keys needed
             locationGeocoder = new LocationGeocoder();
@@ -1580,6 +1581,8 @@ public class RecordingService extends Service {
             // Initialize extended sensor providers only when recording actually starts
             // (NOT during preview-only mode — prevents mic/sensor memory leaks)
             // setup log removed
+
+            matchLocationFeedRateToFeatures();
 
             // Shared watermark manager (DRY — used by both single and dual camera)
             if (watermarkManager == null) {
@@ -3795,11 +3798,9 @@ public class RecordingService extends Service {
         if (!shouldEmitDebugFrame) {
             return false;
         }
-        // Always encode the JPEG when a debug broadcast is due; the broadcast receiver
-        // is only registered while MotionLabSettingsFragment is on-screen, so the
-        // frame data is only consumed when the UI is visible.  The 900 ms throttle
-        // in maybeBroadcastMotionDebug already bounds encoding frequency.
-        return sharedPreferencesManager != null;
+        // The preview JPEG is only shown by MotionLabSettingsFragment, which sets
+        // this flag while it is on screen; otherwise skip the encode.
+        return sharedPreferencesManager != null && sharedPreferencesManager.isMotionDebugUiActive();
     }
 
     private int getCurrentSensorOrientationDegrees() {
@@ -5363,7 +5364,9 @@ public class RecordingService extends Service {
             .putLong(Constants.PREF_RECORDING_START_TIME, recordingStartTime)
             .putLong(Constants.PREF_RECORDING_PAUSE_STARTED_AT, pauseStartedAt)
             .putLong(Constants.PREF_RECORDING_ACCUMULATED_PAUSED_DURATION, accumulatedPausedDurationMs)
-            .commit();
+            // apply(): readers in this process see the change at once; commit()
+            // blocked start/pause/resume on an fsync of the whole prefs file.
+            .apply();
     }
 
     private void clearRecordingTimelineState() {
@@ -6155,7 +6158,8 @@ public class RecordingService extends Service {
                         locationHelper.stopLocationUpdates();
                     }
 
-                    locationHelper = new LocationHelper(this);
+                    locationHelper = new LocationHelper(this,
+                            LocationFeedGate.needsFastLocation(sharedPreferencesManager));
                     // Also initialize geocoder for reverse geocoding
                     // Uses Nominatim (free, open-source) - no API keys needed
                     if (locationGeocoder != null) {
@@ -6239,6 +6243,27 @@ public class RecordingService extends Service {
      * True if any user-enabled feature needs a live GPS feed. See
      * {@link LocationFeedGate#needsLocationData}.
      */
+    /**
+     * The helper is created in onCreate, and an idle service can outlive a
+     * settings change; recreate it if speed/altitude/accuracy/compass were
+     * toggled since, so the GPS cadence matches what the watermark shows.
+     */
+    private void matchLocationFeedRateToFeatures() {
+        if (locationHelper == null) {
+            return;
+        }
+        boolean wantFast = LocationFeedGate.needsFastLocation(sharedPreferencesManager);
+        if (locationHelper.isFastUpdates() == wantFast) {
+            return;
+        }
+        try {
+            locationHelper.stopLocationUpdates();
+            locationHelper = new LocationHelper(this, wantFast);
+        } catch (Exception e) {
+            FLog.e(TAG, "Error switching location feed rate", e);
+        }
+    }
+
     private boolean needsLocationData() {
         return LocationFeedGate.needsLocationData(sharedPreferencesManager);
     }

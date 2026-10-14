@@ -26,21 +26,32 @@ public class LocationHelper {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private volatile long lastLocationUpdateTime = 0;
     private volatile Location rawLocation;
+    private final boolean fastUpdates;
 
-    public LocationHelper(Context context) {
+    /**
+     * @param fastUpdates true for the 1 s / 1 m speedometer cadence; false for a
+     *        5 s / 5 m feed that is enough for location text, UTM, weather and
+     *        geotags and lets the GPS radio idle between fixes.
+     */
+    public LocationHelper(Context context, boolean fastUpdates) {
         FLog.d(TAG, "LOCATION_HELPER: Initializing LocationHelper");
         provider = new GpsMyLocationProvider(context);
+        this.fastUpdates = fastUpdates;
 
         // Standard speedometer cadence: 1000ms. GPS chipsets natively deliver
         // ~1 Hz fixes regardless of a lower minTime, so polling at 300ms just
         // wasted battery without producing more data. 1s matches the watermark
         // refresh tick and is the industry-standard speedometer sample rate.
-        provider.setLocationUpdateMinTime(1000);
-        provider.setLocationUpdateMinDistance(1); // 1 meter (very sensitive to movement)
-        FLog.d(TAG, "LOCATION_HELPER: Set up location provider with 1s high-frequency updates");
+        provider.setLocationUpdateMinTime(fastUpdates ? 1000 : 5000);
+        provider.setLocationUpdateMinDistance(fastUpdates ? 1 : 5);
+        FLog.d(TAG, "LOCATION_HELPER: Set up location provider, fastUpdates=" + fastUpdates);
 
         // Start location updates immediately
         startLocationUpdates();
+    }
+
+    public boolean isFastUpdates() {
+        return fastUpdates;
     }
 
     public void startLocationUpdates() {
