@@ -42,6 +42,8 @@ import com.fadcam.SharedPreferencesManager;
 public class TrashManager {
 
     private static final String TAG = "TrashManager";
+    /** Large reads keep multi-GB SAF copies from crawling through 8 KB at a time. */
+    private static final int COPY_BUFFER_BYTES = 1024 * 1024;
     private static final String METADATA_FILE_NAME = "trash_metadata.json";
 
     public interface MoveToTrashProgressListener {
@@ -227,6 +229,12 @@ public class TrashManager {
             return false;
         }
 
+        if (com.fadcam.SharedPreferencesManager.getInstance(context).getTrashAutoDeleteMinutes() == 0) {
+            // Trash empties immediately, so copying the video into it first would only
+            // read and write the whole file for nothing. Delete it in place.
+            return deleteSourceDirectly(context, videoUri, isSafSource);
+        }
+
         File trashDir = getTrashDirectory(context);
         if (trashDir == null) {
             FLog.e(TAG, "moveToTrash: Failed to get or create trash directory.");
@@ -255,23 +263,24 @@ public class TrashManager {
                     FLog.e(TAG, "moveToTrash: Failed to open InputStream for SAF URI: " + videoUri);
                     return false;
                 }
-                byte[] buf = new byte[8192];
+                byte[] buf = new byte[COPY_BUFFER_BYTES];
                 int len;
                 while ((len = in.read(buf)) > 0) {
                     out.write(buf, 0, len);
                     copiedBytes += len;
                     dispatchProgress(progressListener, copiedBytes, totalBytes);
                 }
-                success = true;
                 FLog.d(TAG, "moveToTrash: Successfully COPIED SAF URI " + videoUri + " to "
                         + targetTrashFile.getAbsolutePath());
-                // Now delete the original SAF document
+                // Now delete the original SAF document. If that fails the video is still
+                // in Records, so drop the trash copy instead of keeping a duplicate.
                 if (DocumentsContract.deleteDocument(context.getContentResolver(), videoUri)) {
                     FLog.d(TAG, "moveToTrash: Successfully DELETED original SAF document: " + videoUri);
+                    success = true;
                 } else {
-                    FLog.w(TAG, "moveToTrash: Failed to delete original SAF document: " + videoUri
-                            + " (but copy to trash succeeded).");
-                    // Proceed with trashing metadata, as copy was successful.
+                    FLog.w(TAG, "moveToTrash: Failed to delete original SAF document: " + videoUri);
+                    targetTrashFile.delete();
+                    success = false;
                 }
             } catch (Exception e) {
                 FLog.e(TAG, "moveToTrash: Error copying/deleting SAF URI " + videoUri, e);
@@ -293,7 +302,7 @@ public class TrashManager {
                     // different filesystems on some rooted devices)
                     try (InputStream in = new FileInputStream(sourceFile);
                             OutputStream out = new FileOutputStream(targetTrashFile)) {
-                        byte[] buf = new byte[8192];
+                        byte[] buf = new byte[COPY_BUFFER_BYTES];
                         int len;
                         while ((len = in.read(buf)) > 0) {
                             out.write(buf, 0, len);
@@ -373,6 +382,27 @@ public class TrashManager {
             }
         } else {
             FLog.e(TAG, "moveToTrash: File operation failed for: " + originalDisplayName);
+            return false;
+        }
+    }
+
+    private static boolean deleteSourceDirectly(
+            @NonNull Context context,
+            @NonNull Uri videoUri,
+            boolean isSafSource
+    ) {
+        try {
+            if (isSafSource) {
+                return DocumentsContract.deleteDocument(context.getContentResolver(), videoUri);
+            }
+            String path = videoUri.getPath();
+            if (path == null) {
+                return false;
+            }
+            File sourceFile = new File(path);
+            return sourceFile.exists() && sourceFile.delete();
+        } catch (Exception e) {
+            FLog.e(TAG, "deleteSourceDirectly: failed for " + videoUri, e);
             return false;
         }
     }
@@ -701,7 +731,7 @@ public class TrashManager {
                             + fileInTrash.getName());
                     try (InputStream in = new FileInputStream(fileInTrash);
                             OutputStream out = new FileOutputStream(restoredFile)) {
-                        byte[] buf = new byte[8192];
+                        byte[] buf = new byte[COPY_BUFFER_BYTES];
                         int len;
                         while ((len = in.read(buf)) > 0) {
                             out.write(buf, 0, len);
@@ -844,7 +874,7 @@ public class TrashManager {
                         allSucceeded = false;
                         continue;
                     }
-                    byte[] buf = new byte[8192];
+                    byte[] buf = new byte[COPY_BUFFER_BYTES];
                     int len;
                     while ((len = in.read(buf)) > 0) {
                         out.write(buf, 0, len);

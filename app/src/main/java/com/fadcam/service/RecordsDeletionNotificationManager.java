@@ -119,9 +119,7 @@ public class RecordsDeletionNotificationManager {
             @NonNull RecordsDeletionSessionSnapshot snapshot
     ) {
         if (snapshot.totalBytes > 0L) {
-            int max = (int) Math.min(Integer.MAX_VALUE, snapshot.totalBytes);
-            int progress = (int) Math.min(Integer.MAX_VALUE, snapshot.processedBytes);
-            builder.setProgress(Math.max(1, max), Math.max(0, Math.min(progress, max)), false);
+            builder.setProgress(100, snapshot.getProgressPercent(), false);
             return;
         }
         if (snapshot.totalItemCount > 0) {
