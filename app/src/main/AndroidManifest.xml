@@ -311,6 +311,7 @@
         <!-- Accessibility screenshot service for FadRec screenshot shortcut -->
         <service
             android:name=".service.FadRecScreenshotAccessibilityService"
+            android:label="@string/screenshot_accessibility_service_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="false">
             <intent-filter>
