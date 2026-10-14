@@ -264,8 +264,8 @@ public class RecordingService extends Service {
         // GPS is NOT started here: the app starts this service on every
         // foreground and tab switch just to query state, which kept the GPS
         // radio on whenever JaCam was open. The watermark feed starts with a
-        // recording or preview (ensureLocationFeed) and geotagging with the
-        // recording itself.
+        // recording or preview (ensureLocationFeed) and stops when both end
+        // (stopLocationFeeds).
 
         // Sensor providers (NoiseMonitor, SensorDataProvider, WeatherService)
         // are now initialized lazily in the START_RECORDING intent handler
@@ -1531,7 +1531,6 @@ public class RecordingService extends Service {
             previewOnlyActive = true;
             pendingStartRecording = false;
             recordingState = RecordingState.NONE;
-            ensureLocationFeed();
             ensurePreviewOnlyGlPipeline();
             openCamera();
             broadcastOnPreviewOnlyStarted();
@@ -3906,6 +3905,9 @@ public class RecordingService extends Service {
             FLog.i(TAG, "No active recording or background processing detected. Stopping service.");
             // Remove from foreground first to avoid ANR if stopSelf takes time
             com.fadcam.Utils.stopForegroundCompat(this, true);
+            if (!previewOnlyActive) {
+                stopLocationFeeds();
+            }
             stopSelf(); // Stop the service as its work is done.
         } else {
             FLog.d(TAG, "Service continues running (Tasks active).");
@@ -6213,7 +6215,11 @@ public class RecordingService extends Service {
      * changed since it was made.
      */
     private void ensureLocationFeed() {
-        if (sharedPreferencesManager == null || !needsLocationData()) {
+        if (sharedPreferencesManager == null) {
+            return;
+        }
+        ensureGeotagFeed();
+        if (!needsLocationData()) {
             return;
         }
         boolean wantFast = LocationFeedGate.needsFastLocation(sharedPreferencesManager);
@@ -6231,6 +6237,45 @@ public class RecordingService extends Service {
             }
         } catch (Exception e) {
             FLog.e(TAG, "Error starting location feed", e);
+        }
+    }
+
+    /** Starts geotag updates for file metadata when location embedding is on. Idempotent. */
+    private void ensureGeotagFeed() {
+        if (!sharedPreferencesManager.isLocationEmbeddingEnabled()) {
+            return;
+        }
+        try {
+            if (geotagHelper == null) {
+                geotagHelper = new GeotagHelper(this);
+            }
+            geotagHelper.startUpdates();
+        } catch (Exception e) {
+            FLog.e(TAG, "Error starting GeotagHelper", e);
+        }
+    }
+
+    /**
+     * Turns the GPS off once nothing is recording or previewing. The service
+     * can outlive its work (the UI keeps starting it to query state), so
+     * waiting for onDestroy left the GPS on.
+     */
+    private void stopLocationFeeds() {
+        if (geotagHelper != null) {
+            try {
+                geotagHelper.stopUpdates();
+            } catch (Exception e) {
+                FLog.e(TAG, "Error stopping GeotagHelper updates", e);
+            }
+            geotagHelper = null;
+        }
+        if (locationHelper != null) {
+            try {
+                locationHelper.stopLocationUpdates();
+            } catch (Exception e) {
+                FLog.e(TAG, "Error stopping LocationHelper updates", e);
+            }
+            locationHelper = null;
         }
     }
 
@@ -6852,11 +6897,15 @@ public class RecordingService extends Service {
         }
         broadcastOnPreviewOnlyStopped();
         if (!isWorkingInProgress()) {
+            stopLocationFeeds();
             stopSelf();
         }
     }
 
     private void ensurePreviewOnlyGlPipeline() {
+        // Every preview-only start path (direct, deferred until the surface
+        // arrives, foreground recovery) goes through here. Idempotent.
+        ensureLocationFeed();
         try {
             ensureWatermarkInfoProvider();
             if (glRecordingPipeline != null) {
@@ -7349,18 +7398,9 @@ public class RecordingService extends Service {
 
         createNotificationChannel();
 
-        if (sharedPreferencesManager.isLocationEmbeddingEnabled()) {
-            new Thread(() -> {
-                try {
-                    if (geotagHelper == null)
-                        geotagHelper = new GeotagHelper(this);
-                    geotagHelper.startUpdates();
-                    Thread.sleep(800);
-                } catch (Exception e) {
-                    FLog.e(TAG, "Error initializing GeotagHelper", e);
-                }
-            }).start();
-        }
+        // Synchronous: the pipeline below reads the geotag right away, and
+        // startUpdates seeds it from the last known fix.
+        ensureGeotagFeed();
 
         try {
             if (ActivityCompat.checkSelfPermission(this,
