@@ -3108,6 +3108,16 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="thermal_guard_stopped">Phone is overheating. Recording stopped and saved.</string>
     <string name="setting_pixel_optimized_title">Pixel 11 optimized</string>
     <string name="setting_pixel_optimized_footer">Tunes recording for Pixel 11 phones: H.265 at 1080p 30 fps with auto bitrate, which stays cool on long recordings. It also hides settings that do nothing on this phone. Turning it on re-applies these values; you can still change any of them afterwards. Turn it off to show every setting again.</string>
+    <string name="preset_1080p_30">1080p · 30 fps</string>
+    <string name="preset_1080p_max">1080p · max fps</string>
+    <string name="preset_4k_max">4K · max fps</string>
+    <string name="preset_1080p_auto">1080p · Auto fps</string>
+    <string name="preset_custom">Custom</string>
+    <string name="setting_recording_preset_title">Quick preset</string>
+    <string name="setting_recording_preset_helper">Sets resolution and frame rate in one tap. Max uses the highest rate your camera offers at that size, up to 60 fps. Auto fps records at 1080p max and drops to 30 fps while the phone is warm, then goes back up once it cools. Applies to the next recording.</string>
+    <string name="preset_tile_label">Video preset</string>
+    <string name="preset_applies_next_recording">%1$s. Applies to your next recording.</string>
+    <string name="thermal_guard_fps_lowered">Phone is warm. Recording at 30 fps until it cools down.</string>
     <string name="hardware_buttons_heading">Hardware buttons</string>
     <string name="hardware_buttons_service_label">FadCam hardware buttons</string>
     <string name="hardware_buttons_service_desc">Lets you run FadCam shortcuts by holding a volume key, even with the screen off. A short press still changes the volume. FadCam only reads volume keys you assign, and never during calls.</string>

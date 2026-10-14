@@ -15,6 +15,8 @@ import com.fadcam.FLog;
  *   <li>CRITICAL or worse: stop gracefully so the file is finalized, instead of
  *   the camera HAL cutting the session off and leaving a broken file.</li>
  * </ul>
+ * With frame-rate stepping on (the "1080p Auto fps" preset), MODERATE also drops
+ * the camera to 30 fps, and LIGHT or cooler brings the full rate back.
  */
 public final class RecordingThermalGuard {
     private static final String TAG = "RecordingThermalGuard";
@@ -27,10 +29,14 @@ public final class RecordingThermalGuard {
 
     enum Action { NONE, REDUCE, RESTORE, STOP }
 
+    enum FpsAction { NONE, LOWER, RAISE }
+
     public interface Callbacks {
         void onReduceLoad();
         void onRestoreLoad();
         void onStopForHeat();
+        void onLowerFrameRate();
+        void onRaiseFrameRate();
     }
 
     private final Callbacks callbacks;
@@ -39,6 +45,8 @@ public final class RecordingThermalGuard {
     private Object listener;
     private boolean reduced;
     private boolean stopped;
+    private boolean stepFps;
+    private boolean fpsLowered;
 
     public RecordingThermalGuard(Callbacks callbacks) {
         this.callbacks = callbacks;
@@ -60,8 +68,26 @@ public final class RecordingThermalGuard {
         return Action.NONE;
     }
 
-    /** Begins watching; the listener fires immediately with the current status. */
-    public synchronized void start(Context context) {
+    /**
+     * Pure frame-rate step; {@code lowered} is whether the rate is already down.
+     * Drops one level earlier than the bitrate cut (MODERATE), and like it only
+     * comes back once the phone is at LIGHT or cooler.
+     */
+    static FpsAction decideFps(int status, boolean lowered) {
+        if (!lowered && status >= STATUS_MODERATE && status < STATUS_CRITICAL) {
+            return FpsAction.LOWER;
+        }
+        if (lowered && status <= STATUS_LIGHT) {
+            return FpsAction.RAISE;
+        }
+        return FpsAction.NONE;
+    }
+
+    /**
+     * Begins watching; the listener fires immediately with the current status.
+     * {@code stepFrameRate} enables the 30 fps step for the Auto fps preset.
+     */
+    public synchronized void start(Context context, boolean stepFrameRate) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || listener != null) {
             return;
         }
@@ -71,6 +97,8 @@ public final class RecordingThermalGuard {
         }
         reduced = false;
         stopped = false;
+        stepFps = stepFrameRate;
+        fpsLowered = false;
         PowerManager.OnThermalStatusChangedListener l = this::onStatus;
         listener = l;
         powerManager.addThermalStatusListener(context.getMainExecutor(), l);
@@ -88,6 +116,7 @@ public final class RecordingThermalGuard {
         listener = null;
         powerManager = null;
         reduced = false;
+        fpsLowered = false;
     }
 
     private synchronized void onStatus(int status) {
@@ -114,5 +143,24 @@ public final class RecordingThermalGuard {
             default:
                 break;
         }
+        if (stopped || !stepFps) {
+            return;
+        }
+        FpsAction fpsAction = decideFps(status, fpsLowered);
+        if (fpsAction != FpsAction.NONE) {
+            FLog.w(TAG, "Thermal status " + status + " -> fps " + fpsAction);
+        }
+        if (fpsAction == FpsAction.LOWER) {
+            fpsLowered = true;
+            callbacks.onLowerFrameRate();
+        } else if (fpsAction == FpsAction.RAISE) {
+            fpsLowered = false;
+            callbacks.onRaiseFrameRate();
+        }
+    }
+
+    /** Whether the Auto fps step currently has the camera at 30 fps. */
+    public synchronized boolean isFrameRateLowered() {
+        return fpsLowered;
     }
 }

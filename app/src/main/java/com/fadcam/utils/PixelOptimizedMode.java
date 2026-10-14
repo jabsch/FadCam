@@ -74,6 +74,7 @@ public final class PixelOptimizedMode {
                 .apply();
         prefs.setSpecificVideoFrameRate(CameraType.BACK, TUNED_FPS);
         prefs.setSpecificVideoFrameRate(CameraType.FRONT, TUNED_FPS);
+        RecordingPreset.markCurrent(prefs, RecordingPreset.HD_30);
     }
 
     /**

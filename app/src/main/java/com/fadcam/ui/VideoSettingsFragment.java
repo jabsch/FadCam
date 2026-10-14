@@ -201,6 +201,28 @@ public class VideoSettingsFragment extends Fragment {
      * recording profile; either way the other settings screens pick up the
      * row visibility change the next time they open.
      */
+    private void showRecordingPresetBottomSheet() {
+        com.fadcam.utils.RecordingPreset current = com.fadcam.utils.RecordingPreset.current(prefs);
+        java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
+        for (com.fadcam.utils.RecordingPreset p : com.fadcam.utils.RecordingPreset.values()) {
+            items.add(new com.fadcam.ui.picker.OptionItem(p.id, getString(p.labelRes)));
+        }
+        final String currentId = current != null ? current.id : null;
+        final String resultKey = "picker_result_recording_preset";
+        getParentFragmentManager().setFragmentResultListener(resultKey, this, (key, bundle) -> {
+            String sel = bundle.getString(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID);
+            com.fadcam.utils.RecordingPreset picked = com.fadcam.utils.RecordingPreset.fromId(sel);
+            if (picked != null && !picked.id.equals(currentId)) {
+                picked.apply(requireContext());
+                refreshAllValues();
+            }
+        });
+        com.fadcam.ui.picker.PickerBottomSheetFragment sheet = com.fadcam.ui.picker.PickerBottomSheetFragment
+                .newInstance(getString(R.string.setting_recording_preset_title), items, currentId, resultKey,
+                        getString(R.string.setting_recording_preset_helper));
+        sheet.show(getParentFragmentManager(), "recording_preset_picker");
+    }
+
     private void showPixelOptimizedBottomSheet() {
         final String resultKey = "picker_result_pixel_optimized";
         getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
@@ -296,6 +318,9 @@ public class VideoSettingsFragment extends Fragment {
             root.findViewById(R.id.row_pixel_optimized).setVisibility(View.VISIBLE);
             root.findViewById(R.id.divider_pixel_optimized).setVisibility(View.VISIBLE);
             root.findViewById(R.id.row_pixel_optimized).setOnClickListener(v -> showPixelOptimizedBottomSheet());
+            root.findViewById(R.id.row_recording_preset).setVisibility(View.VISIBLE);
+            root.findViewById(R.id.divider_recording_preset).setVisibility(View.VISIBLE);
+            root.findViewById(R.id.row_recording_preset).setOnClickListener(v -> showRecordingPresetBottomSheet());
         }
         root.findViewById(R.id.row_lens).setOnClickListener(v -> showLensBottomSheet());
         root.findViewById(R.id.row_resolution).setOnClickListener(v -> showResolutionBottomSheet());
@@ -332,6 +357,13 @@ public class VideoSettingsFragment extends Fragment {
         } else {
             valueCamera.setText(cam == CameraType.FRONT ? getString(R.string.button_settings_cam_front)
                     : getString(R.string.button_settings_cam_back));
+        }
+
+        TextView valuePreset = getView() != null
+                ? getView().findViewById(R.id.value_recording_preset) : null;
+        if (valuePreset != null) {
+            com.fadcam.utils.RecordingPreset preset = com.fadcam.utils.RecordingPreset.current(prefs);
+            valuePreset.setText(preset != null ? getString(preset.labelRes) : getString(R.string.preset_custom));
         }
 
         TextView valuePixelOptimized = getView() != null
@@ -1503,6 +1535,8 @@ public class VideoSettingsFragment extends Fragment {
     }
 
     private void onResolutionOrFramerateChanged() {
+        // A hand-picked resolution or fps is no longer one of the quick presets.
+        com.fadcam.utils.RecordingPreset.clear(prefs);
         refreshAllValues();
     }
 

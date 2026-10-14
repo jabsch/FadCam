@@ -4579,7 +4579,8 @@ public class RecordingService extends Service {
             // method(createCameraPreviewSession)-----------
             // Use per-camera FPS setting and only choose HSR if selected resolution
             // supports it
-            int targetFrameRate = sharedPreferencesManager.getSpecificVideoFrameRate(cameraType);
+            int targetFrameRate = capForThermalFrameRate(
+                    sharedPreferencesManager.getSpecificVideoFrameRate(cameraType));
             
             // Apply streaming FPS cap only when server is actually ON
             boolean isStreamingForFps1 = com.fadcam.streaming.RemoteStreamManager.getInstance().isStreamingEnabled();
@@ -4661,7 +4662,8 @@ public class RecordingService extends Service {
             }
 
             // Get target frame rate from settings for specific camera
-            int targetFrameRate = sharedPreferencesManager.getSpecificVideoFrameRate(cameraType);
+            int targetFrameRate = capForThermalFrameRate(
+                    sharedPreferencesManager.getSpecificVideoFrameRate(cameraType));
             
             // Apply streaming FPS cap only when server is actually ON
             boolean isStreamingForFps2 = com.fadcam.streaming.RemoteStreamManager.getInstance().isStreamingEnabled();
@@ -6801,7 +6803,8 @@ public class RecordingService extends Service {
 
                 persistRecordingTimelineState();
                 startDurationLimitSession();
-                thermalGuard.start(getApplicationContext());
+                thermalGuard.start(getApplicationContext(),
+                        com.fadcam.utils.RecordingPreset.isAutoFps(sharedPreferencesManager));
                 registerScreenStateReceiver();
 
                 // Tactile confirmation that recording actually started — fired
@@ -7029,7 +7032,55 @@ public class RecordingService extends Service {
                             Toast.LENGTH_LONG).show();
                     stopRecording();
                 }
+
+                @Override
+                public void onLowerFrameRate() {
+                    applyRuntimeCameraFrameRate(com.fadcam.utils.RecordingPreset.AUTO_WARM_FPS);
+                    Toast.makeText(getApplicationContext(), R.string.thermal_guard_fps_lowered,
+                            Toast.LENGTH_LONG).show();
+                }
+
+                @Override
+                public void onRaiseFrameRate() {
+                    applyRuntimeCameraFrameRate(sharedPreferencesManager.getSpecificVideoFrameRate(
+                            sharedPreferencesManager.getCameraSelection()));
+                }
             });
+
+    /**
+     * Changes the camera's AE target frame rate on the live session. Video
+     * timestamps come from the system clock, so the file stays in sync at the
+     * lower rate (it becomes variable frame rate). High-speed sessions are left
+     * alone because their request list is fixed at a single rate.
+     */
+    private void applyRuntimeCameraFrameRate(int fps) {
+        Handler handler = backgroundHandler;
+        if (handler == null) {
+            return;
+        }
+        handler.post(() -> {
+            CameraCaptureSession session = captureSession;
+            CaptureRequest.Builder builder = captureRequestBuilder;
+            if (session == null || builder == null
+                    || session instanceof CameraConstrainedHighSpeedCaptureSession) {
+                return;
+            }
+            try {
+                applyFrameRateSettings(builder, fps, currentCameraCharacteristics);
+                session.setRepeatingRequest(builder.build(), null, backgroundHandler);
+                FLog.i(TAG, "Camera frame rate set to " + fps + " fps while recording");
+            } catch (Exception e) {
+                FLog.w(TAG, "Could not change camera frame rate to " + fps, e);
+            }
+        });
+    }
+
+    /** Session frame rate, honoring the Auto fps preset's warm-phone step. */
+    private int capForThermalFrameRate(int targetFrameRate) {
+        return thermalGuard.isFrameRateLowered()
+                ? Math.min(targetFrameRate, com.fadcam.utils.RecordingPreset.AUTO_WARM_FPS)
+                : targetFrameRate;
+    }
     private WatermarkInfoProvider watermarkInfoProvider;
     private com.fadcam.watermark.WatermarkManager watermarkManager;
     
