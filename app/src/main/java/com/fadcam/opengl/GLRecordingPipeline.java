@@ -3763,8 +3763,9 @@ public class GLRecordingPipeline {
                         while (offset < read && audioThreadRunning && !isPaused) {
                             int inputBufferIndex = audioEncoder.dequeueInputBuffer(10000);
                             if (inputBufferIndex < 0) {
-                                // Encoder busy; break and try next loop iteration
-                                break;
+                                // Encoder busy: wait for a buffer. Breaking here dropped
+                                // the rest of this read, leaving gaps in the audio.
+                                continue;
                             }
                             ByteBuffer codecInput = audioEncoder.getInputBuffer(inputBufferIndex);
                             if (codecInput == null) {
