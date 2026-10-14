@@ -5059,12 +5059,9 @@ public class RecordingService extends Service {
                 videoBitrate = 5_000_000;
                 FLog.w(TAG, "[STREAM PRESET] Server ON but no preset stored — using default HIGH (5 Mbps)");
             }
-        } else if (sharedPreferencesManager.sharedPreferences.getBoolean("bitrate_mode_custom", false)) {
-            videoBitrate = sharedPreferencesManager.sharedPreferences.getInt("bitrate_custom_value", 16000) * 1000;
         } else {
-            videoBitrate = Utils.estimateBitrate(sharedPreferencesManager.getCameraResolution(),
-                    sharedPreferencesManager.getVideoFrameRate());
-            // bitrate log removed " + (videoBitrate / 1000) + " kbps");
+            // Single source of truth for custom/auto bitrate (also used by the encoder).
+            videoBitrate = sharedPreferencesManager.getCurrentBitrate();
         }
         return videoBitrate;
     }

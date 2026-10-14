@@ -1486,44 +1486,16 @@ public class VideoSettingsFragment extends Fragment {
         prefs.sharedPreferences.edit().putInt(PREF_BITRATE_CUSTOM_VALUE, value).apply();
     }
 
+    /**
+     * Auto bitrate in kbps. Must match what the encoder actually uses
+     * ({@link SharedPreferencesManager#getCurrentBitrate()}); this used to be a
+     * separate table that showed e.g. 12 Mbps at 1080p30 while recordings were
+     * encoded at about 7.8 Mbps.
+     */
     private int getDefaultBitrate() {
         Size resolution = prefs.getCameraResolution();
-        CameraType camera = prefs.getCameraSelection();
-        int framerate = prefs.getSpecificVideoFrameRate(camera);
-
-        int width = resolution.getWidth();
-        int height = resolution.getHeight();
-        int pixels = width * height;
-
-        // Base bitrate calculation based on resolution
-        int baseBitrate;
-
-        if (pixels >= 3840 * 2160) {
-            // 4K and above
-            baseBitrate = 45000; // 45 Mbps
-        } else if (pixels >= 2560 * 1440) {
-            // 2K/1440p
-            baseBitrate = 16000; // 16 Mbps
-        } else if (pixels >= 1920 * 1080) {
-            // FHD/1080p
-            baseBitrate = 12000; // 12 Mbps
-        } else if (pixels >= 1280 * 720) {
-            // HD/720p
-            baseBitrate = 8000; // 8 Mbps
-        } else if (pixels >= 854 * 480) {
-            // 480p
-            baseBitrate = 4000; // 4 Mbps
-        } else {
-            // SD and below
-            baseBitrate = 2000; // 2 Mbps
-        }
-
-        // Adjust for framerate (higher framerate = higher bitrate)
-        if (framerate > 30) {
-            baseBitrate = (int) (baseBitrate * (framerate / 30.0f));
-        }
-
-        return baseBitrate;
+        int framerate = prefs.getSpecificVideoFrameRate(prefs.getCameraSelection());
+        return com.fadcam.Utils.estimateBitrate(resolution, framerate) / 1000;
     }
 
     private int getCurrentBitrate() {
