@@ -3237,26 +3237,38 @@ public class RecordingService extends Service {
         if (efficientDetDetector != null && personCheckDue(rawMotionScore, nowMs)) {
             return true;
         }
-        return sharedPreferencesManager != null
-                && (sharedPreferencesManager.isMotionDebugUiActive()
-                        || (sharedPreferencesManager.isDigitalForensicsEnabled()
-                                && sharedPreferencesManager.isDfEvidenceCollectionEnabled()));
+        if (sharedPreferencesManager == null) {
+            return false;
+        }
+        if (sharedPreferencesManager.isMotionDebugUiActive()) {
+            return true;
+        }
+        // Forensics snapshots are taken only while a clip records; idle, it copied
+        // 0.35 MB every tick for nothing. PENDING and POST_ROLL can move to
+        // RECORDING on this frame, so they still copy.
+        return sharedPreferencesManager.isDigitalForensicsEnabled()
+                && sharedPreferencesManager.isDfEvidenceCollectionEnabled()
+                && motionStateMachine != null
+                && motionStateMachine.getState() != com.fadcam.motion.domain.state.MotionSessionState.IDLE;
     }
 
     private boolean personCheckDue(float rawMotionScore, long nowMs) {
-        boolean sceneStill = false;
+        com.fadcam.utils.PersonCheckMode mode = sharedPreferencesManager != null
+                ? com.fadcam.utils.PersonCheckMode.current(sharedPreferencesManager)
+                : com.fadcam.utils.PersonCheckMode.EVERY_FRAME;
+        return mode.shouldDetect(isMotionSceneStill(rawMotionScore), nowMs - motionLastPersonDetectMs);
+    }
+
+    private boolean isMotionSceneStill(float rawMotionScore) {
         if (rawMotionScore <= 0f
                 && motionDetector instanceof com.fadcam.motion.domain.detector.MotionDebugInfoProvider) {
             com.fadcam.motion.domain.detector.MotionDebugInfoProvider info =
                     (com.fadcam.motion.domain.detector.MotionDebugInfoProvider) motionDetector;
-            sceneStill = !info.isLastGlobalMotionSuppressed()
+            return !info.isLastGlobalMotionSuppressed()
                     && info.getLastChangedAreaRatio() < PERSON_CHECK_STILL_AREA
                     && info.getLastStrongAreaRatio() < PERSON_CHECK_STILL_AREA;
         }
-        com.fadcam.utils.PersonCheckMode mode = sharedPreferencesManager != null
-                ? com.fadcam.utils.PersonCheckMode.current(sharedPreferencesManager)
-                : com.fadcam.utils.PersonCheckMode.EVERY_FRAME;
-        return mode.shouldDetect(sceneStill, nowMs - motionLastPersonDetectMs);
+        return false;
     }
 
     private void processMotionFrame(
@@ -3449,7 +3461,11 @@ public class RecordingService extends Service {
                     && stateBefore == com.fadcam.motion.domain.state.MotionSessionState.IDLE
                     && personDetectedRaw
                     && personConfidence >= (debugGlobalSuppressed ? 0.78f : 0.60f)
-                    && (!debugGlobalSuppressed || debugChangedArea < 0.45f)) {
+                    && (!debugGlobalSuppressed || debugChangedArea < 0.45f)
+                    // A still scene can't hold PENDING long enough to start a clip,
+                    // so a poster or photo flipped IDLE -> PENDING -> IDLE forever,
+                    // each time at full analysis rate instead of the idle 1 fps.
+                    && !isMotionSceneStill(rawMotionScore)) {
                 float boostedScore = Math.max(
                         motionScore,
                         startThreshold + (debugGlobalSuppressed ? 0.08f : 0.03f)
