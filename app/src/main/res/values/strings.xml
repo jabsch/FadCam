@@ -1366,6 +1366,12 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="preview_fps_15_desc">Visibly choppier preview, least heat. Good for mounted or dashcam use.</string>
     <string name="preview_fps_auto">Auto</string>
     <string name="preview_fps_auto_desc">While recording, up to 30 fps, then 15 fps while the phone is warm. Previewing alone runs at 30 fps.</string>
+    <string name="setting_heat_response_title">Heat Response</string>
+    <string name="heat_response_footer">How early JaCam eases off when the phone heats up during a recording (single or dual camera). Android reports heat in steps: light, moderate, severe, critical. When the phone is warm, JaCam drops optional work: the Auto preview frame rate goes to 15 fps, the Auto fps preset goes to 30 fps, and Auto stabilization turns off electronic stabilization. Later it halves the video bitrate, and at critical it stops and saves the recording either way. Early does each step one level sooner, so the phone stays cooler but the video is softer and less smooth for more of a hot session. Applies from the next recording.</string>
+    <string name="heat_response_standard">Standard</string>
+    <string name="heat_response_standard_desc">Warm steps at moderate heat, bitrate halved at severe. Best quality for as long as the phone allows.</string>
+    <string name="heat_response_early">Early</string>
+    <string name="heat_response_early_desc">Warm steps at light heat, bitrate halved at moderate. Coolest phone; softer, less smooth video while it is warm.</string>
     <string name="setting_low_light_fps_title">Low-Light Frame Rate</string>
     <string name="low_light_fps_footer">Whether the camera may lower its frame rate in dim light, down to half your frame rate (15 fps when recording at 30). Each frame can then use a longer exposure, so night video is brighter and less noisy, and the camera, graphics chip and encoder handle fewer frames while it is dark, which means less heat. Motion looks choppier in the dark; in good light nothing changes. Applies when the camera next starts (a new recording or preview). No effect when exposure is set manually, or when the camera has no matching range.</string>
     <string name="low_light_fps_steady">Steady</string>

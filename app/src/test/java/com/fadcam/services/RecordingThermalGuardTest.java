@@ -49,4 +49,22 @@ public class RecordingThermalGuardTest {
     public void autoFpsLeavesCriticalToTheStop() {
         assertEquals(WarmAction.NONE, RecordingThermalGuard.decideWarmStep(RecordingThermalGuard.STATUS_CRITICAL, false));
     }
+
+    @Test
+    public void earlyCutsAtModerateAndRestoresWhenCool() {
+        assertEquals(Action.NONE, RecordingThermalGuard.decide(RecordingThermalGuard.STATUS_LIGHT, false, true));
+        assertEquals(Action.REDUCE, RecordingThermalGuard.decide(RecordingThermalGuard.STATUS_MODERATE, false, true));
+        assertEquals(Action.NONE, RecordingThermalGuard.decide(RecordingThermalGuard.STATUS_LIGHT, true, true));
+        assertEquals(Action.RESTORE, RecordingThermalGuard.decide(0, true, true));
+        assertEquals(Action.STOP, RecordingThermalGuard.decide(RecordingThermalGuard.STATUS_CRITICAL, false, true));
+        assertEquals(Action.NONE, RecordingThermalGuard.decide(RecordingThermalGuard.STATUS_SEVERE, true, true));
+    }
+
+    @Test
+    public void earlyWarmStepsAtLightAndCoolsAtNone() {
+        assertEquals(WarmAction.WARM, RecordingThermalGuard.decideWarmStep(RecordingThermalGuard.STATUS_LIGHT, false, true));
+        assertEquals(WarmAction.NONE, RecordingThermalGuard.decideWarmStep(RecordingThermalGuard.STATUS_LIGHT, true, true));
+        assertEquals(WarmAction.COOLED, RecordingThermalGuard.decideWarmStep(0, true, true));
+        assertEquals(WarmAction.NONE, RecordingThermalGuard.decideWarmStep(RecordingThermalGuard.STATUS_CRITICAL, false, true));
+    }
 }

@@ -18,6 +18,8 @@ import com.fadcam.FLog;
  * MODERATE also counts as "warm" until the phone is back to LIGHT or cooler.
  * While warm, the "1080p Auto fps" preset drops to 30 fps and the "Auto"
  * stabilization mode turns electronic stabilization off.
+ * The "Early" heat response ({@link com.fadcam.utils.HeatResponse}) moves the
+ * warm step and the bitrate cut one level earlier; the stop stays at CRITICAL.
  */
 public final class RecordingThermalGuard {
     private static final String TAG = "RecordingThermalGuard";
@@ -50,6 +52,8 @@ public final class RecordingThermalGuard {
     private boolean stopped;
     private boolean stepFps;
     private boolean warm;
+    /** Heat Response setting, read at start. */
+    private boolean early;
 
     public RecordingThermalGuard(Callbacks callbacks) {
         this.callbacks = callbacks;
@@ -57,15 +61,21 @@ public final class RecordingThermalGuard {
 
     /** Pure decision step; {@code reduced} is whether load is already shed. */
     static Action decide(int status, boolean reduced) {
+        return decide(status, reduced, false);
+    }
+
+    /** As {@link #decide(int, boolean)}; {@code early} cuts at MODERATE and restores at NONE. */
+    static Action decide(int status, boolean reduced, boolean early) {
+        int step = early ? 1 : 0;
         if (status >= STATUS_CRITICAL) {
             return Action.STOP;
         }
-        if (status >= STATUS_SEVERE) {
+        if (status >= STATUS_SEVERE - step) {
             return reduced ? Action.NONE : Action.REDUCE;
         }
-        // Hysteresis: hold the reduced bitrate through MODERATE so it does not
-        // flap at the SEVERE boundary.
-        if (reduced && status <= STATUS_LIGHT) {
+        // Hysteresis: hold the reduced bitrate one level below the cut so it
+        // does not flap at the boundary.
+        if (reduced && status <= STATUS_LIGHT - step) {
             return Action.RESTORE;
         }
         return Action.NONE;
@@ -77,10 +87,16 @@ public final class RecordingThermalGuard {
      * comes back once the phone is at LIGHT or cooler.
      */
     static WarmAction decideWarmStep(int status, boolean warm) {
-        if (!warm && status >= STATUS_MODERATE && status < STATUS_CRITICAL) {
+        return decideWarmStep(status, warm, false);
+    }
+
+    /** As {@link #decideWarmStep(int, boolean)}; {@code early} steps at LIGHT and cools at NONE. */
+    static WarmAction decideWarmStep(int status, boolean warm, boolean early) {
+        int step = early ? 1 : 0;
+        if (!warm && status >= STATUS_MODERATE - step && status < STATUS_CRITICAL) {
             return WarmAction.WARM;
         }
-        if (warm && status <= STATUS_LIGHT) {
+        if (warm && status <= STATUS_LIGHT - step) {
             return WarmAction.COOLED;
         }
         return WarmAction.NONE;
@@ -102,6 +118,8 @@ public final class RecordingThermalGuard {
         stopped = false;
         stepFps = stepFrameRate;
         warm = false;
+        early = com.fadcam.utils.HeatResponse.current(
+                com.fadcam.SharedPreferencesManager.getInstance(context)) == com.fadcam.utils.HeatResponse.EARLY;
         PowerManager.OnThermalStatusChangedListener l = this::onStatus;
         listener = l;
         powerManager.addThermalStatusListener(context.getMainExecutor(), l);
@@ -126,7 +144,7 @@ public final class RecordingThermalGuard {
         if (listener == null || stopped) {
             return;
         }
-        Action action = decide(status, reduced);
+        Action action = decide(status, reduced, early);
         if (action != Action.NONE) {
             FLog.w(TAG, "Thermal status " + status + " -> " + action);
         }
@@ -149,7 +167,7 @@ public final class RecordingThermalGuard {
         if (stopped) {
             return;
         }
-        WarmAction warmAction = decideWarmStep(status, warm);
+        WarmAction warmAction = decideWarmStep(status, warm, early);
         if (warmAction != WarmAction.NONE) {
             FLog.w(TAG, "Thermal status " + status + " -> " + warmAction);
         }
