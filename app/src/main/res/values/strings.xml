@@ -1365,6 +1365,12 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="preview_fps_15">15 fps</string>
     <string name="preview_fps_15_desc">Visibly choppier preview, least heat. Good for mounted or dashcam use.</string>
     <string name="preview_fps_auto">Auto</string>
+    <string name="setting_audio_channels_title">Audio Channels</string>
+    <string name="audio_channels_footer">How many audio channels videos and voice recordings capture from the phone\'s mics. Mono records one channel, so the mic path and the audio encoder handle half the sound data: a little less heat and smaller files. For the most saving with mono, also lower the bitrate under Advanced (for example to 128 kbps). Bluetooth headset mics are always mono. Applies from the next recording. No other Pixel settings need to change.</string>
+    <string name="audio_channels_stereo">Stereo</string>
+    <string name="audio_channels_stereo_desc">Left and right from the phone\'s mics. Sound keeps its direction on playback.</string>
+    <string name="audio_channels_mono">Mono</string>
+    <string name="audio_channels_mono_desc">One channel. Half the audio work and data; sound no longer has a left and right.</string>
     <string name="setting_preview_resolution_title">Preview Resolution</string>
     <string name="preview_resolution_footer">The camera size used while you are only previewing (not recording). At 4K, the camera, image processor and graphics chip handle four times the pixels of 1080p just to fill a screen that shows far fewer. Starting a recording always switches the camera to your full recording resolution, so videos are not affected. Applies the next time the preview opens. No other Pixel settings need to change.</string>
     <string name="preview_resolution_screen">Screen size</string>

@@ -3469,7 +3469,7 @@ public class GLRecordingPipeline {
         this.audioRecordingEnabled = prefs.isRecordAudioEnabled();
         this.audioBitrate = prefs.getAudioBitrate();
         this.audioSampleRate = prefs.getAudioSamplingRate();
-        this.audioChannelCount = 2;
+        this.audioChannelCount = com.fadcam.utils.AudioChannelMode.current(prefs).channelCount;
 
         String audioInputSource = prefs.getAudioInputSource();
         this.preferredAudioDevice = null;
@@ -3750,7 +3750,9 @@ public class GLRecordingPipeline {
                 // Use a large byte[] buffer and feed encoder in sane chunks aligned to frames
                 final int bytesPerFrame = audioChannelCount * 2; // 16-bit PCM
                 final int aacFrameSize = 1024 * bytesPerFrame; // 1024 PCM frames per AAC frame
-                final int readBufferSize = Math.max(aacFrameSize * 4, 131072); // >= 128 KiB
+                // 128 KiB in stereo; the same duration of sound (not bytes) in mono, so
+                // each read, and the timestamp it gets when queued, covers the same time
+                final int readBufferSize = Math.max(aacFrameSize * 4, 65536 * audioChannelCount);
                 byte[] readBuffer = new byte[readBufferSize];
                 long lastPtsUs = 0L;
                 

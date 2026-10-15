@@ -101,8 +101,8 @@ public class VoiceRecordingService extends Service {
             mr.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
             mr.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
             mr.setAudioSamplingRate(prefs.getAudioSamplingRate());
-            // Bluetooth headset mics are mono; the phone's mics record stereo, as in video.
-            mr.setAudioChannels(bluetoothMic ? 1 : 2);
+            // Bluetooth headset mics are mono; the phone's mics follow Audio Channels, as in video.
+            mr.setAudioChannels(bluetoothMic ? 1 : com.fadcam.utils.AudioChannelMode.current(prefs).channelCount);
             mr.setAudioEncodingBitRate(prefs.getAudioBitrate());
             if (externalMic != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 mr.setPreferredDevice(externalMic);
