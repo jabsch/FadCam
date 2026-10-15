@@ -37,6 +37,10 @@ public class PalestineRainView extends View {
     private int viewWidth, viewHeight;
     private Bitmap iconBitmap;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    // Bottom fade, rebuilt in onSizeChanged instead of every frame.
+    private final Paint gradPaint = new Paint();
+    private int gradientHeight;
+    private Paint iconPaint;
     private final Handler handler = new Handler(android.os.Looper.getMainLooper());
     private static final int FRAME_DELAY = 24; // ms - slightly slower animation
     private static final float SPEED_MIN = 2.0f; // slower minimum speed
@@ -65,11 +69,37 @@ public class PalestineRainView extends View {
         gapPx = 0; // denser, no gap
         iconBitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.palestine_main);
         paint.setAlpha(255); // Full opacity
-        startAnimation();
+        // Built once here; it used to be a new Paint and shader every frame.
+        iconPaint = new Paint(paint);
+        iconPaint.setShader(new android.graphics.LinearGradient(
+            0, 0, 0, iconSizePx,
+            0xFFFFFFFF, 0x00FFFFFF, android.graphics.Shader.TileMode.CLAMP
+        ));
     }
 
+    private boolean animating;
+
     private void startAnimation() {
+        if (animating) return;
+        animating = true;
         handler.post(frameRunnable);
+    }
+
+    private void stopAnimation() {
+        animating = false;
+        handler.removeCallbacks(frameRunnable);
+    }
+
+    // Animate only while actually on screen: a sheet left open with the
+    // screen off (or hidden behind another window) no longer redraws at 50 Hz.
+    @Override
+    public void onVisibilityAggregated(boolean isVisible) {
+        super.onVisibilityAggregated(isVisible);
+        if (isVisible) {
+            startAnimation();
+        } else {
+            stopAnimation();
+        }
     }
 
     private final Runnable frameRunnable = new Runnable() {
@@ -103,12 +133,6 @@ public class PalestineRainView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         if (iconBitmap == null || drops == null) return;
-        Paint iconPaint = new Paint(paint);
-        android.graphics.LinearGradient iconGradient = new android.graphics.LinearGradient(
-            0, 0, 0, iconSizePx,
-            0xFFFFFFFF, 0x00FFFFFF, android.graphics.Shader.TileMode.CLAMP
-        );
-        iconPaint.setShader(iconGradient);
         if (numColumns == 1) {
             float x = (viewWidth - iconSizePx) / 2f;
             IconDrop drop = drops[0];
@@ -129,15 +153,6 @@ public class PalestineRainView extends View {
                 canvas.restore();
             }
         }
-        int gradientHeight = (int) (viewHeight * 0.4f);
-        Paint gradPaint = new Paint();
-        LinearGradient grad = new LinearGradient(
-            0, viewHeight,
-            0, viewHeight - gradientHeight,
-            0xCC000000, 0x00000000,
-            Shader.TileMode.CLAMP
-        );
-        gradPaint.setShader(grad);
         canvas.drawRect(0, viewHeight - gradientHeight, viewWidth, viewHeight, gradPaint);
     }
 
@@ -146,6 +161,13 @@ public class PalestineRainView extends View {
         super.onSizeChanged(w, h, oldw, oldh);
         viewWidth = w;
         viewHeight = h;
+        gradientHeight = (int) (viewHeight * 0.4f);
+        gradPaint.setShader(new LinearGradient(
+            0, viewHeight,
+            0, viewHeight - gradientHeight,
+            0xCC000000, 0x00000000,
+            Shader.TileMode.CLAMP
+        ));
         numColumns = Math.max(2, w / (iconSizePx + gapPx) * 2);
         drops = new IconDrop[numColumns];
         for (int i = 0; i < numColumns; i++) {
@@ -164,7 +186,7 @@ public class PalestineRainView extends View {
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        handler.removeCallbacksAndMessages(null);
+        stopAnimation();
     }
 
     @Override

@@ -309,13 +309,27 @@ public class PlaybackService extends Service {
     
     private void updateNotification() {
         if (player != null && player.isPlaying()) {
-            // For updates, just silently update the notification
-            buildAndShowNotification();
+            // For updates, just silently update the notification. With the screen
+            // off nobody sees the progress bar, so skip the per-second rebuild
+            // (an IPC plus a SystemUI re-inflate); the next tick after screen-on
+            // catches it up.
+            if (isScreenInteractive()) {
+                buildAndShowNotification();
+            }
             // Schedule the next update
             if (progressUpdateHandler != null) {
                 progressUpdateHandler.postDelayed(progressUpdateRunnable, PROGRESS_UPDATE_INTERVAL);
             }
         }
+    }
+
+    private android.os.PowerManager powerManager;
+
+    private boolean isScreenInteractive() {
+        if (powerManager == null) {
+            powerManager = (android.os.PowerManager) getSystemService(POWER_SERVICE);
+        }
+        return powerManager == null || powerManager.isInteractive();
     }
 
     @SuppressWarnings("deprecation") // androidx.media.app.NotificationCompat.MediaStyle still works; the media3 MediaSession notification migration is a larger refactor

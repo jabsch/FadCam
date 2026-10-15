@@ -16,14 +16,15 @@ public final class LocationFeedGate {
     private LocationFeedGate() {}
 
     /**
-     * True if any user-enabled feature needs a live GPS feed. Critically
-     * includes the extended sensor watermarks (speed/altitude/accuracy/compass)
-     * and weather, NOT just the "location watermark" toggle.
+     * True if any user-enabled watermark feature needs a live GPS feed.
+     * Critically includes the extended sensor watermarks
+     * (speed/altitude/accuracy/compass) and weather, NOT just the "location
+     * watermark" toggle. Location embedding is not here: it has its own
+     * one-fix GeotagHelper feed, and nothing reads this feed for it.
      */
     public static boolean needsLocationData(SharedPreferencesManager prefs) {
         if (prefs == null) return false;
         return prefs.isLocalisationEnabled()
-                || prefs.isLocationEmbeddingEnabled()
                 || prefs.isUtmEnabled()
                 || prefs.isSpeedEnabled()
                 || prefs.isAltitudeEnabled()
@@ -35,7 +36,7 @@ public final class LocationFeedGate {
     /**
      * True if an enabled feature needs a fix every second: speed, altitude and
      * accuracy readouts, and the compass (which falls back to GPS bearing).
-     * Location text, UTM, weather and metadata embedding are fine with a slower
+     * Location text, UTM and weather are fine with a slower
      * feed, which lets the GPS radio idle between fixes.
      */
     public static boolean needsFastLocation(SharedPreferencesManager prefs) {

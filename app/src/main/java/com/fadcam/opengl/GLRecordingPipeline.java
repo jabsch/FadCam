@@ -252,8 +252,15 @@ public class GLRecordingPipeline {
     private Surface secondaryCameraInputSurface;
 
     // Location metadata fields
-    private Float locationLatitude = null;
-    private Float locationLongitude = null;
+    // Volatile: a late geotag fix (setLocation) lands from the main thread.
+    private volatile Float locationLatitude = null;
+    private volatile Float locationLongitude = null;
+
+    /** Geotag for segments the muxer opens from now on (split segments). */
+    public void setLocation(float latitude, float longitude) {
+        locationLatitude = latitude;
+        locationLongitude = longitude;
+    }
     
     // Location update tracking - SEPARATE from watermark update frequency
     private long lastLocationUpdateMs = 0;
@@ -1498,8 +1505,10 @@ public class GLRecordingPipeline {
         }
 
         // Set location metadata if available
-        if (locationLatitude != null && locationLongitude != null) {
-            mediaMuxer.setLocation(locationLatitude.floatValue(), locationLongitude.floatValue());
+        Float latitude = locationLatitude;
+        Float longitude = locationLongitude;
+        if (latitude != null && longitude != null) {
+            mediaMuxer.setLocation(latitude.floatValue(), longitude.floatValue());
         } else {
             // no location metadata
         }

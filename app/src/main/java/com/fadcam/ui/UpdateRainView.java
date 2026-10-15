@@ -32,6 +32,9 @@ public class UpdateRainView extends View {
     private int viewWidth, viewHeight;
     private Bitmap updateBitmap;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    // Bottom fade, rebuilt in onSizeChanged instead of every frame.
+    private final Paint gradPaint = new Paint();
+    private int gradientHeight;
     private final Handler handler = new Handler(android.os.Looper.getMainLooper());
     private static final int FRAME_DELAY = 18; // ms
     private static final float SPEED_MIN = 1.2f;
@@ -56,7 +59,6 @@ public class UpdateRainView extends View {
         gapPx = 0; // denser, no gap
         updateBitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.ic_update);
         paint.setAlpha((int) (0.65f * 255));
-        startAnimation();
     }
 
     /**
@@ -69,8 +71,29 @@ public class UpdateRainView extends View {
         }
     }
 
+    private boolean animating;
+
     private void startAnimation() {
+        if (animating) return;
+        animating = true;
         handler.post(frameRunnable);
+    }
+
+    private void stopAnimation() {
+        animating = false;
+        handler.removeCallbacks(frameRunnable);
+    }
+
+    // Animate only while actually on screen: a sheet left open with the
+    // screen off (or hidden behind another window) no longer redraws at 50 Hz.
+    @Override
+    public void onVisibilityAggregated(boolean isVisible) {
+        super.onVisibilityAggregated(isVisible);
+        if (isVisible) {
+            startAnimation();
+        } else {
+            stopAnimation();
+        }
     }
 
     private final Runnable frameRunnable = new Runnable() {
@@ -128,15 +151,6 @@ public class UpdateRainView extends View {
             }
         }
         // Draw a more prominent black-to-transparent gradient at the bottom (fade out)
-        int gradientHeight = (int) (viewHeight * 0.4f);
-        Paint gradPaint = new Paint();
-        LinearGradient grad = new LinearGradient(
-            0, viewHeight, // start at bottom
-            0, viewHeight - gradientHeight, // end at top of gradient
-            0xCC000000, 0x00000000, // 80% black to transparent
-            Shader.TileMode.CLAMP
-        );
-        gradPaint.setShader(grad);
         canvas.drawRect(0, viewHeight - gradientHeight, viewWidth, viewHeight, gradPaint);
     }
 
@@ -145,6 +159,13 @@ public class UpdateRainView extends View {
         super.onSizeChanged(w, h, oldw, oldh);
         viewWidth = w;
         viewHeight = h;
+        gradientHeight = (int) (viewHeight * 0.4f);
+        gradPaint.setShader(new LinearGradient(
+            0, viewHeight, // start at bottom
+            0, viewHeight - gradientHeight, // end at top of gradient
+            0xCC000000, 0x00000000, // 80% black to transparent
+            Shader.TileMode.CLAMP
+        ));
         // Fill the width with as many columns as possible, matrix style
         numColumns = Math.max(1, w / (iconSizePx + gapPx));
         drops = new UpdateDrop[numColumns];
@@ -165,6 +186,6 @@ public class UpdateRainView extends View {
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        handler.removeCallbacksAndMessages(null);
+        stopAnimation();
     }
 } 
