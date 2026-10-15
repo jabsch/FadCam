@@ -27,6 +27,11 @@ import java.util.Locale;
 public final class CrashRecorder {
 
     private static final String FOLDER = Environment.DIRECTORY_DOWNLOADS + "/JaCam crash reports";
+    /** A caught error that repeats (say, on every progress update) is saved once a minute. */
+    private static final long NON_FATAL_REPEAT_MS = 60_000L;
+    private static final int MAX_NON_FATAL_PER_RUN = 20;
+    private static final java.util.Map<String, Long> lastNonFatalAt = new java.util.HashMap<>();
+    private static int nonFatalCount;
     private static volatile Context appContext;
 
     private CrashRecorder() {
@@ -48,10 +53,25 @@ public final class CrashRecorder {
 
     /** Records an error that was caught, so it can still be reported. */
     public static void recordNonFatal(@NonNull String where, @NonNull Throwable error) {
-        try {
-            write("error-" + where, Thread.currentThread(), error);
-        } catch (Throwable ignored) {
+        String key = where + "|" + error.getClass().getName();
+        long now = android.os.SystemClock.elapsedRealtime();
+        synchronized (lastNonFatalAt) {
+            Long last = lastNonFatalAt.get(key);
+            if (nonFatalCount >= MAX_NON_FATAL_PER_RUN
+                    || (last != null && now - last < NON_FATAL_REPEAT_MS)) {
+                return;
+            }
+            lastNonFatalAt.put(key, now);
+            nonFatalCount++;
         }
+        final Thread thread = Thread.currentThread();
+        // Saved off the calling thread: callers include the main thread.
+        new Thread(() -> {
+            try {
+                write("error-" + where, thread, error);
+            } catch (Throwable ignored) {
+            }
+        }, "CrashRecorder").start();
     }
 
     private static void write(@NonNull String kind, @NonNull Thread thread, @NonNull Throwable error)

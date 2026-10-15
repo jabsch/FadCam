@@ -36,6 +36,12 @@ public class ShimmerTextView extends AppCompatTextView {
     private int shimmerColor = 0x45FFFFFF;
     private long shimmerDuration = 1200;
     private long shimmerDelay = 0;
+    /**
+     * Gap between sweeps. A sweep that repeats forever redraws every frame (up to
+     * 120 Hz) and keeps the panel from dropping its refresh rate while Home is open.
+     */
+    private static final long SHIMMER_PAUSE_MS = 6000;
+    private final Runnable restartShimmer = this::startShimmer;
     private float cornerRadius = 0f;
 
     public ShimmerTextView(@NonNull Context context) {
@@ -108,20 +114,42 @@ public class ShimmerTextView extends AppCompatTextView {
      * Start the shimmer animation.
      */
     public void startShimmer() {
-        // An infinite animator invalidates every frame; don't run it while nobody can see it.
+        // A sweep invalidates every frame; don't run it while nobody can see it.
         if (!visibleToUser || (shimmerAnimator != null && shimmerAnimator.isRunning())) {
             return;
         }
+        removeCallbacks(restartShimmer);
 
         isShimmering = true;
         shimmerAnimator = ValueAnimator.ofFloat(-shimmerWidth, getWidth() + shimmerWidth);
         shimmerAnimator.setDuration(shimmerDuration);
         shimmerAnimator.setInterpolator(new LinearInterpolator());
-        shimmerAnimator.setRepeatCount(ValueAnimator.INFINITE);
-        shimmerAnimator.setRepeatMode(ValueAnimator.RESTART);
+        shimmerAnimator.setRepeatCount(0);
         shimmerAnimator.addUpdateListener(animation -> {
             shimmerTranslate = (float) animation.getAnimatedValue();
             invalidate();
+        });
+        final ValueAnimator sweep = shimmerAnimator;
+        shimmerAnimator.addListener(new android.animation.AnimatorListenerAdapter() {
+            private boolean cancelled;
+
+            @Override
+            public void onAnimationCancel(android.animation.Animator animation) {
+                cancelled = true;
+            }
+
+            @Override
+            public void onAnimationEnd(android.animation.Animator animation) {
+                if (cancelled || shimmerAnimator != sweep) {
+                    return;
+                }
+                // Sweep done: draw without the highlight, then sweep again later.
+                shimmerAnimator = null;
+                isShimmering = false;
+                invalidate();
+                removeCallbacks(restartShimmer);
+                postDelayed(restartShimmer, SHIMMER_PAUSE_MS);
+            }
         });
         shimmerAnimator.start();
     }
@@ -130,6 +158,7 @@ public class ShimmerTextView extends AppCompatTextView {
      * Stop the shimmer animation.
      */
     public void stopShimmer() {
+        removeCallbacks(restartShimmer);
         isShimmering = false;
         if (shimmerAnimator != null) {
             shimmerAnimator.cancel();

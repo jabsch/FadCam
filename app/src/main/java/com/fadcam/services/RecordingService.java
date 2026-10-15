@@ -1173,7 +1173,7 @@ public class RecordingService extends Service {
             new Thread(() -> {
                 try {
                     doSelfHealingScan(app);
-                } catch (Exception e) {
+                } catch (Throwable e) {
                     FLog.w(TAG, "Self-healing scan failed", e);
                 } finally {
                     scanRunning.set(false);
@@ -1271,6 +1271,11 @@ public class RecordingService extends Service {
                             if (IN_FLIGHT_FINALIZATIONS.contains(uriString)) {
                                 continue;
                             }
+                            // Mark it first and clear the mark on success. If the
+                            // finalizer kills the process on a corrupt file, the next
+                            // scan (run after every delete) skips it instead of
+                            // crashing again.
+                            repo.markUnrepairableWithRetry(uriString, retryAfter);
                             android.net.Uri uri = android.net.Uri.parse(uriString);
                             String scheme = uri.getScheme();
                             int result;
@@ -1327,7 +1332,9 @@ public class RecordingService extends Service {
                                 // not permanently abandoned.
                                 repo.markUnrepairableWithRetry(uriString, retryAfter);
                             }
-                        } catch (Exception e) {
+                        } catch (Throwable e) {
+                            // Throwable: a corrupt file can make the finalizer run out
+                            // of memory or stack, which would otherwise kill the app.
                             FLog.w(TAG, "Self-healing scan failed on " + uriString, e);
                             try { repo.markUnrepairableWithRetry(uriString, retryAfter); } catch (Exception ignored) {}
                         }
@@ -2582,6 +2589,15 @@ public class RecordingService extends Service {
             releaseDummyBackgroundSurface();
             releaseMotionAnalysisReader();
             closeCameraResourcesForSwitch();
+            // Nothing runs while paused like this, so let the CPU sleep. Resume comes in
+            // as an intent, which wakes the device, and takes the wakelock back.
+            if (recordingWakeLock != null && recordingWakeLock.isHeld()) {
+                try {
+                    recordingWakeLock.release();
+                } catch (RuntimeException e) {
+                    FLog.w(TAG, "Could not release wakelock for pause", e);
+                }
+            }
         } else if (motionLabEnabledForSession && !isSwitchingCamera
                 && com.fadcam.utils.MotionStandbyMode.current(sharedPreferencesManager)
                         == com.fadcam.utils.MotionStandbyMode.LOW_POWER) {
@@ -2604,6 +2620,9 @@ public class RecordingService extends Service {
     private void resumeRecording() {
         if (recordingState != RecordingState.PAUSED)
             return;
+        if (recordingWakeLock != null && !recordingWakeLock.isHeld()) {
+            recordingWakeLock.acquire();
+        }
 
         // Reopen camera if it was released during pause (motion detection disabled).
         // openCamera() is async — the pipeline handles frames arriving after resume.
@@ -6994,6 +7013,7 @@ public class RecordingService extends Service {
                 FLog.w(TAG, "Preview-only: failed to read sensor orientation", e);
             }
 
+            deleteStalePreviewTempFiles();
             File previewTempFile = new File(getCacheDir(),
                     "preview_gl_temp_" + System.currentTimeMillis() + ".mp4");
             glRecordingPipeline = new com.fadcam.opengl.GLRecordingPipeline(
@@ -7020,6 +7040,28 @@ public class RecordingService extends Service {
         } catch (Exception e) {
             FLog.e(TAG, "Failed to initialize preview-only GL pipeline", e);
             releasePreviewOnlyGlPipeline();
+        }
+    }
+
+    /**
+     * Each idle preview opens a throwaway muxer file in the cache, and nothing removed
+     * it, so one more piled up every time the preview started. Only the pipeline about
+     * to be created writes one, so every existing file is from an earlier preview.
+     */
+    private void deleteStalePreviewTempFiles() {
+        try {
+            File[] stale = getCacheDir().listFiles((dir, name) ->
+                    name.startsWith("preview_gl_temp_") && name.endsWith(".mp4"));
+            if (stale == null) {
+                return;
+            }
+            for (File file : stale) {
+                if (!file.delete()) {
+                    FLog.w(TAG, "Could not delete stale preview temp file " + file.getName());
+                }
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "Stale preview temp cleanup failed", e);
         }
     }
 

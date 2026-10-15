@@ -3,7 +3,10 @@ package com.fadcam.service;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.google.gson.ExclusionStrategy;
+import com.google.gson.FieldAttributes;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -14,6 +17,23 @@ import java.util.UUID;
 public class RecordsDeletionSessionSnapshot {
 
     private static final Gson GSON = new Gson();
+    /** Fields that grow with the selection and that no broadcast listener reads. */
+    private static final Set<String> PER_FILE_LIST_FIELDS = new HashSet<>(java.util.Arrays.asList(
+            "pendingItems", "completedUriStrings", "failedUriStrings"));
+    private static final Gson BROADCAST_GSON = new GsonBuilder()
+            .setExclusionStrategies(new ExclusionStrategy() {
+                @Override
+                public boolean shouldSkipField(FieldAttributes f) {
+                    return f.getDeclaringClass() == RecordsDeletionSessionSnapshot.class
+                            && PER_FILE_LIST_FIELDS.contains(f.getName());
+                }
+
+                @Override
+                public boolean shouldSkipClass(Class<?> clazz) {
+                    return false;
+                }
+            })
+            .create();
 
     public enum State {
         IDLE,
@@ -143,6 +163,16 @@ public class RecordsDeletionSessionSnapshot {
     @NonNull
     public static String toJson(@NonNull RecordsDeletionSessionSnapshot snapshot) {
         return GSON.toJson(snapshot);
+    }
+
+    /**
+     * The session without its per-file lists, for progress broadcasts. With the lists, a
+     * delete of a couple of thousand clips goes past Android's 1 MB limit for one
+     * broadcast and crashes the app, and every update would re-send them.
+     */
+    @NonNull
+    public static String toBroadcastJson(@NonNull RecordsDeletionSessionSnapshot snapshot) {
+        return BROADCAST_GSON.toJson(snapshot);
     }
 
     @Nullable

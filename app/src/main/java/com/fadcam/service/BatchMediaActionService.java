@@ -62,25 +62,52 @@ public class BatchMediaActionService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         final BatchMediaActionTask task = BatchMediaActionTask.fromIntent(intent);
+
+        String title = task != null && task.actionType == BatchMediaActionTask.ActionType.EXPORT_STANDARD_MP4
+                ? getString(R.string.records_batch_faditor_export_standard)
+                : getString(R.string.records_batch_faditor_merge);
+
+        // Started with startForegroundService, so startForeground must be called even
+        // when there is nothing to do, or Android crashes the app. On Android 15+ it
+        // throws once the daily dataSync time is used up; the work still runs while
+        // JaCam is open.
+        try {
+            startForeground(
+                    FOREGROUND_ID,
+                    notificationManager.createForegroundNotification(
+                            title,
+                            getString(R.string.records_batch_starting)
+                    )
+            );
+        } catch (RuntimeException e) {
+            FLog.w(TAG, "Could not go foreground, running in the background", e);
+        }
+
         if (task == null) {
+            com.fadcam.Utils.stopForegroundCompat(this, true);
             stopSelf(startId);
             return START_NOT_STICKY;
         }
 
-        String title = task.actionType == BatchMediaActionTask.ActionType.EXPORT_STANDARD_MP4
-                ? getString(R.string.records_batch_faditor_export_standard)
-                : getString(R.string.records_batch_faditor_merge);
-
-        startForeground(
-                FOREGROUND_ID,
-                notificationManager.createForegroundNotification(
-                        title,
-                        getString(R.string.records_batch_starting)
-                )
-        );
-
         executor.submit(() -> runTask(task, startId));
         return START_NOT_STICKY;
+    }
+
+    /**
+     * Android 15+ calls this when the daily dataSync foreground time runs out. The
+     * service must stop within seconds or Android crashes the app, so the running
+     * export or merge is cancelled and reported as failed.
+     */
+    @Override
+    public void onTimeout(int startId, int fgsType) {
+        FLog.w(TAG, "Foreground time limit reached, cancelling the batch action");
+        try {
+            FFmpegKit.cancel();
+        } catch (RuntimeException e) {
+            FLog.w(TAG, "FFmpeg cancel failed", e);
+        }
+        com.fadcam.Utils.stopForegroundCompat(this, true);
+        stopSelf();
     }
 
     private void runTask(@NonNull BatchMediaActionTask task, int startId) {

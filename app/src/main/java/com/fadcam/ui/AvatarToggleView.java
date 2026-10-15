@@ -318,6 +318,10 @@ public class AvatarToggleView extends FrameLayout {
      * @param animate whether to play the transition AVD drawable
      */
     private void applyState(boolean on, boolean animate) {
+        if (pausedWhileHidden) {
+            // Shown again with the current state once visible.
+            return;
+        }
         stopBlink();
         if (on) {
             // ── Wake path ────────────────────────────────────────────────────
@@ -699,9 +703,33 @@ public class AvatarToggleView extends FrameLayout {
 
     // ─── Lifecycle ───────────────────────────────────────────────────────────
 
+    /** True while the idle animations are stopped because nobody can see the view. */
+    private boolean pausedWhileHidden;
+
+    @Override
+    public void onVisibilityAggregated(boolean isVisible) {
+        super.onVisibilityAggregated(isVisible);
+        // Tabs switch by hide/show, so a toggle on a hidden tab stays attached. Its
+        // breathing, blink and floating Z loops would keep the main thread busy every
+        // frame behind whatever is on screen.
+        if (!isVisible) {
+            if (!pausedWhileHidden) {
+                pausedWhileHidden = true;
+                stopIdleAnimations();
+            }
+        } else if (pausedWhileHidden) {
+            pausedWhileHidden = false;
+            applyState(checked, false);
+        }
+    }
+
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
+        stopIdleAnimations();
+    }
+
+    private void stopIdleAnimations() {
         stopBlink();
         stopBreathing();
         stopFloatingZ();
