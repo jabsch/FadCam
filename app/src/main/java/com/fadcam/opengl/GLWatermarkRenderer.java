@@ -2193,6 +2193,18 @@ public class GLWatermarkRenderer {
      *
      * @param config PiP configuration (position, size, border, corners, margin).
      */
+    /**
+     * Size of the secondary camera's stream, same aspect ratio as the video. Call
+     * before {@link #initializePiP}; 0 keeps the full video size.
+     */
+    public void setPipStreamSize(int width, int height) {
+        pipStreamWidth = width;
+        pipStreamHeight = height;
+    }
+
+    private int pipStreamWidth;
+    private int pipStreamHeight;
+
     public void initializePiP(@NonNull DualCameraConfig config) {
         if (!initialized) {
             throw new IllegalStateException("Call initializeEGL() before initializePiP()");
@@ -2212,7 +2224,11 @@ public class GLWatermarkRenderer {
 
         // Create SurfaceTexture and Surface for secondary camera
         pipSurfaceTexture = new SurfaceTexture(pipOesTextureId);
-        pipSurfaceTexture.setDefaultBufferSize(videoWidth, videoHeight);
+        // The PiP is drawn at most 40% of the output width, so it gets a smaller
+        // stream when one was chosen (see setPipStreamSize); same aspect ratio.
+        pipSurfaceTexture.setDefaultBufferSize(
+                pipStreamWidth > 0 ? pipStreamWidth : videoWidth,
+                pipStreamHeight > 0 ? pipStreamHeight : videoHeight);
         pipCameraInputSurface = new Surface(pipSurfaceTexture);
         android.opengl.Matrix.setIdentityM(pipLatestTexMatrix, 0);
 
@@ -2380,7 +2396,7 @@ public class GLWatermarkRenderer {
 
         // PiP size as fraction of output width
         float pipWidthFraction = pipConfig.getPipSize().ratio;
-        // The PiP camera outputs at videoWidth x videoHeight, same as primary
+        // The PiP stream has the video's aspect ratio (its size may be smaller),
         // but after rotation the effective aspect changes
         float pipCameraAspect = isRotated
                 ? (float) videoHeight / (float) videoWidth
