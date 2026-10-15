@@ -6585,6 +6585,18 @@ public class RecordingService extends Service {
                 return;
             }
 
+            // createHighSpeedRequestList needs a high-speed AE range for this size; the
+            // template's regular range (e.g. 30 fps) made it throw, which stopped the
+            // recording. High-speed sessions don't do EIS, so don't ask for it.
+            Range<Integer> highSpeedRange = HighSpeedCaptureHelper.getBestHighSpeedFpsRange(
+                    characteristics, highSpeedSize, targetFrameRate);
+            if (highSpeedRange != null) {
+                captureRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, highSpeedRange);
+                FLog.d(TAG, "High-speed AE range " + highSpeedRange);
+            }
+            captureRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
+                    CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF);
+
             // Add surfaces as targets
             for (Surface surface : surfaces) {
                 captureRequestBuilder.addTarget(surface);
