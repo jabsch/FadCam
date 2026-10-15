@@ -134,11 +134,49 @@ public class StreamKeyManager {
      */
     @NonNull
     public byte[] deriveDeviceKey(@NonNull String deviceId) throws Exception {
+        final int generation;
+        synchronized (deviceKeyLock) {
+            if (cachedDeviceKey != null && deviceId.equals(cachedDeviceKeyId)) {
+                return cachedDeviceKey.clone();
+            }
+            generation = deviceKeyGeneration;
+        }
         byte[] masterKey = loadMasterKey();
         if (masterKey == null) {
             throw new IllegalStateException("E2E master key is not initialised. Call initFromPassword() first.");
         }
-        return hkdfExpand(masterKey, "fadcam-stream-v1" + deviceId, 32);
+        byte[] deviceKey = hkdfExpand(masterKey, "fadcam-stream-v1" + deviceId, 32);
+        java.util.Arrays.fill(masterKey, (byte) 0);
+        synchronized (deviceKeyLock) {
+            // Not cached if the master key was replaced or cleared meanwhile
+            if (generation == deviceKeyGeneration) {
+                cachedDeviceKeyId = deviceId;
+                cachedDeviceKey = deviceKey.clone();
+            }
+        }
+        return deviceKey;
+    }
+
+    /*
+     * The device key, kept after the first upload. Each cloud segment (about one
+     * every 2 s while uploading) otherwise unwrapped the master key through the
+     * Android Keystore and re-ran HKDF on the muxer thread. Dropped whenever the
+     * stored master key changes.
+     */
+    private final Object deviceKeyLock = new Object();
+    private String cachedDeviceKeyId;
+    private byte[] cachedDeviceKey;
+    private int deviceKeyGeneration;
+
+    private void forgetDeviceKey() {
+        synchronized (deviceKeyLock) {
+            if (cachedDeviceKey != null) {
+                java.util.Arrays.fill(cachedDeviceKey, (byte) 0);
+            }
+            cachedDeviceKey = null;
+            cachedDeviceKeyId = null;
+            deviceKeyGeneration++;
+        }
     }
 
     /**
@@ -163,6 +201,7 @@ public class StreamKeyManager {
     public void clear() {
         SharedPreferences prefs = mContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().remove(KEY_BLOB).apply();
+        forgetDeviceKey();
         FLog.i(TAG, "E2E master key cleared");
     }
 
@@ -253,6 +292,7 @@ public class StreamKeyManager {
 
         SharedPreferences prefs = mContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().putString(KEY_BLOB, Base64.encodeToString(stored, Base64.NO_WRAP)).apply();
+        forgetDeviceKey();
         FLog.d(TAG, "Master key stored (" + stored.length + " bytes wrapped)");
     }
 
@@ -271,6 +311,7 @@ public class StreamKeyManager {
         if (stored.length <= GCM_IV_LEN) {
             FLog.e(TAG, "Stored key blob too short, clearing");
             prefs.edit().remove(KEY_BLOB).apply();
+            forgetDeviceKey();
             return null;
         }
 

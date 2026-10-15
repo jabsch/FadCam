@@ -15,6 +15,8 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import com.fadcam.streaming.util.HttpKeepAlive;
 
 /**
  * CloudStatusManager handles status push and command polling for cloud mode.
@@ -83,6 +85,26 @@ public class CloudStatusManager {
     // State
     private boolean isRunning = false;
     private Runnable statusRunnable;
+    /*
+     * One request per loop at a time. All calls share one thread with 5 s
+     * timeouts, so on a weak network the 3-4 s loops queued requests faster
+     * than they finished and replayed them in a burst when it came back.
+     */
+    private final AtomicBoolean statusPushInFlight = new AtomicBoolean(false);
+    private final AtomicBoolean commandPollInFlight = new AtomicBoolean(false);
+    private final AtomicBoolean viewersPollInFlight = new AtomicBoolean(false);
+    /**
+     * Commands already fetched. A poll that ran before the matching delete
+     * (or after a failed one) listed the command again and ran a toggle twice.
+     * Executor thread only.
+     */
+    private final java.util.Set<String> handledCommandIds =
+            java.util.Collections.newSetFromMap(new java.util.LinkedHashMap<String, Boolean>() {
+                @Override
+                protected boolean removeEldestEntry(java.util.Map.Entry<String, Boolean> eldest) {
+                    return size() > 64;
+                }
+            });
     private Runnable commandRunnable;
     private Runnable viewersRunnable;
     // ❌ REMOVED: usageRunnable (moved to relay server)
@@ -327,6 +349,7 @@ public class CloudStatusManager {
     private void pollCloudViewers() {
         String streamToken = authManager.getStreamToken();
         if (streamToken == null) return;
+        if (!viewersPollInFlight.compareAndSet(false, true)) return;
 
         executor.execute(() -> {
             HttpURLConnection conn = null;
@@ -339,7 +362,9 @@ public class CloudStatusManager {
                 conn.setConnectTimeout(5000);
                 conn.setReadTimeout(5000);
 
-                if (conn.getResponseCode() != 200) {
+                int responseCode = conn.getResponseCode();
+                if (responseCode != 200) {
+                    HttpKeepAlive.drain(conn, responseCode);
                     RemoteStreamManager.getInstance().markCloudViewerTelemetryUnavailable();
                     return;
                 }
@@ -363,6 +388,7 @@ public class CloudStatusManager {
                 FLog.w(TAG, "Cloud viewer stats unavailable: " + e.getMessage());
             } finally {
                 if (conn != null) conn.disconnect();
+                viewersPollInFlight.set(false);
             }
         });
     }
@@ -408,6 +434,10 @@ public class CloudStatusManager {
      * Uses stream_access_token for authentication.
      */
     private void pushStatus() {
+        if (statusPushInFlight.get()) {
+            FLog.d(TAG, "☁️ Previous status push still running, skipping this one");
+            return;
+        }
         String statusJson = RemoteStreamManager.getInstance().getStatusJson();
         String userUuid = authManager.getUserId();
         String deviceId = getDeviceId();
@@ -575,6 +605,7 @@ public class CloudStatusManager {
                     " | User: " + userUuid.substring(0, 8) + "...");
         }
         
+        statusPushInFlight.set(true);
         executor.execute(() -> {
             HttpURLConnection conn = null;
             try {
@@ -591,6 +622,9 @@ public class CloudStatusManager {
                 }
                 
                 int responseCode = conn.getResponseCode();
+                HttpKeepAlive.drain(conn, responseCode);
+                // Cleared before onPushSuccess, whose recovery push would be skipped otherwise
+                statusPushInFlight.set(false);
                 FLog.d(TAG, "☁️ 📤 Push response: HTTP " + responseCode);
                 if (responseCode >= 200 && responseCode < 300) {
                     // Success - track recovery
@@ -618,6 +652,7 @@ public class CloudStatusManager {
                 if (conn != null) {
                     conn.disconnect();
                 }
+                statusPushInFlight.set(false);
             }
         });
     }
@@ -641,6 +676,9 @@ public class CloudStatusManager {
         }
         
         String urlStr = CloudStreamUploader.RELAY_BASE_URL + "/api/command/" + userUuid + "/" + deviceId + "/";
+        if (!commandPollInFlight.compareAndSet(false, true)) {
+            return;
+        }
         
         executor.execute(() -> {
             HttpURLConnection conn = null;
@@ -677,12 +715,18 @@ public class CloudStatusManager {
                             String cmdFile = fileEntry.getString("name");
                             if (cmdFile.endsWith(".json")) {
                                 String cmdId = cmdFile.replace(".json", "");
-                                fetchAndExecuteCommand(cmdId);
+                                if (handledCommandIds.add(cmdId)) {
+                                    fetchAndExecuteCommand(cmdId);
+                                } else {
+                                    // Ran already; its delete is queued or failed.
+                                    deleteCommand(cmdId);
+                                }
                             }
                         }
                     }
-                } else if (responseCode == 404) {
-                    // No commands - expected when directory doesn't exist
+                } else {
+                    // 404: no commands - expected when directory doesn't exist
+                    HttpKeepAlive.drain(conn, responseCode);
                 }
             } catch (Exception e) {
                 // Silent - commands might not exist yet
@@ -690,6 +734,7 @@ public class CloudStatusManager {
                 if (conn != null) {
                     conn.disconnect();
                 }
+                commandPollInFlight.set(false);
             }
         });
     }
@@ -722,6 +767,9 @@ public class CloudStatusManager {
                 
                 int responseCode = conn.getResponseCode();
                 FLog.d(TAG, "☁️ Command fetch response: " + responseCode);
+                if (responseCode != 200) {
+                    HttpKeepAlive.drain(conn, responseCode);
+                }
                 if (responseCode == 200) {
                     java.io.InputStream is = conn.getInputStream();
                     java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A");
@@ -1160,6 +1208,7 @@ public class CloudStatusManager {
                 conn.setReadTimeout(5000);
                 
                 int responseCode = conn.getResponseCode();
+                HttpKeepAlive.drain(conn, responseCode);
                 if (responseCode >= 200 && responseCode < 300) {
                     FLog.d(TAG, "☁️ Command deleted from relay: " + cmdId);
                 }
