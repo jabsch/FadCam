@@ -638,9 +638,11 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                         applyProgressToView(progressBg, progressFill, cachedSaved, cachedDur);
                     } else {
                         if (!canRunHeavyMetadataWork()) {
+                            // Filled in by the rebind when scrolling stops. A return here
+                            // skipped the badges and click listeners below, so a reused
+                            // card tapped mid-scroll opened the video it showed before.
                             progressFill.setVisibility(View.GONE);
-                            return;
-                        }
+                        } else {
                         final Long finalCachedDur = cachedDur;
                         // Submit one background task to compute missing values
                         executorService.execute(() -> {
@@ -668,12 +670,20 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                                 }
                                 final long fSaved = savedMs;
                                 final long fDur = durationMs;
-                                mainHandler.post(() -> applyProgressToView(progressBg, progressFill, fSaved, fDur));
+                                mainHandler.post(() -> {
+                                    // The card may show another video by now
+                                    if (key.equals(holder.currentUri)) {
+                                        applyProgressToView(progressBg, progressFill, fSaved, fDur);
+                                    }
+                                });
                             } catch (Exception e) {
                                 FLog.w(TAG, "Error computing thumbnail progress", e);
-                                mainHandler.post(() -> progressFill.setVisibility(View.GONE));
+                                mainHandler.post(() -> {
+                                    if (key.equals(holder.currentUri)) progressFill.setVisibility(View.GONE);
+                                });
                             }
                         });
+                        }
                     }
                 }
             }
@@ -937,6 +947,10 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             int from = view.getLayoutParams().width;
             if (from < 0)
                 from = 0;
+            if (from == toWidth) {
+                // Rebinds keep the same width; animating it re-laid out the card each frame
+                return;
+            }
             android.animation.ValueAnimator va = android.animation.ValueAnimator.ofInt(from, toWidth);
             va.setDuration(200);
             va.addUpdateListener(animation -> {
@@ -1019,6 +1033,8 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     private void setThumbnail(RecordViewHolder holder, Uri videoUri) {
         if (holder.imageViewThumbnail == null || context == null)
             return;
+        // A load still running for the video this card showed before
+        clearThumbnailLoad(holder);
         // Honor user preference: hide thumbnails if requested
         try {
             if (sharedPreferencesManager != null && sharedPreferencesManager.isHideThumbnailsEnabled()) {
@@ -1087,17 +1103,21 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
         // Load with Glide and cache the result. No smaller .thumbnail() pass: for a
         // video it decodes the same full-size keyframe again, so it doubled the decode.
-        Glide.with(context)
-                .asBitmap()
-                .load(videoUri)
-                .apply(options)
-                .into(new com.bumptech.glide.request.target.CustomTarget<android.graphics.Bitmap>() {
+        // The target is kept on the holder so a recycled card cancels its load:
+        // Glide.clear(imageView) can't reach a load into an anonymous target, so a
+        // fling decoded, compressed and saved a frame for every card it passed.
+        com.bumptech.glide.request.target.CustomTarget<android.graphics.Bitmap> target =
+                new com.bumptech.glide.request.target.CustomTarget<android.graphics.Bitmap>() {
                     @Override
                     public void onResourceReady(@NonNull android.graphics.Bitmap resource,
                             @androidx.annotation.Nullable com.bumptech.glide.request.transition.Transition<? super android.graphics.Bitmap> transition) {
-                        // Set the image
-                        holder.imageViewThumbnail.setImageBitmap(resource);
-                        holder.imageViewThumbnail.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                        if (holder.thumbnailTarget == this) {
+                            holder.thumbnailTarget = null;
+                        }
+                        if (uriString.equals(holder.currentUri)) {
+                            holder.imageViewThumbnail.setImageBitmap(resource);
+                            holder.imageViewThumbnail.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                        }
 
                         // Cache the thumbnail for future use
                         executorService.execute(() -> {
@@ -1123,7 +1143,25 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                         // Set placeholder if load is cleared
                         holder.imageViewThumbnail.setImageResource(R.drawable.ic_video_placeholder);
                     }
-                });
+                };
+        holder.thumbnailTarget = target;
+        Glide.with(context)
+                .asBitmap()
+                .load(videoUri)
+                .apply(options)
+                .into(target);
+    }
+
+    private void clearThumbnailLoad(RecordViewHolder holder) {
+        com.bumptech.glide.request.target.CustomTarget<android.graphics.Bitmap> target = holder.thumbnailTarget;
+        holder.thumbnailTarget = null;
+        if (target != null && context != null) {
+            try {
+                Glide.with(context).clear(target);
+            } catch (Exception ignored) {
+                // The activity may be gone; the load then ends with it
+            }
+        }
     }
 
     // Override onViewRecycled to cancel thumbnail loading for recycled views
@@ -1134,9 +1172,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         RecordViewHolder holder = (RecordViewHolder) viewHolder;
 
         // Cancel any pending image loads when view is recycled
-        if (holder.imageViewThumbnail != null && context != null) {
-            Glide.with(context).clear(holder.imageViewThumbnail);
-        }
+        clearThumbnailLoad(holder);
         holder.itemView.setScaleX(1f);
         holder.itemView.setScaleY(1f);
     }
@@ -2725,6 +2761,8 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     static class RecordViewHolder extends RecyclerView.ViewHolder {
         /** The URI of the item currently bound to this holder — used to detect stale async callbacks. */
         String currentUri;
+        /** Thumbnail load in flight for this card, cancelled on recycle or rebind. */
+        com.bumptech.glide.request.target.CustomTarget<android.graphics.Bitmap> thumbnailTarget;
         ImageView imageViewThumbnail;
         FrameLayout thumbnailContainer;
         TextView textViewRecord;

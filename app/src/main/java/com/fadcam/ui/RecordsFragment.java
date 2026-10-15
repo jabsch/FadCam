@@ -1241,6 +1241,8 @@ public class RecordsFragment extends BaseFragment implements
     @Override
     public void onStop() {
         super.onStop();
+        // File events aren't received while stopped
+        recordsChangedWhileHidden = true;
         if (progressHandler != null) {
             if (deferredRecordsWarmupRunnable != null) {
                 progressHandler.removeCallbacks(deferredRecordsWarmupRunnable);
@@ -2269,9 +2271,19 @@ public class RecordsFragment extends BaseFragment implements
             // first paint picks up new files (QR scans, shots, etc.). Invalidating
             // the index here forced the cold path on every tab switch: skeleton
             // shimmer, a full storage scan, then a second scan and three rebinds.
+            // Each reload ran a full storage scan (dozens of storage-provider calls on a
+            // custom folder) and rebound every visible card, on every switch to this tab.
+            boolean scannedRecently = lastDeltaScanUptimeMs > 0L
+                && android.os.SystemClock.uptimeMillis() - lastDeltaScanUptimeMs
+                    < RECORDS_RESCAN_MIN_INTERVAL_MS;
             if (!isLoading && recordsAdapter != null && recordsAdapter.getItemCount() > 0) {
-                FLog.d(TAG, "onHiddenChanged: running delta scan for new items");
-                loadRecordsList(true);
+                if (!recordsChangedWhileHidden && scannedRecently) {
+                    FLog.d(TAG, "onHiddenChanged: no file changes since the last scan; keeping list");
+                } else {
+                    FLog.d(TAG, "onHiddenChanged: running delta scan for new items");
+                    recordsChangedWhileHidden = false;
+                    loadRecordsList(true);
+                }
             } else if (!isLoading) {
                 FLog.i(TAG, "onHiddenChanged: Need to refresh data");
                 loadRecordsList();
@@ -5476,10 +5488,23 @@ public class RecordsFragment extends BaseFragment implements
     private void requestRealtimeRefresh(@NonNull String reason) {
         if (!isAdded()) return;
         // Hidden tabs stay resumed, so file events (new segments, shots, exports)
-        // reloaded a list nobody could see. Showing the tab reloads it anyway.
-        if (isHidden()) return;
+        // reloaded a list nobody could see. Showing the tab reloads it instead.
+        if (isHidden()) {
+            recordsChangedWhileHidden = true;
+            return;
+        }
         loadRecordsList(true);
     }
+
+    /**
+     * Whether files may have changed since the list was last shown: a file event
+     * arrived while the tab was hidden, or the app was stopped (no events then).
+     */
+    private boolean recordsChangedWhileHidden = true;
+    /** When the last storage delta scan finished (uptime ms), 0 before the first. */
+    private volatile long lastDeltaScanUptimeMs;
+    /** Tab switches within this long of a scan, with no file events, skip the rescan. */
+    private static final long RECORDS_RESCAN_MIN_INTERVAL_MS = 60_000L;
 
     private void triggerRecordsDeltaScanWithDelay(long delayMs) {
         if (progressHandler == null) {
@@ -5564,6 +5589,7 @@ public class RecordsFragment extends BaseFragment implements
             currentDeltaExec.submit(() -> {
                 try {
                     List<VideoItem> deltaItems = repository.deltaScan(sharedPreferencesManager);
+                    lastDeltaScanUptimeMs = android.os.SystemClock.uptimeMillis();
                     if (deltaItems.size() != expectedCount
                             || fileListSignature(deltaItems) != expectedSignature) {
                         List<VideoItem> deltaNormalized = normalizeVideoCategories(deltaItems);
