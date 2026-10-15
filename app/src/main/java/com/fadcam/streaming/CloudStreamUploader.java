@@ -408,6 +408,8 @@ public class CloudStreamUploader {
                 FLog.i(TAG, "📥 Upload response received: HTTP " + responseCode + " after " + elapsed + "ms");
                 
                 if (responseCode >= 200 && responseCode < 300) {
+                    // Keeps the socket for the next segment (see HttpKeepAlive)
+                    com.fadcam.streaming.util.HttpKeepAlive.drain(conn, responseCode);
                     successfulUploads++;
                     totalBytesUploaded += data.length;
                     
@@ -416,6 +418,7 @@ public class CloudStreamUploader {
                     consecutive401Count = 0;
                     if (callback != null) callback.onSuccess();
                 } else if (responseCode == 401 || responseCode == 403) {
+                    com.fadcam.streaming.util.HttpKeepAlive.drain(conn, responseCode);
                     failedUploads++;
                     consecutive401Count++;
                     FLog.w(TAG, "Stream token 401 error (attempt " + consecutive401Count + "/" + MAX_401_RETRIES + ")");
