@@ -105,6 +105,14 @@ public class FaditorMiniFragment extends BaseFragment {
 
     /** Background thread for loading thumbnails. */
     private final ExecutorService thumbnailExecutor = Executors.newSingleThreadExecutor();
+    /** Project-list thumbnails by video URI, kept across visits (about 2 MB). */
+    private static final android.util.LruCache<String, Bitmap> PROJECT_THUMB_CACHE =
+            new android.util.LruCache<String, Bitmap>(2 * 1024 * 1024) {
+                @Override
+                protected int sizeOf(String key, Bitmap value) {
+                    return value.getByteCount();
+                }
+            };
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -757,6 +765,14 @@ public class FaditorMiniFragment extends BaseFragment {
      * Load a video thumbnail asynchronously and set it on the ImageView.
      */
     private void loadThumbnailAsync(@NonNull ImageView imageView, @NonNull String uriString) {
+        // The list is rebuilt on every resume and selection change; reuse decoded frames.
+        Bitmap cached = PROJECT_THUMB_CACHE.get(uriString);
+        if (cached != null) {
+            imageView.setImageBitmap(cached);
+            return;
+        }
+        final int thumbPx = Math.max(1, imageView.getLayoutParams() != null
+                ? imageView.getLayoutParams().width : (int) (52 * getResources().getDisplayMetrics().density));
         thumbnailExecutor.execute(() -> {
             Bitmap bmp = null;
             MediaMetadataRetriever retriever = null;
@@ -785,7 +801,12 @@ public class FaditorMiniFragment extends BaseFragment {
                         retriever.setDataSource(requireContext(), uri);
                     }
                 }
-                bmp = retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                // A full frame is ~33 MB at 4K for a 52 dp tile. The square box sets the
+                // long edge, so twice the tile leaves the short edge above it for the crop.
+                bmp = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1
+                        ? retriever.getScaledFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
+                                thumbPx * 2, thumbPx * 2)
+                        : retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
             } catch (Exception e) {
                 FLog.w(TAG, "Thumbnail extraction failed", e);
             } finally {
@@ -795,6 +816,9 @@ public class FaditorMiniFragment extends BaseFragment {
             }
 
             final Bitmap finalBmp = bmp;
+            if (finalBmp != null) {
+                PROJECT_THUMB_CACHE.put(uriString, finalBmp);
+            }
             if (finalBmp != null && isAdded()) {
                 imageView.post(() -> imageView.setImageBitmap(finalBmp));
             }

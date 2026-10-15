@@ -513,6 +513,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         pauseAudioPlayer();
         // Save project on pause (e.g. user switches away)
         saveProjectNow();
+        saveUndoHistoryNow();
     }
 
     @Override
@@ -523,7 +524,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         releaseAudioPlayer();
         audioExecutor.shutdownNow();
         saveProjectNow();
-        // Unbind from export service but do NOT cancel — let it continue in background
+        saveUndoHistoryNow();
+        // Unbind from export servicebut do NOT cancel — let it continue in background
         if (exportServiceBound) {
             if (exportService != null) {
                 exportService.setServiceListener(null);
@@ -3298,8 +3300,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project != null && projectStorage != null) {
             autoSaveHandler.removeCallbacks(autoSaveRunnable);
             projectStorage.save(project);
+            FLog.d(TAG, "Project saved: " + project.getId());
+        }
+    }
 
-            // Persist undo history
+    /**
+     * Persists the undo history (up to 200 full project snapshots) when leaving the
+     * editor. It was rewritten with every edit's save, on the main thread; it is only
+     * read back when the project opens again.
+     */
+    private void saveUndoHistoryNow() {
+        if (project != null && projectStorage != null) {
             List<UndoManager.HistoryEntry> history = undoManager.getUndoHistory();
             if (!history.isEmpty()) {
                 List<String> descriptions = new ArrayList<>();
@@ -3312,8 +3323,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
                 projectStorage.saveUndoHistory(project.getId(), descriptions, snapshots);
             }
-
-            FLog.d(TAG, "Project saved: " + project.getId());
         }
     }
 
