@@ -1982,12 +1982,17 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
 
         Intent intent = new Intent(this, svc);
         intent.setAction(Constants.INTENT_ACTION_CHANGE_SURFACE);
-        if (surface != null) intent.putExtra("SURFACE", surface);
+        // A null surface is a detach (onStop): sent as an explicit null and not as a
+        // fullscreen transition, which the recording service answers by keeping the
+        // old surface, so it kept drawing into this hidden screen.
+        intent.putExtra("SURFACE", surface);
         intent.putExtra("SURFACE_WIDTH", w);
         intent.putExtra("SURFACE_HEIGHT", h);
-        // Mark as fullscreen transition for immediate surface application (bypass 200ms debounce)
-        intent.putExtra("IS_FULLSCREEN_TRANSITION", true);
-        FLog.d("FullscreenPreview", "Sending surface with IS_FULLSCREEN_TRANSITION=true");
+        if (surface != null) {
+            // Mark as fullscreen transition for immediate surface application (bypass 200ms debounce)
+            intent.putExtra("IS_FULLSCREEN_TRANSITION", true);
+            FLog.d("FullscreenPreview", "Sending surface with IS_FULLSCREEN_TRANSITION=true");
+        }
         startService(intent);
     }
 
