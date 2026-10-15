@@ -5551,9 +5551,8 @@ public class RecordingService extends Service {
         if (sharedPreferencesManager.isWeatherEnabled() && weatherService != null && locationHelper != null) {
             org.osmdroid.util.GeoPoint geoPoint = locationHelper.getCurrentLocation();
             if (geoPoint != null) {
-                weatherService.fetchWeather(geoPoint, (weather, wind) -> {
-                    FLog.d(TAG, "Weather callback: " + weather + ", " + wind);
-                });
+                // Values are read just below; a cache hit calls back every second
+                weatherService.fetchWeather(geoPoint, (weather, wind) -> { });
                 String weather = weatherService.getCurrentWeather();
                 String wind = weatherService.getCurrentWind();
                 if (weather != null && !weather.isEmpty()) {

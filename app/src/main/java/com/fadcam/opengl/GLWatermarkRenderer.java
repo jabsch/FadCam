@@ -322,6 +322,19 @@ public class GLWatermarkRenderer {
     private float lastWatermarkNdcH = -1f;
 
     private boolean released = false;
+
+    /**
+     * Camera selection, cached: isFrontCamera() runs several times per frame on the GL
+     * thread for both the recording and the preview, and each pref read took the
+     * SharedPreferences lock the main thread also uses. Cleared when the pref changes.
+     */
+    private volatile CameraType cachedCameraSelection;
+    private final android.content.SharedPreferences.OnSharedPreferenceChangeListener
+            cameraSelectionListener = (prefs, key) -> {
+                if (com.fadcam.Constants.PREF_CAMERA_SELECTION.equals(key)) {
+                    cachedCameraSelection = null;
+                }
+            };
     /** True while the display is off: skip the preview pass, the encoder pass still runs. */
     private volatile boolean previewSuspended = false;
 
@@ -375,6 +388,8 @@ public class GLWatermarkRenderer {
         this.videoWidth = videoWidth;
         this.videoHeight = videoHeight;
         this.isScreenRecording = isScreenRecording;
+        SharedPreferencesManager.getInstance(context).sharedPreferences
+                .registerOnSharedPreferenceChangeListener(cameraSelectionListener);
 
         watermarkPaint = new Paint();
         watermarkPaint.setTextSize(20);
@@ -2140,6 +2155,8 @@ public class GLWatermarkRenderer {
                 return;
             }
             released = true;
+            SharedPreferencesManager.getInstance(context).sharedPreferences
+                    .unregisterOnSharedPreferenceChangeListener(cameraSelectionListener);
             try {
                 releaseEGLResources();
             } catch (Exception e) {
@@ -2875,7 +2892,11 @@ public class GLWatermarkRenderer {
         if (pipEnabled) return fullscreenCameraIsFront;
         // Prefer user-selected camera source; sensor orientation alone is not reliable
         try {
-            CameraType selected = SharedPreferencesManager.getInstance(context).getCameraSelection();
+            CameraType selected = cachedCameraSelection;
+            if (selected == null) {
+                selected = SharedPreferencesManager.getInstance(context).getCameraSelection();
+                cachedCameraSelection = selected;
+            }
             if (selected == CameraType.FRONT) {
                 return true;
             }
