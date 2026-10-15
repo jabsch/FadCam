@@ -60,6 +60,7 @@ public class GLWatermarkRenderer {
     private int uploadedWatermarkTexW;
     private int uploadedWatermarkTexH;
     private android.graphics.Typeface cachedUbuntuTypeface = null;
+    private android.graphics.Typeface cachedAiLabelTypeface = null;
     private final java.util.HashMap<String, android.graphics.Bitmap> iconBitmapCache
         = new java.util.HashMap<>();
     private int watermarkTextureId;
@@ -1646,12 +1647,17 @@ public class GLWatermarkRenderer {
         Paint labelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         labelPaint.setColor(Color.WHITE);
         labelPaint.setTextSize(Math.max(14f, overlayWidth * 0.020f));
-        try {
-            labelPaint.setTypeface(android.graphics.Typeface.createFromAsset(context.getAssets(), "ubuntu_regular.ttf"));
-        } catch (Exception ignored) {
-            labelPaint.setTypeface(android.graphics.Typeface.create(android.graphics.Typeface.SANS_SERIF,
-                    android.graphics.Typeface.BOLD));
+        // Loaded once: reading the font from the APK for every box was a file open
+        // and parse on each overlay change.
+        if (cachedAiLabelTypeface == null) {
+            try {
+                cachedAiLabelTypeface = android.graphics.Typeface.createFromAsset(context.getAssets(), "ubuntu_regular.ttf");
+            } catch (Exception ignored) {
+                cachedAiLabelTypeface = android.graphics.Typeface.create(android.graphics.Typeface.SANS_SERIF,
+                        android.graphics.Typeface.BOLD);
+            }
         }
+        labelPaint.setTypeface(cachedAiLabelTypeface);
         labelPaint.setFakeBoldText(true);
         labelPaint.setLetterSpacing(0.02f);
         String prettyLabel = classLabel == null || classLabel.trim().isEmpty() ? "object" : classLabel.trim().toLowerCase();
@@ -1691,8 +1697,14 @@ public class GLWatermarkRenderer {
             return;
         }
         String payload = forensicsOverlayPayload;
-        int overlayWidth = Math.max(640, videoWidth > 0 ? videoWidth : 1280);
-        int overlayHeight = Math.max(360, videoHeight > 0 ? videoHeight : 720);
+        // The AI boxes are only drawn on the preview, so cap the overlay at 1280 px on
+        // its long side: at 4K a full-size one cleared and uploaded 33 MB per change.
+        // Box positions are fractions of the frame and sizes scale with the width.
+        int srcW = videoWidth > 0 ? videoWidth : 1280;
+        int srcH = videoHeight > 0 ? videoHeight : 720;
+        float overlayScale = Math.min(1f, 1280f / Math.max(srcW, srcH));
+        int overlayWidth = Math.max(640, Math.round(srcW * overlayScale));
+        int overlayHeight = Math.max(360, Math.round(srcH * overlayScale));
         if (forensicsOverlayBitmap == null
                 || forensicsOverlayBitmap.getWidth() != overlayWidth
                 || forensicsOverlayBitmap.getHeight() != overlayHeight) {

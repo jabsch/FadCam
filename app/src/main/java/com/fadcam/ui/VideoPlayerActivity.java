@@ -3455,6 +3455,16 @@ public class VideoPlayerActivity extends AppCompatActivity {
         try {
             if (player != null) player.pause();
         } catch (Exception ignored) {}
+        // Leaving the player for good: free the decoders and buffers. The shared
+        // player otherwise stays prepared for as long as JaCam's process lives (the
+        // recording service keeps it alive), with its playback thread still ticking.
+        // Playback is already stopped above and through PlaybackService below.
+        if (isFinishing() && player != null) {
+            try {
+                player.stop();
+                player.clearMediaItems();
+            } catch (Exception ignored) {}
+        }
         player = null;
         // Stop background playback service when activity is destroyed (if pref
         // disabled)

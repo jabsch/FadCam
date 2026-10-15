@@ -98,7 +98,8 @@ public class OpenCvMog2MotionDetector implements MotionDetector, MotionDebugInfo
                 maxDelta = delta;
             }
         }
-        previous = current.clone();
+        // Copy into the existing buffer instead of a new clone every frame.
+        System.arraycopy(current, 0, previous, 0, current.length);
 
         lastMeanDelta = (deltaSum / (float) current.length) / 255f;
         lastStrongAreaRatio = strongPixels / (float) current.length;
