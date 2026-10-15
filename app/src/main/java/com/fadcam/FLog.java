@@ -122,10 +122,18 @@ public final class FLog {
         log(android.util.Log.ASSERT, tag, buildMessage(objects), null);
     }
 
+    /**
+     * Whether a log call writes anything. Hot paths check it before building a
+     * message, since release builds otherwise format strings that are dropped.
+     */
+    public static boolean isEnabled() {
+        return BuildConfig.DEBUG || Log.isDebugLoggingEnabled();
+    }
+
     private static void log(int priority, String tag, String message, Throwable t) {
         // Release builds strip android.util.Log, so with the in-app debug log
         // off nothing below would be written: skip the redaction regexes.
-        if (!BuildConfig.DEBUG && !Log.isDebugLoggingEnabled()) {
+        if (!isEnabled()) {
             return;
         }
         String safeTag = (tag == null || tag.isEmpty()) ? DEFAULT_TAG : tag;
