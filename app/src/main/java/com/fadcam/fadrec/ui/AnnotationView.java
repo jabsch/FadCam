@@ -423,6 +423,12 @@ public class AnnotationView extends View {
         }
     }
     
+    /** Starts an offscreen layer covering the view, composited at {@code opacity} on restore. */
+    private int beginLayer(Canvas canvas, float opacity) {
+        int alpha = Math.max(0, Math.min(255, (int) (255 * opacity)));
+        return canvas.saveLayerAlpha(0, 0, getWidth(), getHeight(), alpha);
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
@@ -475,10 +481,9 @@ public class AnnotationView extends View {
                 if (!layer.isVisible()) continue;
                 if (canvasHidden && !layer.isPinned()) continue;
                 
-                // Create transparent bitmap for this layer
-                Bitmap layerBitmap = Bitmap.createBitmap(getWidth(), getHeight(), Bitmap.Config.ARGB_8888);
-                Canvas layerCanvas = new Canvas(layerBitmap);
-                // NO background fill - layers are transparent where there's no content
+                // Offscreen layer instead of a new full-screen bitmap every frame: erasers
+                // only clear this layer, and it composites at the layer's opacity.
+                int layerSave = beginLayer(canvas, layer.getOpacity());
                 
                 // Draw all objects in creation order
                 for (AnnotationObject obj : layer.getObjects()) {
@@ -486,54 +491,43 @@ public class AnnotationView extends View {
                     if (obj.isVisible()) {
                         float originalOpacity = obj.getOpacity();
                         obj.setOpacity(originalOpacity * layer.getOpacity());
-                        obj.draw(layerCanvas, transform);
+                        obj.draw(canvas, transform);
                         obj.setOpacity(originalOpacity);
                     }
                 }
-                
-                // Composite this layer
-                Paint layerPaint = new Paint();
-                layerPaint.setAlpha((int)(255 * layer.getOpacity()));
-                canvas.drawBitmap(layerBitmap, 0, 0, layerPaint);
-                layerBitmap.recycle();
+                canvas.restoreToCount(layerSave);
             }
             
-            // STEP 3: Render the ACTIVE layer with current stroke/eraser
-            Bitmap activeLayerBitmap = Bitmap.createBitmap(getWidth(), getHeight(), Bitmap.Config.ARGB_8888);
-            Canvas activeLayerCanvas = new Canvas(activeLayerBitmap);
-            // NO background fill - layer is transparent
-            
-            // Draw all committed objects in creation order
-            for (AnnotationObject obj : activeLayer.getObjects()) {
-                if (obj.isDeleted()) continue;
-                if (obj.isVisible()) {
-                    float originalOpacity = obj.getOpacity();
-                    obj.setOpacity(originalOpacity * activeLayer.getOpacity());
-                    obj.draw(activeLayerCanvas, transform);
-                    obj.setOpacity(originalOpacity);
-                }
-            }
-            
-            // Apply current stroke/eraser
-            if (isErasing) {
-                // Eraser creates transparency in this layer
-                Paint eraserPaint = new Paint(drawPaint);
-                eraserPaint.setXfermode(new android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.CLEAR));
-                activeLayerCanvas.drawPath(currentPath, eraserPaint);
-            } else {
-                // Pen draws normally
-                Paint penPaint = new Paint(drawPaint);
-                penPaint.setAlpha((int)(drawPaint.getAlpha() * activeLayer.getOpacity()));
-                activeLayerCanvas.drawPath(currentPath, penPaint);
-            }
-            
-            // Composite active layer
+            // STEP 3: Render the ACTIVE layer with current stroke/eraser, in its own
+            // offscreen layer so the eraser only clears this layer.
             if (activeLayer.isVisible() && (!canvasHidden || activeLayer.isPinned())) {
-                Paint layerPaint = new Paint();
-                layerPaint.setAlpha((int)(255 * activeLayer.getOpacity()));
-                canvas.drawBitmap(activeLayerBitmap, 0, 0, layerPaint);
+                int activeSave = beginLayer(canvas, activeLayer.getOpacity());
+
+                // Draw all committed objects in creation order
+                for (AnnotationObject obj : activeLayer.getObjects()) {
+                    if (obj.isDeleted()) continue;
+                    if (obj.isVisible()) {
+                        float originalOpacity = obj.getOpacity();
+                        obj.setOpacity(originalOpacity * activeLayer.getOpacity());
+                        obj.draw(canvas, transform);
+                        obj.setOpacity(originalOpacity);
+                    }
+                }
+
+                // Apply current stroke/eraser
+                if (isErasing) {
+                    // Eraser creates transparency in this layer
+                    Paint eraserPaint = new Paint(drawPaint);
+                    eraserPaint.setXfermode(new android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.CLEAR));
+                    canvas.drawPath(currentPath, eraserPaint);
+                } else {
+                    // Pen draws normally
+                    Paint penPaint = new Paint(drawPaint);
+                    penPaint.setAlpha((int)(drawPaint.getAlpha() * activeLayer.getOpacity()));
+                    canvas.drawPath(currentPath, penPaint);
+                }
+                canvas.restoreToCount(activeSave);
             }
-            activeLayerBitmap.recycle();
             
             // STEP 4: Render all layers ABOVE the active layer
             for (int i = activeLayerIndex + 1; i < layers.size(); i++) {
@@ -542,10 +536,9 @@ public class AnnotationView extends View {
                 if (!layer.isVisible()) continue;
                 if (canvasHidden && !layer.isPinned()) continue;
                 
-                // Create transparent bitmap for this layer
-                Bitmap layerBitmap = Bitmap.createBitmap(getWidth(), getHeight(), Bitmap.Config.ARGB_8888);
-                Canvas layerCanvas = new Canvas(layerBitmap);
-                // NO background fill
+                // Offscreen layer instead of a new full-screen bitmap every frame: erasers
+                // only clear this layer, and it composites at the layer's opacity.
+                int layerSave = beginLayer(canvas, layer.getOpacity());
                 
                 // Draw all objects in creation order
                 for (AnnotationObject obj : layer.getObjects()) {
@@ -553,16 +546,11 @@ public class AnnotationView extends View {
                     if (obj.isVisible()) {
                         float originalOpacity = obj.getOpacity();
                         obj.setOpacity(originalOpacity * layer.getOpacity());
-                        obj.draw(layerCanvas, transform);
+                        obj.draw(canvas, transform);
                         obj.setOpacity(originalOpacity);
                     }
                 }
-                
-                // Composite this layer
-                Paint layerPaint = new Paint();
-                layerPaint.setAlpha((int)(255 * layer.getOpacity()));
-                canvas.drawBitmap(layerBitmap, 0, 0, layerPaint);
-                layerBitmap.recycle();
+                canvas.restoreToCount(layerSave);
             }
             
         } else {

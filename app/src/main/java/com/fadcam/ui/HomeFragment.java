@@ -373,6 +373,7 @@ public class HomeFragment extends BaseFragment {
     // ── Header Logo Avatar blink loop ────────────────────────────────────────
     private final Handler headerBlinkHandler = new Handler(Looper.getMainLooper());
     private Runnable headerBlinkRunnable;
+    private boolean headerBlinkRunning;
     private final Random headerBlinkRandom = new Random();
     /** When true, the next updatePreviewVisibility() call will animate the avatar↔preview crossfade. */
     private boolean animateNextPreviewTransition = false;
@@ -7491,6 +7492,9 @@ public class HomeFragment extends BaseFragment {
      * This prevents unnecessary CPU/battery drain while app is not visible.
      */
     private void pauseUpdateHandlers() {
+        // Header avatar blink; performResumeOperations restarts it.
+        stopHeaderBlinkLoop();
+
         // Stop clock updates
         if (updateClockRunnable != null) {
             handlerClock.removeCallbacks(updateClockRunnable);
@@ -10316,13 +10320,15 @@ public class HomeFragment extends BaseFragment {
     /** Starts a random blink loop on the header logo avatar. */
     private void startHeaderBlinkLoop() {
         stopHeaderBlinkLoop();
+        headerBlinkRunning = true;
         // Initial delay before first blink
         scheduleNextHeaderBlink(2000 + headerBlinkRandom.nextInt(2000));
     }
 
     private void scheduleNextHeaderBlink(long delayMs) {
+        if (!headerBlinkRunning) return;
         headerBlinkRunnable = () -> {
-            if (ivAppTitle == null || !ivAppTitle.isAttachedToWindow()) return;
+            if (!headerBlinkRunning || ivAppTitle == null || !ivAppTitle.isAttachedToWindow()) return;
             // Only blink when still in avatar mode
             String style = (sharedPreferencesManager != null)
                     ? sharedPreferencesManager.sharedPreferences.getString(
@@ -10358,6 +10364,8 @@ public class HomeFragment extends BaseFragment {
 
     /** Stops the header blink loop. */
     private void stopHeaderBlinkLoop() {
+        // Also stops a blink already playing from scheduling the next one.
+        headerBlinkRunning = false;
         if (headerBlinkRunnable != null) {
             headerBlinkHandler.removeCallbacks(headerBlinkRunnable);
             headerBlinkRunnable = null;
