@@ -289,19 +289,26 @@ public class CloudStreamUploader {
             return;
         }
 
-        latestSegmentSequence = Math.max(latestSegmentSequence, sequenceNumber);
-        uploadBytes(url, uploadData, MEDIA_TYPE_M4S, callback, sequenceNumber);
+        // Staleness compares across files, so each file's numbers are moved past the last
+        int streamSequence = segmentSequenceBase + sequenceNumber;
+        latestSegmentSequence = Math.max(latestSegmentSequence, streamSequence);
+        uploadBytes(url, uploadData, MEDIA_TYPE_M4S, callback, streamSequence);
     }
 
-    /** Newest segment handed to {@link #uploadSegment}. */
+    /** Newest segment handed to {@link #uploadSegment}, on the {@link #segmentSequenceBase} scale. */
     private volatile int latestSegmentSequence = 0;
 
+    /** Added to the current file's segment numbers; see {@link #resetSegmentNumbering}. */
+    private volatile int segmentSequenceBase = 0;
+
     /**
-     * A new file's segments are numbered from 1 again. Kept from the last file, the
-     * newest number marked every new segment stale, so the cloud stream went dark.
+     * A new file's segments are numbered from 1 again. Its numbers now start past the
+     * last file's newest by more than {@link #STALE_SEGMENT_LAG}: kept as they were,
+     * every new segment looked stale; reset to 0, the last file's queued backlog no
+     * longer did and uploaded ahead of the new file.
      */
     public void resetSegmentNumbering() {
-        latestSegmentSequence = 0;
+        segmentSequenceBase = latestSegmentSequence + STALE_SEGMENT_LAG + 1;
     }
 
     /**
