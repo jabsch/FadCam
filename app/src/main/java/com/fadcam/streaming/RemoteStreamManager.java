@@ -418,6 +418,9 @@ public class RemoteStreamManager {
             
             // Reset sequence tracking
             fragmentSequence = 0;
+            if (context != null) {
+                CloudStreamUploader.getInstance(context).resetSegmentNumbering();
+            }
             cloudUploadPaused = false;
             cloudPlaylistMinSeq = 1;
             oldestSequence = 1;
