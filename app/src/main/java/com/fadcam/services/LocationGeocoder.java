@@ -108,6 +108,9 @@ public class LocationGeocoder {
                 GeocodeResult result = fetchFromNominatim(latitude, longitude);
                 if (result.isEmpty()) {
                     // Not cached: an error reply must not blank this area for good.
+                    // Clear the shown address too, or the last area's street stays
+                    // on the watermark through the back-off.
+                    currentResult.set(GeocodeResult.EMPTY);
                     backOffAfterFailure();
                 } else {
                     failureBackoffMs = 0;
@@ -122,6 +125,7 @@ public class LocationGeocoder {
                 });
             } catch (Exception e) {
                 FLog.e(TAG, "Geocoding error", e);
+                currentResult.set(GeocodeResult.EMPTY);
                 backOffAfterFailure();
                 mainHandler.post(() -> {
                     callback.onGeocodeResult(GeocodeResult.EMPTY);

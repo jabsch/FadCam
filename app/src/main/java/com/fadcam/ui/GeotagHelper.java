@@ -178,6 +178,15 @@ public class GeotagHelper {
         pendingFixListener = listener;
         mainHandler.removeCallbacks(fixTimeout);
         mainHandler.postDelayed(fixTimeout, timeoutMs);
+        // Callers may be off the main thread: a good fix that landed just before
+        // the listener was set would otherwise wait out the whole timeout.
+        mainHandler.post(() -> {
+            Location best = bestLocation;
+            if (pendingFixListener != null && best != null && best.hasAccuracy()
+                    && best.getAccuracy() <= GOOD_FIX_ACCURACY_M) {
+                deliverPendingFix();
+            }
+        });
     }
 
     private void deliverPendingFix() {

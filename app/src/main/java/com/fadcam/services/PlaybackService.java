@@ -276,8 +276,17 @@ public class PlaybackService extends Service {
                 Intent alarmIntent = new Intent(this, AutoStopReceiver.class).setAction(AUTO_STOP_ALARM_ACTION);
                 int flags = android.os.Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT : PendingIntent.FLAG_UPDATE_CURRENT;
                 PendingIntent pi = PendingIntent.getBroadcast(this, 12345, alarmIntent, flags);
+                // In-process fallback first, so the timer still works if the alarm call fails.
+                if(autoStopHandler==null) autoStopHandler = new Handler(Looper.getMainLooper());
+                autoStopHandler.postDelayed(autoStopRunnable, seconds * 1000L);
                 if (am != null) {
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    // Exact alarms need SCHEDULE_EXACT_ALARM on Android 12+, which the app
+                    // doesn't hold: the exact call threw and the sleep timer never ran.
+                    // A doze-allowed inexact alarm is close enough for a sleep timer.
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
+                            && !am.canScheduleExactAlarms()) {
+                        am.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, triggerAt, pi);
+                    } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                         am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, triggerAt, pi);
                     } else {
                         am.setExact(android.app.AlarmManager.RTC_WAKEUP, triggerAt, pi);
@@ -286,9 +295,6 @@ public class PlaybackService extends Service {
                 // Remember the trigger time for notification countdown
                 autoStopTriggerAtMs = triggerAt;
                 try{ com.fadcam.SharedPreferencesManager.getInstance(this).putLong("auto_stop_trigger_at_ms", autoStopTriggerAtMs); }catch(Exception ignored){}
-                // Also schedule in-process handler as a fast fallback when service keeps running
-                if(autoStopHandler==null) autoStopHandler = new Handler(Looper.getMainLooper());
-                autoStopHandler.postDelayed(autoStopRunnable, seconds * 1000L);
             }
         }catch(Exception e){ FLog.w("PlaybackService", "scheduleAutoStop failed", e); }
     }
