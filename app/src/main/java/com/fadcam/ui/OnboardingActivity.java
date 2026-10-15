@@ -987,12 +987,6 @@ public class OnboardingActivity extends AppIntro {
         view.requestLayout();
     }
 
-    /**
-     * This method is still overridden to handle any case where the done action
-     * might be triggered,
-     * even though we've hidden the done button and are using our custom Start
-     * button.
-     */
     @Override
     protected void onDestroy() {
         // The intro slide's breathing and floating loops are endless and its handler
@@ -1005,6 +999,12 @@ public class OnboardingActivity extends AppIntro {
         super.onDestroy();
     }
 
+    /**
+     * This method is still overridden to handle any case where the done action
+     * might be triggered,
+     * even though we've hidden the done button and are using our custom Start
+     * button.
+     */
     @Override
     protected void onDonePressed(Fragment currentFragment) {
         super.onDonePressed(currentFragment);

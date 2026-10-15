@@ -193,6 +193,8 @@ public class ExportManager {
                         new Thread(() -> {
                             String safResult = copyTempToSaf(tempPath, safName, generation);
                             if (generation != exportGeneration) {
+                                // A copy that failed after the cancel leaves the temp file
+                                new File(tempPath).delete();
                                 FLog.d(TAG, "SAF copy dropped: export was cancelled");
                                 return;
                             }
@@ -813,6 +815,12 @@ public class ExportManager {
                     out.write(buffer, 0, bytesRead);
                 }
                 out.flush();
+            }
+            if (generation != exportGeneration) {
+                // Cancelled while the copy was closing: the export no longer exists
+                docFile.delete();
+                tempFile.delete();
+                return null;
             }
 
             // Clean up temp file after successful copy

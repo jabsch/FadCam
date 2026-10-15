@@ -2538,7 +2538,9 @@ public class FadRecHomeFragment extends HomeFragment {
                     // Schedule next update in 1 second
                     timerHandler.postDelayed(this, 1000);
                 } else {
-                    // Not recording anymore, stop the timer
+                    // Not recording anymore, stop the timer. Clear it so the next
+                    // recording's startTimerUpdates() isn't skipped.
+                    if (timerUpdateRunnable == this) timerUpdateRunnable = null;
                     FLog.d(TAG, "Timer stopped - not recording");
                 }
             }
