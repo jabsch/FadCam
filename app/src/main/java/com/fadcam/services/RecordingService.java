@@ -475,6 +475,31 @@ public class RecordingService extends Service {
         });
     }
 
+    /**
+     * Re-issues the repeating request. A constrained high-speed session (120 fps and
+     * up) only takes bursts; setRepeatingRequest throws UnsupportedOperationException.
+     */
+    private void setRepeating(CameraCaptureSession session, CaptureRequest.Builder builder)
+            throws CameraAccessException {
+        if (session instanceof CameraConstrainedHighSpeedCaptureSession) {
+            CameraConstrainedHighSpeedCaptureSession hs = (CameraConstrainedHighSpeedCaptureSession) session;
+            hs.setRepeatingBurst(hs.createHighSpeedRequestList(builder.build()), null, backgroundHandler);
+        } else {
+            session.setRepeatingRequest(builder.build(), null, backgroundHandler);
+        }
+    }
+
+    /** One-shot capture; a constrained high-speed session takes it as a burst. */
+    private void captureOnce(CameraCaptureSession session, CaptureRequest.Builder builder)
+            throws CameraAccessException {
+        if (session instanceof CameraConstrainedHighSpeedCaptureSession) {
+            CameraConstrainedHighSpeedCaptureSession hs = (CameraConstrainedHighSpeedCaptureSession) session;
+            hs.captureBurst(hs.createHighSpeedRequestList(builder.build()), null, backgroundHandler);
+        } else {
+            session.capture(builder.build(), null, backgroundHandler);
+        }
+    }
+
     // method(applyExposureCompensation)-----------
     /**
      * Apply exposure compensation index if supported by the camera.
@@ -563,7 +588,12 @@ public class RecordingService extends Service {
             captureRequestBuilder.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, clampedEv);
             FLog.d(TAG, "applyExposureCompensation: setting EV index=" + clampedEv + " (hadAeLock=" + hadAeLock
                     + ") with AE_MODE_ON");
-            // If we're in a constrained high-speed session, we must use setRepeatingBurst
+            // A constrained high-speed session takes no single-frame capture, only a burst
+            if (captureSession instanceof CameraConstrainedHighSpeedCaptureSession) {
+                setRepeating(captureSession, captureRequestBuilder);
+                FLog.d(TAG, "Updated high-speed repeating burst with EV=" + clampedEv);
+                return;
+            }
             try {
                 // AGGRESSIVE: Multiple attempts for stubborn camera drivers
                 // Some drivers need multiple capture/setRepeating calls to apply exposure
@@ -677,12 +707,12 @@ public class RecordingService extends Service {
                     // Return to normal AE pipeline when manual lock is released.
                     captureRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
                     captureRequestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, false);
-                    captureSession.setRepeatingRequest(captureRequestBuilder.build(), null, backgroundHandler);
+                    setRepeating(captureSession, captureRequestBuilder);
                     manualAeLockActive = false;
                     FLog.d(TAG, "applyAeLock(false): released manual AE lock and restored AE_MODE_ON");
                 } else {
                     captureRequestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, false);
-                    captureSession.setRepeatingRequest(captureRequestBuilder.build(), null, backgroundHandler);
+                    setRepeating(captureSession, captureRequestBuilder);
                 }
                 return;
             }
@@ -701,14 +731,14 @@ public class RecordingService extends Service {
                     }
                 }
                 captureRequestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, false);
-                captureSession.setRepeatingRequest(captureRequestBuilder.build(), null, backgroundHandler);
+                setRepeating(captureSession, captureRequestBuilder);
                 applyExposureCompensation(evToUse);
                 FLog.d(TAG, "applyAeLock(true): refreshed EV while unlocked (index=" + evToUse
                         + "), waiting for AE convergence + exposure stability");
                 attemptAeLockAfterConvergence(evToUse, 0, lockToken, -1L, -1, 0);
                 return;
             }
-        } catch (CameraAccessException | IllegalStateException e) {
+        } catch (CameraAccessException | RuntimeException e) {
             // ignore
         }
     }
@@ -730,6 +760,21 @@ public class RecordingService extends Service {
             return;
         }
 
+        if (captureSession instanceof CameraConstrainedHighSpeedCaptureSession) {
+            // No single-frame captures to watch AE converge here: give it a moment, then lock
+            backgroundHandler.postDelayed(() -> {
+                if (token != aeLockConvergenceToken || captureSession == null || captureRequestBuilder == null) {
+                    return;
+                }
+                try {
+                    captureRequestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true);
+                    setRepeating(captureSession, captureRequestBuilder);
+                } catch (Exception e) {
+                    FLog.w(TAG, "applyAeLock(true): high-speed lock failed", e);
+                }
+            }, 600);
+            return;
+        }
         final int maxAttempts = 22; // ~2.6s at 120ms intervals
         final int stableRequired = 4;
         try {
@@ -767,7 +812,7 @@ public class RecordingService extends Service {
                             boolean manualLocked = tryApplyManualExposureLock(exposureTimeNs, iso);
                             if (!manualLocked) {
                                 captureRequestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true);
-                                captureSession.setRepeatingRequest(captureRequestBuilder.build(), null, backgroundHandler);
+                                setRepeating(captureSession, captureRequestBuilder);
                             }
                             FLog.d(TAG, "applyAeLock(true): lock enabled after convergence check. mode="
                                     + (manualLocked ? "manual_ae_off" : "ae_lock")
@@ -850,8 +895,8 @@ public class RecordingService extends Service {
             captureRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, afMode);
             // If switching to auto or continuous, ensure the AF trigger is reset
             captureRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_IDLE);
-            captureSession.setRepeatingRequest(captureRequestBuilder.build(), null, backgroundHandler);
-        } catch (CameraAccessException | IllegalStateException e) {
+            setRepeating(captureSession, captureRequestBuilder);
+        } catch (CameraAccessException | RuntimeException e) {
             // ignore
         }
     }
@@ -946,8 +991,7 @@ public class RecordingService extends Service {
                 captureRequestBuilder.set(
                         android.hardware.camera2.CaptureRequest.CONTROL_ZOOM_RATIO,
                         clampedZoom);
-                captureSession.setRepeatingRequest(
-                        captureRequestBuilder.build(), null, backgroundHandler);
+                setRepeating(captureSession, captureRequestBuilder);
 
                 CameraType currentCamera = sharedPreferencesManager.getCameraSelection();
                 sharedPreferencesManager.setSpecificZoomRatio(currentCamera, clampedZoom);
@@ -991,8 +1035,7 @@ public class RecordingService extends Service {
                                 android.hardware.camera2.CaptureRequest.CONTROL_ZOOM_RATIO, 1.0f);
                     }
 
-                    captureSession.setRepeatingRequest(
-                            captureRequestBuilder.build(), null, backgroundHandler);
+                    setRepeating(captureSession, captureRequestBuilder);
 
                     // Persist both zoom and pan
                     CameraType currentCamera = sharedPreferencesManager.getCameraSelection();
@@ -1008,8 +1051,7 @@ public class RecordingService extends Service {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 captureRequestBuilder.set(
                         android.hardware.camera2.CaptureRequest.CONTROL_ZOOM_RATIO, clampedZoom);
-                captureSession.setRepeatingRequest(
-                        captureRequestBuilder.build(), null, backgroundHandler);
+                setRepeating(captureSession, captureRequestBuilder);
                 CameraType currentCamera = sharedPreferencesManager.getCameraSelection();
                 sharedPreferencesManager.setSpecificZoomRatio(currentCamera, clampedZoom);
                 FLog.d(TAG, "applyZoomAndPan: CONTROL_ZOOM_RATIO fallback (no sensor info) ratio=" + clampedZoom);
@@ -1017,7 +1059,7 @@ public class RecordingService extends Service {
                 FLog.w(TAG, "applyZoomAndPan: no sensor characteristics available; zoom not applied");
             }
 
-        } catch (android.hardware.camera2.CameraAccessException | IllegalStateException e) {
+        } catch (android.hardware.camera2.CameraAccessException | RuntimeException e) {
             FLog.e(TAG, "applyZoomAndPan failed: " + e.getMessage());
         }
     }
@@ -1112,7 +1154,7 @@ public class RecordingService extends Service {
             FLog.d(TAG, "Tap-to-focus triggered at normalized coords: " + nx + ", " + ny + " -> sensor coords: " + x
                     + ", " + y);
 
-            captureSession.capture(captureRequestBuilder.build(), null, backgroundHandler);
+            captureOnce(captureSession, captureRequestBuilder);
 
             // After a short delay, restore the previous AF mode (or use runtime/saved
             // preferences)
@@ -1142,7 +1184,7 @@ public class RecordingService extends Service {
                             captureRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, afModeToRestore);
                             captureRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
                                     CameraMetadata.CONTROL_AF_TRIGGER_IDLE);
-                            captureSession.setRepeatingRequest(captureRequestBuilder.build(), null, backgroundHandler);
+                            setRepeating(captureSession, captureRequestBuilder);
                             FLog.d(TAG, "Restored AF mode to: " + afModeToRestore + " after tap-to-focus");
                         }
                     } catch (Exception e) {
@@ -1150,7 +1192,7 @@ public class RecordingService extends Service {
                     }
                 }, 1000); // 1 second delay to allow focus to complete
             }
-        } catch (CameraAccessException | IllegalStateException e) {
+        } catch (CameraAccessException | RuntimeException e) {
             // ignore
         }
     }
@@ -5991,7 +6033,7 @@ public class RecordingService extends Service {
                     if (currentHasFlash) {
                         captureRequestBuilder.set(CaptureRequest.FLASH_MODE,
                                 isRecordingTorchEnabled ? CaptureRequest.FLASH_MODE_TORCH : CaptureRequest.FLASH_MODE_OFF);
-                        captureSession.setRepeatingRequest(captureRequestBuilder.build(), null, backgroundHandler);
+                        setRepeating(captureSession, captureRequestBuilder);
                     } else {
                         // Front camera without flash — use system-level torch on back camera
                         try {
@@ -6028,6 +6070,10 @@ public class RecordingService extends Service {
                     isRecordingTorchEnabled = !isRecordingTorchEnabled; // Revert state on error
                 } catch (IllegalStateException e) {
                     FLog.e(TAG, "Could not toggle recording torch via CaptureRequest - session/camera closed?", e);
+                    isRecordingTorchEnabled = !isRecordingTorchEnabled; // Revert state on error
+                } catch (RuntimeException e) {
+                    // A high-speed session refuses a non-burst request; don't crash the service
+                    FLog.e(TAG, "Could not toggle recording torch via CaptureRequest", e);
                     isRecordingTorchEnabled = !isRecordingTorchEnabled; // Revert state on error
                 }
             } else {
@@ -6555,8 +6601,10 @@ public class RecordingService extends Service {
             FLog.d(TAG, "Creating constrained high-speed session for " + targetFrameRate + "fps");
 
             // Get the best size for high-speed recording
+            // The callers only pick high speed when the selected size supports it
+            Size selected = sharedPreferencesManager.getCameraResolution();
             Size highSpeedSize = HighSpeedCaptureHelper.getBestHighSpeedSize(
-                    characteristics, targetFrameRate, 0, 0);
+                    characteristics, targetFrameRate, selected.getWidth(), selected.getHeight());
 
             if (highSpeedSize == null) {
                 FLog.d(TAG, "No suitable high-speed size found");
@@ -6874,6 +6922,10 @@ public class RecordingService extends Service {
             if (captureSession == null || captureRequestBuilder == null
                     || cameraDevice == null || isStopping) {
                 FLog.w("FadCamEIS", "reapply skipped (session/builder/device not ready)");
+                return false;
+            }
+            if (captureSession instanceof CameraConstrainedHighSpeedCaptureSession) {
+                FLog.i("FadCamEIS", "reapply skipped: high-speed sessions run without EIS");
                 return false;
             }
             applyVideoStabilization(captureRequestBuilder);
