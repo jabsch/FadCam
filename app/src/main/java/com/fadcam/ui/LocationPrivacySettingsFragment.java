@@ -32,7 +32,6 @@ public class LocationPrivacySettingsFragment extends Fragment {
 
     private SharedPreferencesManager prefs;
     private TextView valueEmbed;
-    private LocationHelper locationHelper; // start/stop as in legacy
 
     private ActivityResultLauncher<String> permissionLauncher;
     private Runnable pendingGrantAction;
@@ -69,23 +68,11 @@ public class LocationPrivacySettingsFragment extends Fragment {
         if(!currently){
             ensurePermissionThen(() -> {
                 prefs.setLocationEmbeddingEnabled(true);
-                startLocationHelperIfNeeded();
                 refreshValues();
             }, true);
         } else {
             prefs.setLocationEmbeddingEnabled(false);
-            stopLocationIfAllDisabled();
             refreshValues();
-        }
-    }
-
-    private void startLocationHelperIfNeeded(){
-        if(locationHelper==null){ locationHelper = new LocationHelper(requireContext(), true); }
-    }
-
-    private void stopLocationIfAllDisabled(){
-        if(!prefs.isLocalisationEnabled() && !prefs.isLocationEmbeddingEnabled()){
-            if(locationHelper!=null){ locationHelper.stopLocationUpdates(); locationHelper=null; }
         }
     }
 
