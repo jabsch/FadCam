@@ -289,7 +289,22 @@ public class CloudStreamUploader {
             return;
         }
 
-        uploadBytes(url, uploadData, MEDIA_TYPE_M4S, callback);
+        latestSegmentSequence = Math.max(latestSegmentSequence, sequenceNumber);
+        uploadBytes(url, uploadData, MEDIA_TYPE_M4S, callback, sequenceNumber);
+    }
+
+    /** Newest segment handed to {@link #uploadSegment}. */
+    private volatile int latestSegmentSequence = 0;
+
+    /**
+     * Segments this far behind the newest are past the live playlist (8 segments),
+     * so no viewer can play them. After an outage the queue held one per 2 s and
+     * uploaded them all, each followed by its own older playlist.
+     */
+    private static final int STALE_SEGMENT_LAG = 8;
+
+    private void uploadBytes(String url, byte[] data, MediaType mediaType, @Nullable UploadCallback callback) {
+        uploadBytes(url, data, mediaType, callback, -1);
     }
     
     /**
@@ -333,7 +348,8 @@ public class CloudStreamUploader {
      * Uses stream_access_token for authentication (not the Supabase JWT).
      * Will fetch a new stream token if needed.
      */
-    private void uploadBytes(String url, byte[] data, MediaType mediaType, @Nullable UploadCallback callback) {
+    private void uploadBytes(String url, byte[] data, MediaType mediaType, @Nullable UploadCallback callback,
+                             int segmentSequence) {
         // Check if we have a valid stream token
         String streamToken = authManager.getStreamToken();
         
@@ -344,7 +360,7 @@ public class CloudStreamUploader {
                 @Override
                 public void onSuccess(String newStreamToken) {
                     // Now perform the upload with the new token
-                    doUploadWithToken(url, data, mediaType, newStreamToken, callback);
+                    doUploadWithToken(url, data, mediaType, newStreamToken, callback, segmentSequence);
                 }
                 
                 @Override
@@ -356,7 +372,7 @@ public class CloudStreamUploader {
             });
         } else {
             // Have a valid stream token, upload directly
-            doUploadWithToken(url, data, mediaType, streamToken, callback);
+            doUploadWithToken(url, data, mediaType, streamToken, callback, segmentSequence);
         }
     }
     
@@ -369,7 +385,8 @@ public class CloudStreamUploader {
      * {@link CloudStatusManager} for status pushes) connects fine to the same
      * host:port.  Switching to the same HTTP stack eliminates this mismatch.
      */
-    private void doUploadWithToken(String url, byte[] data, MediaType mediaType, String token, @Nullable UploadCallback callback) {
+    private void doUploadWithToken(String url, byte[] data, MediaType mediaType, String token,
+                                   @Nullable UploadCallback callback, int segmentSequence) {
         // Check if we're in auth backoff mode
         if (authBackoffActive) {
             long timeSinceFailure = System.currentTimeMillis() - lastAuthFailureTime;
@@ -384,10 +401,14 @@ public class CloudStreamUploader {
             consecutive401Count = 0;
         }
         
-        FLog.i(TAG, "📤 Sending HTTP PUT to: " + url.substring(0, Math.min(80, url.length())) + "...");
         final long startTime = System.currentTimeMillis();
-        
+
         uploadExecutor.execute(() -> {
+            if (segmentSequence >= 0 && segmentSequence < latestSegmentSequence - STALE_SEGMENT_LAG) {
+                // Queued behind a slow or lost connection; skipping it also skips its playlist
+                if (callback != null) callback.onError("Stale segment skipped");
+                return;
+            }
             HttpURLConnection conn = null;
             try {
                 conn = (HttpURLConnection) java.net.URI.create(url).toURL().openConnection();
@@ -404,8 +425,6 @@ public class CloudStreamUploader {
                 }
                 
                 int responseCode = conn.getResponseCode();
-                long elapsed = System.currentTimeMillis() - startTime;
-                FLog.i(TAG, "📥 Upload response received: HTTP " + responseCode + " after " + elapsed + "ms");
                 
                 if (responseCode >= 200 && responseCode < 300) {
                     // Keeps the socket for the next segment (see HttpKeepAlive)
@@ -438,7 +457,7 @@ public class CloudStreamUploader {
                         public void onSuccess(String newStreamToken) {
                             FLog.i(TAG, "New stream token fetched after 401, retrying upload...");
                             cachedUserUuid = null;
-                            doUploadWithToken(url, data, mediaType, newStreamToken, callback);
+                            doUploadWithToken(url, data, mediaType, newStreamToken, callback, segmentSequence);
                         }
                         
                         @Override
