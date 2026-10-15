@@ -7,7 +7,7 @@ import com.fadcam.SharedPreferencesManager;
 
 /**
  * How often Motion Lab runs its AI person/object detector. The detector is by
- * far the heaviest part of motion analysis (a neural network on four CPU
+ * far the heaviest part of motion analysis (a neural network on up to four CPU
  * cores); the motion check before it is cheap. {@link #ON_MOVEMENT} skips the
  * detector while the motion check sees a still scene, reusing the last result
  * and refreshing it every {@link #STILL_REFRESH_MS}.

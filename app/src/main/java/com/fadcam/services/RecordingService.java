@@ -397,7 +397,15 @@ public class RecordingService extends Service {
     }
 
     private void scheduleMotionDetectorWarmupIfNeeded() {
-        if (!motionLabEnabledForSession || motionDetectorWarmupCompleted || motionDetectorWarmupScheduled) {
+        final int aiThreads = sharedPreferencesManager != null
+                ? com.fadcam.utils.AiDetectorThreads.current(sharedPreferencesManager).threads
+                : com.fadcam.utils.AiDetectorThreads.BALANCED.threads;
+        // The detector lives as long as the service, so a changed core count in
+        // Motion Lab is picked up here, when the next Motion Lab session starts.
+        com.fadcam.motion.domain.detector.EfficientDetLite1Detector loaded = efficientDetDetector;
+        boolean aiThreadsChanged = loaded != null && loaded.getNumThreads() != aiThreads;
+        if (!motionLabEnabledForSession || (motionDetectorWarmupCompleted && !aiThreadsChanged)
+                || motionDetectorWarmupScheduled) {
             return;
         }
         if (motionDetectorWarmupExecutor == null) {
@@ -411,13 +419,18 @@ public class RecordingService extends Service {
             FLog.i(TAG, "Motion detector warmup started off the recording hot path");
 
             try {
-                if (efficientDetDetector == null) {
+                com.fadcam.motion.domain.detector.EfficientDetLite1Detector previous = efficientDetDetector;
+                if (previous == null || previous.getNumThreads() != aiThreads) {
                     try {
                         com.fadcam.motion.domain.detector.EfficientDetLite1Detector detector =
-                                new com.fadcam.motion.domain.detector.EfficientDetLite1Detector(getApplicationContext());
+                                new com.fadcam.motion.domain.detector.EfficientDetLite1Detector(
+                                        getApplicationContext(), aiThreads);
                         if (detector.isAvailable()) {
                             efficientDetDetector = detector;
-                            FLog.i(TAG, "EfficientDet detector available: true");
+                            if (previous != null) {
+                                previous.close();
+                            }
+                            FLog.i(TAG, "EfficientDet detector available: true, threads=" + aiThreads);
                         } else {
                             FLog.w(TAG, "EfficientDet detector warmup completed but detector is unavailable");
                         }
@@ -439,6 +452,7 @@ public class RecordingService extends Service {
                 }
             } finally {
                 motionDetectorWarmupCompleted = true;
+                motionDetectorWarmupScheduled = false;
                 long elapsedMs = SystemClock.elapsedRealtime() - startMs;
                 FLog.i(TAG, "Motion detector warmup finished in " + elapsedMs
                         + " ms, aiReady=" + (efficientDetDetector != null)

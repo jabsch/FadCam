@@ -30,7 +30,9 @@ public class EfficientDetLite1Detector {
     private static final float MIN_BOX_SIDE = 0.003f;
     private static final int MAX_RESULTS = 40;
 
-    private final ObjectDetector detector;
+    /** Null once {@link #close()} ran; read and cleared only under this object's lock. */
+    private ObjectDetector detector;
+    private final int numThreads;
     private long lastInferenceWarnMs = 0L;
 
     public static final class FramePacket {
@@ -137,11 +139,13 @@ public class EfficientDetLite1Detector {
         }
     }
 
-    public EfficientDetLite1Detector(Context context) {
+    /** @param numThreads CPU cores the model may use (see {@link com.fadcam.utils.AiDetectorThreads}). */
+    public EfficientDetLite1Detector(Context context, int numThreads) {
+        this.numThreads = Math.max(1, numThreads);
         ObjectDetector local = null;
         try {
             BaseOptions baseOptions = BaseOptions.builder()
-                    .setNumThreads(4)
+                    .setNumThreads(this.numThreads)
                     .build();
             ObjectDetector.ObjectDetectorOptions options =
                     ObjectDetector.ObjectDetectorOptions.builder()
@@ -157,7 +161,23 @@ public class EfficientDetLite1Detector {
         this.detector = local;
     }
 
-    public boolean isAvailable() {
+    public int getNumThreads() {
+        return numThreads;
+    }
+
+    /** Frees the model. A run in progress finishes first; later runs return no results. */
+    public synchronized void close() {
+        if (detector != null) {
+            try {
+                detector.close();
+            } catch (Throwable t) {
+                FLog.w(TAG, "Failed to close EfficientDet detector", t);
+            }
+            detector = null;
+        }
+    }
+
+    public synchronized boolean isAvailable() {
         return detector != null;
     }
 
