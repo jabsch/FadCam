@@ -365,8 +365,10 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
         // because it launched us, so the camera kept streaming into a preview
         // nobody could see. The preference is left on, so onResume's
         // syncPreviewWithPreference() starts it again on return. Finishing is
-        // the trip back to Home, which takes the preview over itself.
-        if (!isFinishing() && isPreviewOnlyActive && !isRecordingActive && !isRecordingPaused) {
+        // the trip back to Home, which takes the preview over itself. A rotation,
+        // dark-mode switch or fold recreates the screen, which keeps the preview.
+        if (!isFinishing() && !isChangingConfigurations()
+                && isPreviewOnlyActive && !isRecordingActive && !isRecordingPaused) {
             Intent intent = new Intent(this, RecordingService.class);
             intent.setAction(Constants.INTENT_ACTION_STOP_PREVIEW_ONLY);
             try {

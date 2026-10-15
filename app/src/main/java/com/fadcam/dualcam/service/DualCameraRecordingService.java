@@ -782,10 +782,12 @@ public class DualCameraRecordingService extends Service {
                           : CaptureRequest.FLASH_MODE_OFF);
 
         try {
+            // Also while paused: the torch only lights with a running request,
+            // so this session streams again until resume.
             torchSession.setRepeatingRequest(torchBuilder.build(), null, backgroundHandler);
             FLog.d(TAG, "Torch toggled: " + (isTorchOn ? "ON" : "OFF")
                     + " (using " + (torchSession == primarySession ? "primary" : "secondary") + " session)");
-        } catch (CameraAccessException e) {
+        } catch (CameraAccessException | IllegalStateException e) {
             FLog.e(TAG, "Failed to toggle torch", e);
             isTorchOn = !isTorchOn;
             return;
@@ -1083,6 +1085,19 @@ public class DualCameraRecordingService extends Service {
                             + " — falling back to periodic snapshot mode");
                     camera.close();
                     secondaryCameraDevice = null;
+
+                    if (state == DualCameraState.RECORDING || state == DualCameraState.PAUSED) {
+                        // Lost mid-recording: keep the running pipeline and file and
+                        // feed the PiP from snapshots. Rebuilding the pipeline here
+                        // orphaned the recording (its sessions also count past 2,
+                        // so the new pipeline never started).
+                        fallbackMode = true;
+                        secondarySession = null;
+                        secondaryRequestBuilder = null;
+                        snapshotFailStreak = 0;
+                        scheduleNextSnapshot();
+                        return;
+                    }
 
                     // ── FALLBACK: device cannot open both cameras simultaneously ──
                     // Record with primary camera only; periodically snapshot the
