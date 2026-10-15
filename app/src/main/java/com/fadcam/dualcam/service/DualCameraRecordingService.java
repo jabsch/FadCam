@@ -115,6 +115,48 @@ public class DualCameraRecordingService extends Service {
     /** Unified recording pipeline — same as single-camera mode, but with PiP enabled. */
     private GLRecordingPipeline recordingPipeline;
 
+    /**
+     * Same heat steps as single-camera recording: halve the bitrate at SEVERE, stop and
+     * save at CRITICAL. Two sensors and a double-size encode is the hottest mode, and it
+     * had no guard at all.
+     */
+    private final com.fadcam.services.RecordingThermalGuard thermalGuard =
+            new com.fadcam.services.RecordingThermalGuard(
+                    new com.fadcam.services.RecordingThermalGuard.Callbacks() {
+                        @Override
+                        public void onReduceLoad() {
+                            GLRecordingPipeline pipeline = recordingPipeline;
+                            if (pipeline != null) {
+                                pipeline.setRuntimeVideoBitrate(pipeline.getConfiguredVideoBitrate() / 2);
+                            }
+                            Toast.makeText(getApplicationContext(), R.string.thermal_guard_reduced,
+                                    Toast.LENGTH_LONG).show();
+                        }
+
+                        @Override
+                        public void onRestoreLoad() {
+                            GLRecordingPipeline pipeline = recordingPipeline;
+                            if (pipeline != null) {
+                                pipeline.setRuntimeVideoBitrate(pipeline.getConfiguredVideoBitrate());
+                            }
+                        }
+
+                        @Override
+                        public void onStopForHeat() {
+                            Toast.makeText(getApplicationContext(), R.string.thermal_guard_stopped,
+                                    Toast.LENGTH_LONG).show();
+                            handleStopDualRecording();
+                        }
+
+                        @Override
+                        public void onWarm(boolean lowerFrameRate) {
+                        }
+
+                        @Override
+                        public void onCooled(boolean raiseFrameRate) {
+                        }
+                    });
+
     // ── State ──────────────────────────────────────────────────────────
 
     private volatile DualCameraState state = DualCameraState.DISABLED;
@@ -384,6 +426,7 @@ public class DualCameraRecordingService extends Service {
      * Stop dual camera recording and clean up all resources.
      */
     private void handleStopDualRecording() {
+        thermalGuard.stop();
         if (durationLimitController != null && durationLimitController.stopSession()) {
             FLog.d(TAG, "Cancelled maximum recording duration for current dual session");
         }
@@ -1470,6 +1513,7 @@ public class DualCameraRecordingService extends Service {
             recordingPipeline.startRecording();
             state = DualCameraState.RECORDING;
             recordingStartTime = SystemClock.elapsedRealtime();
+            thermalGuard.start(getApplicationContext(), false);
             prefs.setRecordingInProgress(true);
             // Tactile confirmation that dual recording started (service-side,
             // gated by the Haptic feedback setting).
@@ -1569,6 +1613,7 @@ public class DualCameraRecordingService extends Service {
         if (durationLimitController != null) {
             durationLimitController.stopSession();
         }
+        thermalGuard.stop();
         // Stop fallback snapshot loop
         fallbackMode = false;
         isCapturingSnapshot = false;

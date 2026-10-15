@@ -7919,13 +7919,24 @@ public class RecordingService extends Service {
 
     // Flag to track if we need to automatically resume recording after camera
     // interruption
-    private boolean pendingCameraReconnect = false;
-    private static final long RECONNECT_RETRY_DELAY_MS = 2000; // 2 seconds between reconnection attempts
+    private volatile boolean pendingCameraReconnect = false;
+    /**
+     * Fallback retry interval. The camera service tells us when the camera is
+     * free again (see {@link #reconnectAvailabilityCallback}); blind retries
+     * every 2 s made it spin up the camera HAL for nothing while another app
+     * held the camera.
+     */
+    private static final long RECONNECT_RETRY_DELAY_MS = 15000;
+    /** Collapses bursts of availability callbacks into one open attempt. */
+    private static final long RECONNECT_MIN_GAP_MS = 1500;
     private Handler reconnectHandler = new Handler(Looper.getMainLooper());
     private Runnable reconnectRunnable;
+    private CameraManager.AvailabilityCallback reconnectAvailabilityCallback;
+    private long lastReconnectAttemptMs;
 
     /**
-     * Starts periodic attempts to reconnect to the camera
+     * Starts reconnection attempts: one now, one whenever the camera becomes
+     * available or access priorities change, and a slow fallback retry.
      * 
      * @param cameraId The ID of the camera to reconnect to
      */
@@ -7933,22 +7944,75 @@ public class RecordingService extends Service {
         if (reconnectRunnable != null) {
             reconnectHandler.removeCallbacks(reconnectRunnable);
         }
+        lastReconnectAttemptMs = 0L;
         reconnectRunnable = new Runnable() {
             @Override
             public void run() {
                 if (!pendingCameraReconnect) {
-                    // log removed
                     return;
                 }
+                reconnectHandler.removeCallbacks(this);
+                long now = android.os.SystemClock.elapsedRealtime();
+                long sinceLast = now - lastReconnectAttemptMs;
+                if (sinceLast < RECONNECT_MIN_GAP_MS) {
+                    reconnectHandler.postDelayed(this, RECONNECT_MIN_GAP_MS - sinceLast);
+                    return;
+                }
+                lastReconnectAttemptMs = now;
                 tryReconnectCamera(cameraId);
-                // Always schedule the next attempt as long as pendingCameraReconnect is true
+                // Keep a slow retry in case no availability callback arrives.
                 if (pendingCameraReconnect) {
                     reconnectHandler.postDelayed(this, RECONNECT_RETRY_DELAY_MS);
                 }
             }
         };
+        registerReconnectAvailabilityCallback(cameraId);
         reconnectHandler.post(reconnectRunnable);
         FLog.d(TAG, "Started camera reconnection attempts (infinite)");
+    }
+
+    private void registerReconnectAvailabilityCallback(String cameraId) {
+        unregisterReconnectAvailabilityCallback();
+        if (cameraManager == null) {
+            return;
+        }
+        reconnectAvailabilityCallback = new CameraManager.AvailabilityCallback() {
+            @Override
+            public void onCameraAvailable(@NonNull String id) {
+                if (cameraId.equals(id)) {
+                    retryReconnectSoon();
+                }
+            }
+
+            @Override
+            public void onCameraAccessPrioritiesChanged() {
+                retryReconnectSoon();
+            }
+        };
+        try {
+            cameraManager.registerAvailabilityCallback(reconnectAvailabilityCallback, reconnectHandler);
+        } catch (Exception e) {
+            FLog.w(TAG, "Could not watch camera availability; using timed retries only", e);
+            reconnectAvailabilityCallback = null;
+        }
+    }
+
+    private void unregisterReconnectAvailabilityCallback() {
+        if (reconnectAvailabilityCallback != null && cameraManager != null) {
+            try {
+                cameraManager.unregisterAvailabilityCallback(reconnectAvailabilityCallback);
+            } catch (Exception ignored) {
+            }
+        }
+        reconnectAvailabilityCallback = null;
+    }
+
+    private void retryReconnectSoon() {
+        final Runnable r = reconnectRunnable;
+        if (pendingCameraReconnect && r != null) {
+            reconnectHandler.removeCallbacks(r);
+            reconnectHandler.post(r);
+        }
     }
 
     /**
@@ -8049,7 +8113,12 @@ public class RecordingService extends Service {
     private Handler blackFrameHandler;
     private HandlerThread blackFrameThread;
     private boolean isRenderingBlackFrames = false;
-    private static final int BLACK_FRAME_INTERVAL_MS = 33; // ~30fps
+    /**
+     * Black filler frames while the camera is gone. Frames carry real
+     * timestamps, so 2 per second keeps the track going without rendering
+     * and encoding 30 identical frames a second.
+     */
+    private static final int BLACK_FRAME_INTERVAL_MS = 500;
 
     /**
      * Starts rendering black frames to keep the recording going when camera is
@@ -8187,6 +8256,7 @@ public class RecordingService extends Service {
         if (reconnectHandler != null && reconnectRunnable != null) {
             reconnectHandler.removeCallbacks(reconnectRunnable);
         }
+        unregisterReconnectAvailabilityCallback();
         // log removed
     }
 

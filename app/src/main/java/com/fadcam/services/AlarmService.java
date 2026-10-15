@@ -124,6 +124,7 @@ public class AlarmService extends Service {
             FLog.i(TAG, "🚨 Starting alarm playback: " + soundFile + " (Duration: " + (durationMs == -1 ? "infinite" : durationMs + "ms") + ")");
             
             // Stop previous playback if any
+            handler.removeCallbacks(autoStopRunnable);
             if (mediaPlayer != null) {
                 try {
                     mediaPlayer.stop();
@@ -184,8 +185,18 @@ public class AlarmService extends Service {
         try {
             FLog.i(TAG, "🔇 Stopping alarm playback");
             
-            if (mediaPlayer != null && mediaPlayer.isPlaying()) {
-                mediaPlayer.stop();
+            if (handler != null) {
+                handler.removeCallbacks(autoStopRunnable);
+            }
+            // Release even when not playing (e.g. prepare failed); otherwise
+            // the player and its audio session leak.
+            if (mediaPlayer != null) {
+                try {
+                    if (mediaPlayer.isPlaying()) {
+                        mediaPlayer.stop();
+                    }
+                } catch (IllegalStateException ignored) {
+                }
                 mediaPlayer.release();
                 mediaPlayer = null;
             }
@@ -210,12 +221,16 @@ public class AlarmService extends Service {
      * Schedule automatic stop when duration expires.
      */
     private void scheduleAutoStop(long durationMs) {
-        handler.postDelayed(() -> {
-            FLog.i(TAG, "⏰ Alarm duration expired, stopping");
-            stopAlarmPlayback();
-            stopSelf();
-        }, durationMs);
+        // A new alarm replaces the old one's timer, so it can't cut the new one short.
+        handler.removeCallbacks(autoStopRunnable);
+        handler.postDelayed(autoStopRunnable, durationMs);
     }
+
+    private final Runnable autoStopRunnable = () -> {
+        FLog.i(TAG, "⏰ Alarm duration expired, stopping");
+        stopAlarmPlayback();
+        stopSelf();
+    };
     
     /**
      * Create notification for foreground service.
