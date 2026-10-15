@@ -1130,13 +1130,6 @@ public class DualCameraRecordingService extends Service {
     }
 
     /**
-     * The PiP camera was lost after the pipeline was built (recording, paused, or
-     * still configuring its sessions). Keeps the pipeline and file and feeds the PiP
-     * from snapshots: rebuilding the pipeline orphaned the recording, and its
-     * sessions counted past 2 so the new one never started. Returns false when no
-     * pipeline exists yet, so the caller's open-time handling applies.
-     */
-    /**
      * Each camera's callbacks stay tied to the camera it was opened as, but a swap
      * moves the devices between full screen and PiP. When the lost camera is the
      * current PiP, hands it to the snapshot fallback and returns true.
@@ -1149,6 +1142,13 @@ public class DualCameraRecordingService extends Service {
         return continueWithSnapshotPip();
     }
 
+    /**
+     * The PiP camera was lost after the pipeline was built (recording, paused, or
+     * still configuring its sessions). Keeps the pipeline and file and feeds the PiP
+     * from snapshots: rebuilding the pipeline orphaned the recording, and its
+     * sessions counted past 2 so the new one never started. Returns false when no
+     * pipeline exists yet, so the caller's open-time handling applies.
+     */
     private boolean continueWithSnapshotPip() {
         if (recordingPipeline == null) {
             return false;

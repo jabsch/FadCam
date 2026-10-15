@@ -297,6 +297,14 @@ public class CloudStreamUploader {
     private volatile int latestSegmentSequence = 0;
 
     /**
+     * A new file's segments are numbered from 1 again. Kept from the last file, the
+     * newest number marked every new segment stale, so the cloud stream went dark.
+     */
+    public void resetSegmentNumbering() {
+        latestSegmentSequence = 0;
+    }
+
+    /**
      * Segments this far behind the newest are past the live playlist (8 segments),
      * so no viewer can play them. After an outage the queue held one per 2 s and
      * uploaded them all, each followed by its own older playlist.
