@@ -566,6 +566,15 @@ public class ScreenRecordingPipeline {
                         context, encoderInputSurface, "portrait", 0, screenWidth, screenHeight, true);
 
                 glWatermarkRenderer.initializeEGL();
+                // The in-app preview of the recording follows Settings > Video >
+                // Preview Frame Rate and Preview Edges, as camera recording does.
+                // It redrew every encoded frame with the dimmed fill behind it.
+                com.fadcam.SharedPreferencesManager previewPrefs =
+                        com.fadcam.SharedPreferencesManager.getInstance(context);
+                glWatermarkRenderer.setPreviewFrameRateCap(
+                        com.fadcam.utils.PreviewFrameRateMode.current(previewPrefs).capFps(false));
+                glWatermarkRenderer.setPreviewLetterboxFill(
+                        com.fadcam.utils.PreviewLetterboxMode.current(previewPrefs).fillsBars());
 
                 // The surface returned here is backed by GLWatermarkRenderer's internal
                 // SurfaceTexture (cameraSurfaceTexture). VirtualDisplay will write compressed
@@ -613,7 +622,11 @@ public class ScreenRecordingPipeline {
                         if (videoFramerate > 0) {
                             long now = System.nanoTime();
                             long targetIntervalNanos = 1_000_000_000L / videoFramerate;
-                            if (now - lastFrameTimestampNanos < targetIntervalNanos) {
+                            // 20% early is allowed: frames come on the panel's vsync
+                            // grid, and at 120 Hz a strict check skipped every
+                            // frame landing just short of 33.3 ms, recording ~24 fps
+                            // instead of 30.
+                            if (now - lastFrameTimestampNanos < targetIntervalNanos - targetIntervalNanos / 5) {
                                 // Too soon since the last rendered frame.
                                 // MUST consume the SurfaceTexture buffer via
                                 // updateTexImage() even when skipping — otherwise
