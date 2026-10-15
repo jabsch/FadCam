@@ -37,6 +37,9 @@ public class IconRainView extends View {
     private int viewWidth, viewHeight;
     private Bitmap[] iconBitmaps; // Array of different app icons
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    // Bottom fade, rebuilt in onSizeChanged instead of every frame.
+    private final Paint gradPaint = new Paint();
+    private int gradientHeight;
     private final Handler handler = new Handler(android.os.Looper.getMainLooper());
     private static final int FRAME_DELAY = 20; // ms
     private static final float SPEED_MIN = 1.0f;
@@ -70,11 +73,31 @@ public class IconRainView extends View {
         iconBitmaps[5] = BitmapFactory.decodeResource(context.getResources(), R.mipmap.ic_launcher_redbinary);
         
         paint.setAlpha((int) (0.45f * 255)); // More transparent than coffee
-        startAnimation();
     }
 
+    private boolean animating;
+
     private void startAnimation() {
+        if (animating) return;
+        animating = true;
         handler.post(frameRunnable);
+    }
+
+    private void stopAnimation() {
+        animating = false;
+        handler.removeCallbacks(frameRunnable);
+    }
+
+    // Animate only while actually on screen: a sheet left open with the
+    // screen off (or hidden behind another window) no longer redraws at 50 Hz.
+    @Override
+    public void onVisibilityAggregated(boolean isVisible) {
+        super.onVisibilityAggregated(isVisible);
+        if (isVisible) {
+            startAnimation();
+        } else {
+            stopAnimation();
+        }
     }
 
     private final Runnable frameRunnable = new Runnable() {
@@ -130,15 +153,6 @@ public class IconRainView extends View {
         }
         
         // Draw a gradient at the bottom (fade out)
-        int gradientHeight = (int) (viewHeight * 0.35f);
-        Paint gradPaint = new Paint();
-        LinearGradient grad = new LinearGradient(
-            0, viewHeight, // start at bottom
-            0, viewHeight - gradientHeight, // end at top of gradient
-            0xBB000000, 0x00000000, // Black to transparent
-            Shader.TileMode.CLAMP
-        );
-        gradPaint.setShader(grad);
         canvas.drawRect(0, viewHeight - gradientHeight, viewWidth, viewHeight, gradPaint);
     }
 
@@ -147,6 +161,13 @@ public class IconRainView extends View {
         super.onSizeChanged(w, h, oldw, oldh);
         viewWidth = w;
         viewHeight = h;
+        gradientHeight = (int) (viewHeight * 0.35f);
+        gradPaint.setShader(new LinearGradient(
+            0, viewHeight, // start at bottom
+            0, viewHeight - gradientHeight, // end at top of gradient
+            0xBB000000, 0x00000000, // Black to transparent
+            Shader.TileMode.CLAMP
+        ));
         
         // Fill the width with columns - matrix style
         numColumns = Math.max(1, w / (iconSizePx + gapPx));
@@ -171,6 +192,6 @@ public class IconRainView extends View {
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        handler.removeCallbacksAndMessages(null);
+        stopAnimation();
     }
 }

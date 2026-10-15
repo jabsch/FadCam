@@ -136,6 +136,10 @@ public class RecordingService extends Service {
     private LocationHelper locationHelper;
     private LocationGeocoder locationGeocoder;
     private GeotagHelper geotagHelper;
+    // The pipeline reads the geotag once, when the recording starts; after
+    // that the geotag feed stays off until the recording ends.
+    private boolean geotagHandedOff;
+    private static final long GEOTAG_LATE_FIX_TIMEOUT_MS = 120_000L;
     private com.fadcam.sensors.SensorDataProvider sensorDataProvider;
     private com.fadcam.audio.NoiseMonitor noiseMonitor;
     private com.fadcam.network.WeatherService weatherService;
@@ -2603,6 +2607,9 @@ public class RecordingService extends Service {
             releaseDummyBackgroundSurface();
             releaseMotionAnalysisReader();
             closeCameraResourcesForSwitch();
+            // No frames are drawn while paused like this, so nothing reads the
+            // watermark GPS feed; resumeRecording turns it back on.
+            stopLocationFeeds();
             // Nothing runs while paused like this, so let the CPU sleep. Resume comes in
             // as an intent, which wakes the device, and takes the wakelock back.
             if (recordingWakeLock != null && recordingWakeLock.isHeld()) {
@@ -2644,6 +2651,8 @@ public class RecordingService extends Service {
             FLog.d(TAG, "Reopening camera for resume (was released during pause)");
             openCamera();
         }
+        // The pause above may have stopped the watermark GPS feed. No-op if it runs.
+        ensureWatermarkLocationFeed();
         // No-op unless the paused camera was in Motion Lab standby.
         requestMotionStandby(false);
 
@@ -6212,7 +6221,7 @@ public class RecordingService extends Service {
 
         // Handle LocationHelper for watermark
         // Driven by ANY location-dependent feature (speed/altitude/accuracy/
-        // compass/weather/UTM/location/embedding), not just the location
+        // compass/weather/UTM/location), not just the location
         // watermark toggle — otherwise toggling "location watermark" off while
         // speed stays on but thiswould kill the GPS feed and zero the speed (user bug).
         boolean locationEnabled = needsLocationData();
@@ -6262,7 +6271,9 @@ public class RecordingService extends Service {
 
         // Handle GeotagHelper for metadata embedding
         boolean embeddingEnabled = sharedPreferencesManager.isLocationEmbeddingEnabled();
-        if (embeddingEnabled) {
+        if (embeddingEnabled && isGeotagHandedOff()) {
+            FLog.d(TAG, "Geotag already taken by this recording; feed stays off");
+        } else if (embeddingEnabled) {
             boolean needsNewHelper = geotagHelper == null || forceInit;
 
             if (needsNewHelper) {
@@ -6321,7 +6332,12 @@ public class RecordingService extends Service {
             return;
         }
         ensureGeotagFeed();
-        if (!needsLocationData()) {
+        ensureWatermarkLocationFeed();
+    }
+
+    /** The LocationHelper half of {@link #ensureLocationFeed}: the watermark/sensor feed. */
+    private void ensureWatermarkLocationFeed() {
+        if (sharedPreferencesManager == null || !needsLocationData()) {
             return;
         }
         boolean wantFast = LocationFeedGate.needsFastLocation(sharedPreferencesManager);
@@ -6347,6 +6363,9 @@ public class RecordingService extends Service {
         if (!sharedPreferencesManager.isLocationEmbeddingEnabled()) {
             return;
         }
+        if (isGeotagHandedOff()) {
+            return;
+        }
         try {
             if (geotagHelper == null) {
                 geotagHelper = new GeotagHelper(this);
@@ -6355,6 +6374,38 @@ public class RecordingService extends Service {
         } catch (Exception e) {
             FLog.e(TAG, "Error starting GeotagHelper", e);
         }
+    }
+
+    /** True while the running recording already has its geotag. */
+    private boolean isGeotagHandedOff() {
+        return geotagHandedOff && (recordingState == RecordingState.IN_PROGRESS
+                || recordingState == RecordingState.PAUSED);
+    }
+
+    /**
+     * Called once the recording pipeline has taken its geotag. Nothing else
+     * reads the geotag feed, so it stops now instead of running the GPS for
+     * the whole recording. Without a fix yet, it waits for a good one (split
+     * segments after that carry it), then stops.
+     */
+    private void handOffGeotag() {
+        geotagHandedOff = true;
+        GeotagHelper helper = geotagHelper;
+        if (helper == null) {
+            return;
+        }
+        if (helper.hasLocation()) {
+            helper.stopUpdates();
+            return;
+        }
+        final com.fadcam.opengl.GLRecordingPipeline pipeline = glRecordingPipeline;
+        helper.stopAfterNextFix(location -> {
+            if (pipeline != null && pipeline == glRecordingPipeline) {
+                pipeline.setLocation((float) location.getLatitude(), (float) location.getLongitude());
+                FLog.d(TAG, "Late geotag fix for the next segments: "
+                        + com.fadcam.FLog.redactedCoords(location.getLatitude(), location.getLongitude()));
+            }
+        }, GEOTAG_LATE_FIX_TIMEOUT_MS);
     }
 
     /**
@@ -7635,6 +7686,7 @@ public class RecordingService extends Service {
 
         // Synchronous: the pipeline below reads the geotag right away, and
         // startUpdates seeds it from the last known fix.
+        geotagHandedOff = false;
         ensureGeotagFeed();
 
         try {
@@ -7835,6 +7887,7 @@ public class RecordingService extends Service {
                         segmentCallback, previewSurface, orientation, sensorOrientation, selectedCodec, latitude, longitude);
             }
 
+            handOffGeotag();
             glRecordingPipeline.prepareSurfaces();
             applyScreenStateToPipeline();
             applyPreviewFrameRateCap();

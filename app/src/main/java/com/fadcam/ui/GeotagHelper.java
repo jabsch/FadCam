@@ -32,6 +32,16 @@ public class GeotagHelper {
     
     // Handler for delayed operations
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
+    /** Receives the one fix asked for with {@link #stopAfterNextFix}. */
+    public interface FixListener {
+        void onFix(Location location);
+    }
+
+    // A late fix is taken once it is this good, or whatever is best at the timeout.
+    private static final float GOOD_FIX_ACCURACY_M = 50f;
+    private volatile FixListener pendingFixListener;
+    private final Runnable fixTimeout = () -> deliverPendingFix();
     
     /**
      * Creates a new GeotagHelper
@@ -137,6 +147,8 @@ public class GeotagHelper {
      * Stops location updates to save battery
      */
     public void stopUpdates() {
+        pendingFixListener = null;
+        mainHandler.removeCallbacks(fixTimeout);
         if (!isActive) {
             return;
         }
@@ -158,6 +170,26 @@ public class GeotagHelper {
     }
     
     /**
+     * Keeps updates on only until a good fix arrives, hands it to
+     * {@code listener} on the main thread, then stops. At {@code timeoutMs}
+     * it hands over the best fix so far (if any) and stops.
+     */
+    public void stopAfterNextFix(FixListener listener, long timeoutMs) {
+        pendingFixListener = listener;
+        mainHandler.removeCallbacks(fixTimeout);
+        mainHandler.postDelayed(fixTimeout, timeoutMs);
+    }
+
+    private void deliverPendingFix() {
+        FixListener listener = pendingFixListener;
+        Location best = getCurrentLocation();
+        stopUpdates();
+        if (listener != null && best != null) {
+            listener.onFix(best);
+        }
+    }
+
+    /**
      * Creates a location listener with appropriate logging
      * @param providerName Name of the provider for logging
      * @return A configured LocationListener
@@ -171,6 +203,10 @@ public class GeotagHelper {
                                          com.fadcam.FLog.redactedCoords(location.getLatitude(), location.getLongitude()) + 
                                          " (accuracy: " + location.getAccuracy() + "m)");
                     updateBestLocation(location);
+                    if (pendingFixListener != null && location.hasAccuracy()
+                            && location.getAccuracy() <= GOOD_FIX_ACCURACY_M) {
+                        deliverPendingFix();
+                    }
                 }
             }
             

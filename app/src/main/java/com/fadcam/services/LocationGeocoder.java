@@ -45,6 +45,11 @@ public class LocationGeocoder {
     private static final double SPATIAL_BUCKET = 0.01;
     private static final int CONNECTION_TIMEOUT_MS = 8000;
     private static final long RATE_LIMIT_MS = 1100;
+    // After a failed lookup (no signal, timeout, HTTP error) wait before the
+    // next one, doubling up to the max, so a bad connection doesn't keep the
+    // modem busy with a retry every watermark tick.
+    private static final long FAILURE_BACKOFF_MIN_MS = 30_000;
+    private static final long FAILURE_BACKOFF_MAX_MS = 10 * 60_000;
     
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -52,6 +57,8 @@ public class LocationGeocoder {
     private final AtomicLong lastRequestTime = new AtomicLong(0);
     private final AtomicReference<GeocodeResult> currentResult = new AtomicReference<>(GeocodeResult.EMPTY);
     private final ConcurrentHashMap<String, Boolean> pendingRequests = new ConcurrentHashMap<>();
+    private final AtomicLong retryNotBefore = new AtomicLong(0);
+    private long failureBackoffMs = 0; // executor thread only
     
     public LocationGeocoder() {
         // No context needed - uses free HTTP API
@@ -73,6 +80,10 @@ public class LocationGeocoder {
             return;
         }
         
+        if (System.currentTimeMillis() < retryNotBefore.get()) {
+            return;
+        }
+
         // Check if request already pending
         if (pendingRequests.getOrDefault(spatialKey, false)) {
             FLog.d(TAG, "Geocode request already pending");
@@ -95,8 +106,14 @@ public class LocationGeocoder {
         executor.execute(() -> {
             try {
                 GeocodeResult result = fetchFromNominatim(latitude, longitude);
-                cache.put(spatialKey, result);
-                currentResult.set(result);
+                if (result.isEmpty()) {
+                    // Not cached: an error reply must not blank this area for good.
+                    backOffAfterFailure();
+                } else {
+                    failureBackoffMs = 0;
+                    cache.put(spatialKey, result);
+                    currentResult.set(result);
+                }
                 
                 mainHandler.post(() -> {
                     callback.onGeocodeResult(result);
@@ -105,6 +122,7 @@ public class LocationGeocoder {
                 });
             } catch (Exception e) {
                 FLog.e(TAG, "Geocoding error", e);
+                backOffAfterFailure();
                 mainHandler.post(() -> {
                     callback.onGeocodeResult(GeocodeResult.EMPTY);
                     pendingRequests.put(spatialKey, false);
@@ -113,6 +131,13 @@ public class LocationGeocoder {
         });
     }
     
+    private void backOffAfterFailure() {
+        failureBackoffMs = failureBackoffMs == 0 ? FAILURE_BACKOFF_MIN_MS
+                : Math.min(FAILURE_BACKOFF_MAX_MS, failureBackoffMs * 2);
+        retryNotBefore.set(System.currentTimeMillis() + failureBackoffMs);
+        FLog.d(TAG, "Next geocode attempt in " + (failureBackoffMs / 1000) + " s");
+    }
+
     /**
      * Fetch reverse geocoding result from Nominatim API.
      * Uses zoom=18 (building-level, maximum precision) with accept-language=en.

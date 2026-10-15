@@ -1563,6 +1563,9 @@ public class HomeFragment extends BaseFragment {
                         FLog.e(TAG, "Update check failed", e);
                     }
                 });
+                // Let the thread exit once the check is done; this ran on every onStart
+                // and each call left one idle thread behind.
+                updateExecutor.shutdown();
             }
         } else {
             FLog.i(

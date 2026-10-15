@@ -30,8 +30,8 @@ public class LocationHelper {
 
     /**
      * @param fastUpdates true for the 1 s / 1 m speedometer cadence; false for a
-     *        5 s / 5 m feed that is enough for location text, UTM, weather and
-     *        geotags and lets the GPS radio idle between fixes.
+     *        5 s / 5 m feed that is enough for location text, UTM and weather
+     *        and lets the GPS radio idle between fixes.
      */
     public LocationHelper(Context context, boolean fastUpdates) {
         FLog.d(TAG, "LOCATION_HELPER: Initializing LocationHelper");
