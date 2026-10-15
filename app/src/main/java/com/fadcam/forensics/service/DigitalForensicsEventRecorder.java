@@ -221,6 +221,9 @@ public class DigitalForensicsEventRecorder {
         long nowEpoch = System.currentTimeMillis();
         closeStaleEvents(timelineMs, false);
 
+        // Decoded once for all detections in this frame, and only if one needs it
+        Bitmap fullFrame = null;
+        boolean fullFrameDecoded = false;
         for (EfficientDetLite1Detector.DetectionResult detection : detections) {
             String eventType = normalizeEventType(detection.coarseType);
             String className = normalizeClassName(detection.className);
@@ -259,20 +262,33 @@ public class DigitalForensicsEventRecorder {
             upsertEvent(event, false);
 
             if (snapshotJpeg != null && snapshotJpeg.length > 0) {
-                SnapshotPayload payload = buildDetectionSnapshot(
-                        snapshotJpeg,
-                        detection,
-                        frontCamera,
-                        sensorOrientationDegrees,
-                        recordingOrientation,
-                        mirrorHorizontally,
-                        timelineMs,
-                        nowEpoch
-                );
-                if (payload == null || payload.jpeg == null || payload.jpeg.length == 0) {
+                if (!fullFrameDecoded) {
+                    fullFrameDecoded = true;
+                    try {
+                        fullFrame = BitmapFactory.decodeByteArray(snapshotJpeg, 0, snapshotJpeg.length);
+                    } catch (Throwable t) {
+                        fullFrame = null;
+                    }
+                }
+                SnapshotCrop crop = fullFrame != null
+                        ? cropDetection(fullFrame, detection, frontCamera,
+                                sensorOrientationDegrees, recordingOrientation, mirrorHorizontally)
+                        : null;
+                long pHash = crop != null ? crop.pHash : 0L;
+                // Decide before watermarking and compressing: most crops are dropped here
+                if (!shouldPersistSnapshot(event, detection, pHash, timelineMs)) {
+                    if (crop != null) crop.recycle(fullFrame);
                     continue;
                 }
-                if (!shouldPersistSnapshot(event, detection, payload.pHash, timelineMs)) {
+                SnapshotPayload payload;
+                if (crop != null) {
+                    payload = encodeSnapshot(crop, timelineMs, nowEpoch);
+                    crop.recycle(fullFrame);
+                } else {
+                    // Undecodable frame: keep the full JPEG as before
+                    payload = new SnapshotPayload(snapshotJpeg, 0L);
+                }
+                if (payload == null || payload.jpeg == null || payload.jpeg.length == 0) {
                     continue;
                 }
                 String snapshotUid = UUID.randomUUID().toString();
@@ -321,6 +337,9 @@ public class DigitalForensicsEventRecorder {
                 event.lastSnapshotHeight = event.boxHeight;
                 event.snapshotCount += 1;
             }
+        }
+        if (fullFrame != null) {
+            fullFrame.recycle();
         }
     }
 
@@ -470,8 +489,32 @@ public class DigitalForensicsEventRecorder {
         return mediaUid + "|" + eventType + "|" + className + "|" + bucketX + "|" + bucketY + "|" + bucketW + "|" + bucketH;
     }
 
+    /*
+     * The recording's asset, remembered between detection frames. Every frame
+     * with detections (up to one per 1.6 s) otherwise looked the row up and
+     * rewrote it just to move last_seen_at. ioExecutor only.
+     */
+    private String ensuredMediaUri;
+    private String ensuredMediaUid;
+    private long ensuredAtEpochMs;
+    private static final long ENSURED_ASSET_REFRESH_MS = 30_000L;
+
     private String ensureMediaAsset(String mediaUri) {
         long nowEpoch = System.currentTimeMillis();
+        if (mediaUri != null && mediaUri.equals(ensuredMediaUri) && ensuredMediaUid != null
+                && nowEpoch - ensuredAtEpochMs < ENSURED_ASSET_REFRESH_MS) {
+            return ensuredMediaUid;
+        }
+        String mediaUid = ensureMediaAssetInDb(mediaUri, nowEpoch);
+        if (mediaUid != null) {
+            ensuredMediaUri = mediaUri;
+            ensuredMediaUid = mediaUid;
+            ensuredAtEpochMs = nowEpoch;
+        }
+        return mediaUid;
+    }
+
+    private String ensureMediaAssetInDb(String mediaUri, long nowEpoch) {
         try {
             MediaAssetEntity existing = mediaAssetDao.findByCurrentUri(mediaUri);
             if (existing != null) {
@@ -524,22 +567,34 @@ public class DigitalForensicsEventRecorder {
         }
     }
 
+    /** A detection's crop, already rotated/mirrored, with its dHash. */
+    private static final class SnapshotCrop {
+        final Bitmap bitmap;
+        final long pHash;
+
+        SnapshotCrop(Bitmap bitmap, long pHash) {
+            this.bitmap = bitmap;
+            this.pHash = pHash;
+        }
+
+        void recycle(@Nullable Bitmap source) {
+            // createBitmap can hand back the source itself; that one is freed by the caller
+            if (bitmap != source && !bitmap.isRecycled()) {
+                bitmap.recycle();
+            }
+        }
+    }
+
     @Nullable
-    private SnapshotPayload buildDetectionSnapshot(
-            @NonNull byte[] fullJpeg,
+    private SnapshotCrop cropDetection(
+            @NonNull Bitmap full,
             @NonNull EfficientDetLite1Detector.DetectionResult detection,
             boolean frontCamera,
             int sensorOrientationDegrees,
             @Nullable String recordingOrientation,
-            boolean mirrorHorizontally,
-            long timelineMs,
-            long captureEpochMs
+            boolean mirrorHorizontally
     ) {
         try {
-            Bitmap full = BitmapFactory.decodeByteArray(fullJpeg, 0, fullJpeg.length);
-            if (full == null) {
-                return new SnapshotPayload(fullJpeg, 0L);
-            }
             int width = full.getWidth();
             int height = full.getHeight();
             int left = Math.max(0, Math.round((detection.centerX - (detection.width * 0.5f)) * width));
@@ -567,13 +622,33 @@ public class DigitalForensicsEventRecorder {
                         matrix,
                         true
                 );
+                if (finalBitmap != cropped && cropped != full) {
+                    cropped.recycle();
+                }
             }
-            drawSnapshotWatermark(finalBitmap, timelineMs, captureEpochMs);
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            finalBitmap.compress(Bitmap.CompressFormat.JPEG, 84, out);
-            return new SnapshotPayload(out.toByteArray(), computeDHash64(finalBitmap));
+            return new SnapshotCrop(finalBitmap, computeDHash64(finalBitmap));
         } catch (Throwable t) {
-            return new SnapshotPayload(fullJpeg, 0L);
+            // Degenerate box: the caller keeps the full frame, as before
+            return null;
+        }
+    }
+
+    @Nullable
+    private SnapshotPayload encodeSnapshot(@NonNull SnapshotCrop crop, long timelineMs, long captureEpochMs) {
+        try {
+            // A crop that is the whole immutable frame can't be drawn on
+            Bitmap target = crop.bitmap.isMutable()
+                    ? crop.bitmap
+                    : crop.bitmap.copy(Bitmap.Config.ARGB_8888, true);
+            drawSnapshotWatermark(target, timelineMs, captureEpochMs);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            target.compress(Bitmap.CompressFormat.JPEG, 84, out);
+            if (target != crop.bitmap) {
+                target.recycle();
+            }
+            return new SnapshotPayload(out.toByteArray(), crop.pHash);
+        } catch (Throwable t) {
+            return null;
         }
     }
 
@@ -777,11 +852,14 @@ public class DigitalForensicsEventRecorder {
     private void enrichAssetMetadata(MediaAssetEntity asset, String mediaUri) {
         try {
             Uri uri = Uri.parse(mediaUri);
-            if (asset.durationMs <= 0L) {
-                asset.durationMs = ForensicsMetadataUtils.extractDurationMs(appContext, uri);
-            }
-            if (asset.codecInfo == null || asset.codecInfo.isEmpty()) {
-                asset.codecInfo = ForensicsMetadataUtils.extractCodecInfo(appContext, uri);
+            if (asset.durationMs <= 0L || asset.codecInfo == null || asset.codecInfo.isEmpty()) {
+                ForensicsMetadataUtils.Basic probed = ForensicsMetadataUtils.extractBasic(appContext, uri);
+                if (asset.durationMs <= 0L) {
+                    asset.durationMs = probed.durationMs;
+                }
+                if (asset.codecInfo == null || asset.codecInfo.isEmpty()) {
+                    asset.codecInfo = probed.codecInfo;
+                }
             }
             if (asset.sizeBytes <= 0L) {
                 long size = extractSizeBytes(uri);
