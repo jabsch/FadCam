@@ -24,6 +24,14 @@ public class DigitalForensicsIndexer {
     private final SharedPreferencesManager prefs;
     private final MediaAssetDao mediaAssetDao;
     private final IntegrityLinkLogDao linkLogDao;
+    /**
+     * Files this process could not read a duration or codec from, by URI, with
+     * the size at the time. They missed the fast path below, so every Records
+     * load opened them again. Indexer runs on one thread.
+     */
+    private final java.util.Map<String, Long> failedProbeSizes = new java.util.HashMap<>();
+    /** last_seen_at is not rewritten more often than this on Records loads. */
+    private static final long LAST_SEEN_REFRESH_MS = 10 * 60 * 1000L;
 
     public DigitalForensicsIndexer(Context context) {
         this.appContext = context.getApplicationContext();
@@ -58,10 +66,17 @@ public class DigitalForensicsIndexer {
         // Every Records load passes the whole library here. A row already probed
         // for this exact file only needs its last-seen time; opening each video
         // twice with MediaMetadataRetriever on every load was the bulk of the work.
+        Long failedSize = failedProbeSizes.get(uriString);
+        boolean probeFailedBefore = failedSize != null && failedSize == item.size;
         if (existingByUri != null
                 && existingByUri.sizeBytes == item.size
-                && existingByUri.durationMs > 0
-                && existingByUri.codecInfo != null) {
+                && ((existingByUri.durationMs > 0 && existingByUri.codecInfo != null) || probeFailedBefore)) {
+            if (now - existingByUri.lastSeenAt < LAST_SEEN_REFRESH_MS
+                    && java.util.Objects.equals(existingByUri.displayName, item.displayName)
+                    && existingByUri.linkStatus != null) {
+                // Seen moments ago: nothing to write
+                return;
+            }
             mediaAssetDao.updateLinkAndMetadata(
                 existingByUri.mediaUid,
                 uriString,
@@ -75,8 +90,14 @@ public class DigitalForensicsIndexer {
             return;
         }
 
-        long durationMs = ForensicsMetadataUtils.extractDurationMs(appContext, item.uri);
-        String codecInfo = ForensicsMetadataUtils.extractCodecInfo(appContext, item.uri);
+        ForensicsMetadataUtils.Basic probed = ForensicsMetadataUtils.extractBasic(appContext, item.uri);
+        long durationMs = probed.durationMs;
+        String codecInfo = probed.codecInfo;
+        if (durationMs > 0 && codecInfo != null) {
+            failedProbeSizes.remove(uriString);
+        } else {
+            failedProbeSizes.put(uriString, item.size);
+        }
 
         if (existingByUri != null) {
             mediaAssetDao.updateLinkAndMetadata(

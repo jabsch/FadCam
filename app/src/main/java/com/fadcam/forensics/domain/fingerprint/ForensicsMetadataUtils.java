@@ -25,6 +25,47 @@ public final class ForensicsMetadataUtils {
         return extractMetadata(context, uri, MediaMetadataRetriever.METADATA_KEY_MIMETYPE);
     }
 
+    /** Duration and MIME type. */
+    public static final class Basic {
+        public final long durationMs;
+        public final String codecInfo;
+
+        Basic(long durationMs, String codecInfo) {
+            this.durationMs = durationMs;
+            this.codecInfo = codecInfo;
+        }
+    }
+
+    /**
+     * Duration and MIME type from one retriever. Asking for each separately
+     * opened and parsed the file twice.
+     */
+    public static Basic extractBasic(Context context, Uri uri) {
+        if (context == null || uri == null) {
+            return new Basic(0L, null);
+        }
+        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+        try {
+            retriever.setDataSource(context, uri);
+            long durationMs = 0L;
+            String durationRaw = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
+            if (durationRaw != null) {
+                try {
+                    durationMs = Long.parseLong(durationRaw);
+                } catch (NumberFormatException ignored) {
+                }
+            }
+            return new Basic(durationMs, retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE));
+        } catch (Exception ignored) {
+            return new Basic(0L, null);
+        } finally {
+            try {
+                retriever.release();
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
     private static String extractMetadata(Context context, Uri uri, int key) {
         if (context == null || uri == null) {
             return null;
