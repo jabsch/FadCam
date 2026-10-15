@@ -119,8 +119,8 @@ public class ScreenRecordingPipeline {
     private Handler glRenderHandler;
     private final AtomicBoolean renderRunnableQueued = new AtomicBoolean(false);
     private volatile boolean glInitialized = false;
-    /** Timestamp (System.nanoTime) of the last frame rendered to the encoder, for FPS throttling. */
-    private long lastFrameTimestampNanos = 0;
+    /** When the next frame is due at the chosen video frame rate. */
+    private long nextFrameDueNanos = 0;
     /** Surface that VirtualDisplay writes screen frames into (GLWatermarkRenderer's camera input). */
     private Surface glScreenInputSurface;
 
@@ -622,11 +622,14 @@ public class ScreenRecordingPipeline {
                         if (videoFramerate > 0) {
                             long now = System.nanoTime();
                             long targetIntervalNanos = 1_000_000_000L / videoFramerate;
-                            // 20% early is allowed: frames come on the panel's vsync
-                            // grid, and at 120 Hz a strict check skipped every
-                            // frame landing just short of 33.3 ms, recording ~24 fps
-                            // instead of 30.
-                            if (now - lastFrameTimestampNanos < targetIntervalNanos - targetIntervalNanos / 5) {
+                            // Frames come on the panel's vsync grid, so up to 20% early
+                            // is allowed (a strict 33.3 ms check at 120 Hz recorded
+                            // ~24 fps instead of 30). The deadline advances by whole
+                            // intervals, so the early allowance never adds frames
+                            // (spacing from the last frame did: 30 fps at 144 Hz
+                            // recorded 36).
+                            long earlyAllowance = targetIntervalNanos / 5;
+                            if (now < nextFrameDueNanos - earlyAllowance) {
                                 // Too soon since the last rendered frame.
                                 // MUST consume the SurfaceTexture buffer via
                                 // updateTexImage() even when skipping — otherwise
@@ -638,7 +641,9 @@ public class ScreenRecordingPipeline {
                                 renderRunnableQueued.set(false);
                                 return;
                             }
-                            lastFrameTimestampNanos = now;
+                            // After a still screen, restart the grid from this frame
+                            nextFrameDueNanos = Math.max(nextFrameDueNanos + targetIntervalNanos,
+                                    now + targetIntervalNanos - earlyAllowance);
                         }
                         glRenderHandler.post(renderRunnable);
                     }

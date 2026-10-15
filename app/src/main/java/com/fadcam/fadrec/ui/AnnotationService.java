@@ -1457,6 +1457,8 @@ public class AnnotationService extends Service {
             windowManager.updateViewLayout(toolbarView, menuParams);
             
             expandableContent.setVisibility(View.VISIBLE);
+            // Hidden, the timer skipped its updates (and paused, nothing ticks)
+            updateTimerDisplay();
             expandableContent.setAlpha(0f);
             expandableContent.animate()
                     .alpha(1f)
@@ -1920,6 +1922,7 @@ public class AnnotationService extends Service {
         if (toolbarView != null && toolbarView.getParent() != null) {
             toolbarView.setVisibility(View.VISIBLE);
         }
+        updateTimerDisplay();
     }
 
     /**
@@ -4382,6 +4385,7 @@ public class AnnotationService extends Service {
         if (toolbarView != null) {
             toolbarView.setVisibility(View.VISIBLE);
         }
+        updateTimerDisplay();
         if (annotationView != null) {
             annotationView.setVisibility(View.VISIBLE);
         }

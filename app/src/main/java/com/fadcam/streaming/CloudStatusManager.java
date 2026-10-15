@@ -805,8 +805,13 @@ public class CloudStatusManager {
                     java.io.InputStream is = conn.getInputStream();
                     java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A");
                     String body = s.hasNext() ? s.next() : "";
+                    if (s.ioException() != null) {
+                        // Scanner reads a timeout as end of input: a cut-off body is
+                        // a retryable network failure, not an unreadable command.
+                        throw s.ioException();
+                    }
                     is.close();
-                    
+
                     JSONObject command = new JSONObject(body);
                     executed = true;
                     executeCommand(cmdId, command);
