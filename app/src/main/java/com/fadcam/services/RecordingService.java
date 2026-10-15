@@ -1925,7 +1925,9 @@ public class RecordingService extends Service {
             // Handle UI state sync requests
             broadcastOnRecordingStateCallback();
             if (!isWorkingInProgress()) {
-                stopSelf();
+                // With this start's id: a start queued behind it (a preview or record
+                // request) keeps the service instead of being dropped and recreated
+                stopSelf(startId);
             }
             return START_STICKY;
         } else if (Constants.INTENT_ACTION_TOGGLE_RECORDING_TORCH.equals(action)) {

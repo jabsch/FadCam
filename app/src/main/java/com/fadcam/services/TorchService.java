@@ -41,6 +41,8 @@ public class TorchService extends Service {
     private HandlerThread handlerThread;
     private Handler backgroundHandler;
     private AtomicBoolean isTorchOn = new AtomicBoolean(false);
+    /** Latest start id, so stopping after "off" never drops a toggle queued behind it. */
+    private volatile int lastStartId;
     private static WeakReference<HomeFragment> homeFragmentRef;
     private String selectedTorchSource;
     private CameraManager.TorchCallback torchCallback;
@@ -260,6 +262,7 @@ public class TorchService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         FLog.d(TAG, "onStartCommand called. Intent: " + intent);
+        lastStartId = startId;
         if (intent == null) {
             // Restart after the process was killed. The camera service already
             // turned the torch off with the process; restarting only put up a
@@ -377,6 +380,9 @@ public class TorchService extends Service {
             // Torch is off — update notification to reflect "off" state, then stop foreground
             notificationManager.notify(NOTIFICATION_ID, buildTorchNotification(false));
             com.fadcam.Utils.stopForegroundCompat(this, true);
+            // Nothing to do until the next toggle starts it again. Kept alive, its thread and
+            // torch callback woke the process whenever any app used the camera.
+            stopSelfResult(lastStartId);
         }
     }
 
