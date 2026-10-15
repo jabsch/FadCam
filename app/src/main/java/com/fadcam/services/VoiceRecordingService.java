@@ -53,6 +53,9 @@ public class VoiceRecordingService extends Service {
     private MediaRecorder recorder;
     private ParcelFileDescriptor outputPfd;
     private String outputLabel;
+    /** The file being written (one of the two), deleted when nothing could be saved. */
+    private Uri outputUri;
+    private File outputFile;
     /** Set while a Bluetooth mic's SCO link is up; restored on stop. */
     private AudioManager scoAudioManager;
     private int originalAudioMode;
@@ -125,7 +128,7 @@ public class VoiceRecordingService extends Service {
         } catch (Exception e) {
             FLog.e(TAG, "Could not start voice recording", e);
             mr.release();
-            closeOutput();
+            deleteUnsavedOutput();
             stopBluetoothSco();
             return false;
         }
@@ -168,7 +171,7 @@ public class VoiceRecordingService extends Service {
         am.startBluetoothSco();
         am.setBluetoothScoOn(true);
         am.setMode(AudioManager.MODE_IN_COMMUNICATION);
-        com.fadcam.utils.OwnCommunicationMode.set(true);
+        com.fadcam.utils.OwnCommunicationMode.acquire();
         scoAudioManager = am;
     }
 
@@ -185,12 +188,15 @@ public class VoiceRecordingService extends Service {
         } catch (Exception e) {
             FLog.w(TAG, "Could not release Bluetooth SCO", e);
         } finally {
-            com.fadcam.utils.OwnCommunicationMode.set(false);
+            com.fadcam.utils.OwnCommunicationMode.release();
         }
     }
 
     /** Points the recorder at the custom (SAF) folder when one is set, else internal storage. */
     private boolean setOutput(MediaRecorder mr, String fileName) throws Exception {
+        // The service outlives a recording: never point at the previous, saved file
+        outputUri = null;
+        outputFile = null;
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(this);
         if (SharedPreferencesManager.STORAGE_MODE_CUSTOM.equals(prefs.getStorageMode())) {
             DocumentFile base = RecordingStoragePaths.getSafBaseDir(this, prefs.getCustomStorageUri());
@@ -202,6 +208,7 @@ public class VoiceRecordingService extends Service {
                 outputPfd = getContentResolver().openFileDescriptor(uri, "w");
                 if (outputPfd != null) {
                     mr.setOutputFile(outputPfd.getFileDescriptor());
+                    outputUri = uri;
                     return true;
                 }
             }
@@ -215,8 +222,27 @@ public class VoiceRecordingService extends Service {
         if (!dir.exists() && !dir.mkdirs()) {
             return false;
         }
-        mr.setOutputFile(new File(dir, fileName).getAbsolutePath());
+        File out = new File(dir, fileName);
+        mr.setOutputFile(out.getAbsolutePath());
+        outputFile = out;
         return true;
+    }
+
+    /** Removes a recording that could not be finished, which would not play. */
+    private void deleteUnsavedOutput() {
+        closeOutput();
+        try {
+            if (outputUri != null) {
+                DocumentFile doc = DocumentFile.fromSingleUri(this, outputUri);
+                if (doc != null) doc.delete();
+            } else if (outputFile != null) {
+                outputFile.delete();
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "Could not delete unsaved voice recording", e);
+        }
+        outputUri = null;
+        outputFile = null;
     }
 
     private void stopAndSave() {
@@ -236,6 +262,9 @@ public class VoiceRecordingService extends Service {
             Toast.makeText(this, saved ? R.string.voice_recording_saved : R.string.voice_recording_failed,
                     Toast.LENGTH_SHORT).show();
             FLog.i(TAG, "Voice recording stopped: " + outputLabel + " saved=" + saved);
+            if (!saved) {
+                deleteUnsavedOutput();
+            }
         }
         stopSelfCleanly();
     }

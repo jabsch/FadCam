@@ -49,7 +49,7 @@ public class FileOperationTask {
     
     public int getProgressPercent() {
         if (totalBytes <= 0) return 0;
-        return (int) ((progress * 100) / totalBytes);
+        return (int) Math.min(100L, (progress * 100) / totalBytes);
     }
     
     public String getOperationText() {
