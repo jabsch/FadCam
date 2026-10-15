@@ -285,6 +285,9 @@ public class CloudStatusManager {
                 
                 try {
                     pollCommands();
+                    if (viewersRideCommandPoll()) {
+                        pollCloudViewers();
+                    }
                 } catch (Exception e) {
                     FLog.e(TAG, "☁️ Exception in pollCommands (will retry): " + e.getMessage());
                 }
@@ -299,7 +302,9 @@ public class CloudStatusManager {
             @Override
             public void run() {
                 if (!isRunning) return;
-                pollCloudViewers();
+                if (!viewersRideCommandPoll()) {
+                    pollCloudViewers();
+                }
                 // While uploads or updates wait for a viewer, check sooner so a new
                 // viewer gets video and live status within about 10 s instead of 30 s.
                 boolean waiting = RemoteStreamManager.getInstance().isWaitingForCloudViewer()
@@ -551,6 +556,17 @@ public class CloudStatusManager {
     }
 
     /** Whether the dashboard is open; true when the relay's count is unknown or stale. */
+    /**
+     * Adaptive with nobody watching: the viewer check runs with each 20 s command
+     * poll instead of on its own 10 s timer, so the radio wakes once per cycle
+     * instead of twice and can drop to idle in between. "Upload only when
+     * watched" keeps its own faster check so video starts soon after a viewer.
+     */
+    private boolean viewersRideCommandPoll() {
+        return updateRate().slowsWhenUnwatched() && !isWatched()
+                && !RemoteStreamManager.getInstance().isWaitingForCloudViewer();
+    }
+
     private boolean isWatched() {
         return RemoteStreamManager.getInstance().isCloudViewerLikelyPresent();
     }
