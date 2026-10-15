@@ -3994,6 +3994,12 @@ public class AnnotationService extends Service {
         if (recordingTimerText == null || sharedPreferencesManager == null) {
             return;
         }
+        if (!recordingTimerText.isShown()) {
+            // Controls collapsed: a text change would still redraw the overlay, so
+            // a still screen produced a new composite and an encoded frame every
+            // second. The next tick after the controls open catches up.
+            return;
+        }
 
         // Get recording start time from SharedPreferences (same as service uses)
         long recordingStartTime = sharedPreferencesManager.sharedPreferences
