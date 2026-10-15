@@ -232,10 +232,17 @@ public class FileOperationManager {
         // which pinned progress at 100% and posted an update on every buffer
         try (android.content.res.AssetFileDescriptor afd =
                      context.getContentResolver().openAssetFileDescriptor(uri, "r")) {
-            if (afd == null) return 0;
-            long length = afd.getLength();
-            return length > 0 ? length : 0;
+            long length = afd != null ? afd.getLength() : -1;
+            if (length > 0) return length;
         }
+        // Some providers don't report a descriptor length; the size column usually has it
+        try (android.database.Cursor c = context.getContentResolver().query(uri,
+                new String[] {android.provider.OpenableColumns.SIZE}, null, null, null)) {
+            if (c != null && c.moveToFirst() && !c.isNull(0)) {
+                return Math.max(0L, c.getLong(0));
+            }
+        }
+        return 0;
     }
     
     /**

@@ -1920,6 +1920,12 @@ public class RecordingService extends Service {
             // surface change when using GL path -----------
             FLog.d(TAG,
                     "ACTION_CHANGE_SURFACE handled: preview surface updated, camera session reconfigured if needed. No pipeline re-init.");
+            // Home sends a null surface right after its state request; this start then
+            // outranked the request's stopSelf(startId) and left an idle service running
+            if (!isWorkingInProgress() && !previewOnlyActive && !pendingPreviewOnlyStart
+                    && !pendingStartRecording && (previewSurface == null || !previewSurface.isValid())) {
+                stopSelf(startId);
+            }
             return START_STICKY;
         } else if (Constants.BROADCAST_ON_RECORDING_STATE_REQUEST.equals(action)) {
             // Handle UI state sync requests

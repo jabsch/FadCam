@@ -41,8 +41,11 @@ public class TorchService extends Service {
     private HandlerThread handlerThread;
     private Handler backgroundHandler;
     private AtomicBoolean isTorchOn = new AtomicBoolean(false);
-    /** Latest start id, so stopping after "off" never drops a toggle queued behind it. */
-    private volatile int lastStartId;
+    /**
+     * Start id of the toggle the background thread handled last. Stopping with it fails
+     * while a newer start is queued, so a quick off-then-on toggle is never dropped.
+     */
+    private volatile int handledStartId;
     private static WeakReference<HomeFragment> homeFragmentRef;
     private String selectedTorchSource;
     private CameraManager.TorchCallback torchCallback;
@@ -196,6 +199,7 @@ public class TorchService extends Service {
             public void handleMessage(Message msg) {
                 switch (msg.what) {
                     case 1: // Toggle Torch
+                        handledStartId = msg.arg1;
                         toggleTorchInternal();
                         break;
                 }
@@ -262,7 +266,6 @@ public class TorchService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         FLog.d(TAG, "onStartCommand called. Intent: " + intent);
-        lastStartId = startId;
         if (intent == null) {
             // Restart after the process was killed. The camera service already
             // turned the torch off with the process; restarting only put up a
@@ -280,7 +283,7 @@ public class TorchService extends Service {
         FLog.d(TAG, "onStartCommand received action: " + action);
         if (Constants.INTENT_ACTION_TOGGLE_TORCH.equals(action)) {
             FLog.d(TAG, "Received INTENT_ACTION_TOGGLE_TORCH, sending message to background handler.");
-            backgroundHandler.sendEmptyMessage(1);
+            backgroundHandler.obtainMessage(1, startId, 0).sendToTarget();
         } else {
             FLog.d(TAG, "Unknown or missing action in TorchService: " + action);
         }
@@ -382,7 +385,7 @@ public class TorchService extends Service {
             com.fadcam.Utils.stopForegroundCompat(this, true);
             // Nothing to do until the next toggle starts it again. Kept alive, its thread and
             // torch callback woke the process whenever any app used the camera.
-            stopSelfResult(lastStartId);
+            stopSelfResult(handledStartId);
         }
     }
 

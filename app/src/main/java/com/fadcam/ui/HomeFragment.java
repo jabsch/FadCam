@@ -324,7 +324,7 @@ public class HomeFragment extends BaseFragment {
             }
             return;
         }
-        if (!isRecordingOrPaused() && !isPreviewOnlyActive) {
+        if (!isRecordingOrPaused() && !isPreviewOnlyActive && !isPreviewOnlyStartPending) {
             return;
         }
         if (covered && !isRecordingOrPaused()) {
@@ -2129,6 +2129,8 @@ public class HomeFragment extends BaseFragment {
         // Reset dedup state so the first callback after next resume always applies.
         lastAppliedServiceState = null;
         lastAppliedPreviewOnlyActive = false;
+        // The next start must ask the service again, however soon it comes
+        lastStateRequestUptimeMs = 0L;
 
         // Call the centralized unregister method
         unregisterBroadcastReceivers();
