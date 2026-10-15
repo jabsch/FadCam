@@ -1076,6 +1076,11 @@ public class DualCameraRecordingService extends Service {
                     FLog.w(TAG, "Secondary camera disconnected: " + camera.getId());
                     camera.close();
                     secondaryCameraDevice = null;
+                    // A call or face unlock taking the front camera lands here, not
+                    // in onError: keep recording with snapshots instead of ending it.
+                    if (continueWithSnapshotPip()) {
+                        return;
+                    }
                     transitionToError("Secondary camera disconnected");
                 }
 
@@ -1086,16 +1091,7 @@ public class DualCameraRecordingService extends Service {
                     camera.close();
                     secondaryCameraDevice = null;
 
-                    if (state == DualCameraState.RECORDING || state == DualCameraState.PAUSED) {
-                        // Lost mid-recording: keep the running pipeline and file and
-                        // feed the PiP from snapshots. Rebuilding the pipeline here
-                        // orphaned the recording (its sessions also count past 2,
-                        // so the new pipeline never started).
-                        fallbackMode = true;
-                        secondarySession = null;
-                        secondaryRequestBuilder = null;
-                        snapshotFailStreak = 0;
-                        scheduleNextSnapshot();
+                    if (continueWithSnapshotPip()) {
                         return;
                     }
 
@@ -1111,6 +1107,35 @@ public class DualCameraRecordingService extends Service {
             FLog.e(TAG, "Error opening secondary camera", e);
             transitionToError("Failed to open secondary camera: " + e.getMessage());
         }
+    }
+
+    /**
+     * The PiP camera was lost after the pipeline was built (recording, paused, or
+     * still configuring its sessions). Keeps the pipeline and file and feeds the PiP
+     * from snapshots: rebuilding the pipeline orphaned the recording, and its
+     * sessions counted past 2 so the new one never started. Returns false when no
+     * pipeline exists yet, so the caller's open-time handling applies.
+     */
+    private boolean continueWithSnapshotPip() {
+        if (recordingPipeline == null) {
+            return false;
+        }
+        if (isStopping) {
+            return true;
+        }
+        boolean secondaryCounted = secondarySession != null;
+        fallbackMode = true;
+        secondarySession = null;
+        secondaryRequestBuilder = null;
+        snapshotFailStreak = 0;
+        if (!secondaryCounted && state != DualCameraState.RECORDING
+                && state != DualCameraState.PAUSED) {
+            // Its session never configured: count it as done so the primary's
+            // session still starts the recording.
+            onSessionConfigured(false);
+        }
+        scheduleNextSnapshot();
+        return true;
     }
 
     /**
@@ -1666,6 +1691,11 @@ public class DualCameraRecordingService extends Service {
                         @Override
                         public void onConfigured(@NonNull CameraCaptureSession session) {
                             if (isStopping) return;
+                            if (!isPrimary && fallbackMode) {
+                                // PiP camera lost while configuring; snapshots took over
+                                session.close();
+                                return;
+                            }
 
                             try {
                                 session.setRepeatingRequest(builder.build(), null, backgroundHandler);
@@ -1693,6 +1723,9 @@ public class DualCameraRecordingService extends Service {
                         public void onConfigureFailed(@NonNull CameraCaptureSession session) {
                             FLog.e(TAG, (isPrimary ? "Primary" : "Secondary")
                                     + " capture session configuration failed");
+                            if (!isPrimary && fallbackMode) {
+                                return; // PiP camera lost; snapshots took over
+                            }
                             transitionToError("Camera session failed");
                         }
                     });
@@ -1705,6 +1738,10 @@ public class DualCameraRecordingService extends Service {
                             @Override
                             public void onConfigured(@NonNull CameraCaptureSession session) {
                                 if (isStopping) return;
+                                if (!isPrimary && fallbackMode) {
+                                    session.close();
+                                    return;
+                                }
                                 try {
                                     session.setRepeatingRequest(builder.build(), null, backgroundHandler);
                                 } catch (CameraAccessException e) {
@@ -1728,6 +1765,9 @@ public class DualCameraRecordingService extends Service {
                             public void onConfigureFailed(@NonNull CameraCaptureSession session) {
                                 FLog.e(TAG, (isPrimary ? "Primary" : "Secondary")
                                         + " capture session configuration failed");
+                                if (!isPrimary && fallbackMode) {
+                                    return;
+                                }
                                 transitionToError("Camera session failed");
                             }
                         }, backgroundHandler);
