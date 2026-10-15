@@ -169,6 +169,8 @@ public class SensorDataProvider implements SensorEventListener {
         updateSpeedFromGps();
         updateBearingFromGps();
 
+        // The watermark feeds the same fix every second; log (and format) new fixes only
+        if (!timeAdvanced) return;
         FLog.d(TAG, "Location: lat=" + com.fadcam.FLog.redactedCoords(location.getLatitude(), location.getLongitude())
                 + ", speed=" + String.format("%.1f", currentSpeedMs * 3.6f) + "km/h"
                 + " (hasSpeed=" + location.hasSpeed()

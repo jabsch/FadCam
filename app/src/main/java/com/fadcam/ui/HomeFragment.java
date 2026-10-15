@@ -7297,7 +7297,7 @@ public class HomeFragment extends BaseFragment {
         setTextIfChanged(tvElapsedSubtitle, getString(R.string.recording_elapsed_time));
         if (tvElapsedReadable != null) {
             tvElapsedReadable.setVisibility(View.GONE);
-            tvElapsedReadable.setText("");
+            setTextIfChanged(tvElapsedReadable, "");
         }
     }
 
