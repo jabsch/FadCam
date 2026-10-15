@@ -64,10 +64,14 @@ public class FileOperationService extends Service implements FileOperationManage
     public int onStartCommand(Intent intent, int flags, int startId) {
         FLog.d(TAG, "Service started with intent: " + intent);
         
-        if (intent != null) {
-            handleIntent(intent);
+        if (intent == null) {
+            // Sticky restart after the process was killed: the queue lived in
+            // memory and is gone, so an idle service would only hold the process.
+            stopSelf(startId);
+            return START_NOT_STICKY;
         }
-        
+        handleIntent(intent);
+
         // Return START_STICKY so the service restarts if killed
         return START_STICKY;
     }

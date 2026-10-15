@@ -57,7 +57,6 @@ public class WatermarkSettingsFragment extends Fragment {
     private ViewPager2 previewPager;
     private PreviewPagerAdapter previewAdapter;
     private View dotFadCam, dotFadRec;
-    private LocationHelper locationHelper;
     private ActivityResultLauncher<String> permissionLauncher;
     private Runnable pendingGrantAction;
     private View locationRow;
@@ -355,7 +354,6 @@ public class WatermarkSettingsFragment extends Fragment {
         if(target){
             ensurePermissionThen(() -> {
                 prefs.setLocationEnabled(true);
-                startLocationHelperIfNeeded();
                 refreshLocationValue();
                 updatePreview();
                 updateLocationRowState();
@@ -363,7 +361,6 @@ public class WatermarkSettingsFragment extends Fragment {
             });
         } else {
             prefs.setLocationEnabled(false);
-            stopLocationIfAllDisabled();
             refreshLocationValue();
             updatePreview();
             updateLocationRowState();
@@ -435,21 +432,6 @@ public class WatermarkSettingsFragment extends Fragment {
     private void onPermissionDeniedPostRequest() {
         pendingGrantAction = null;
         Toast.makeText(requireContext(), R.string.location_permission_denied, Toast.LENGTH_SHORT).show();
-    }
-
-    private void startLocationHelperIfNeeded() {
-        if (locationHelper == null) {
-            locationHelper = new LocationHelper(requireContext(), true);
-        }
-    }
-
-    private void stopLocationIfAllDisabled() {
-        if (!prefs.isLocalisationEnabled() && !prefs.isLocationEmbeddingEnabled()) {
-            if (locationHelper != null) {
-                locationHelper.stopLocationUpdates();
-                locationHelper = null;
-            }
-        }
     }
 
     private void showWatermarkStyleBottomSheet(){
