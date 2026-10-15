@@ -2648,6 +2648,13 @@ public class AnnotationService extends Service {
      * immediate saves missed, instead of rewriting the project every tick.
      */
     private void saveBackupState() {
+        // Nothing can be drawn with the screen off, so there is nothing new to
+        // back up; skip building the project JSON (it otherwise ran every 5 s
+        // through screen-off camera recordings while the overlay was enabled).
+        android.os.PowerManager pm = (android.os.PowerManager) getSystemService(POWER_SERVICE);
+        if (pm != null && !pm.isInteractive()) {
+            return;
+        }
         if (annotationView != null && projectFileManager != null && currentProjectName != null) {
             AnnotationState state = annotationView.getState();
             if (state != null && !projectFileManager.saveProjectIfChanged(state, currentProjectName)) {

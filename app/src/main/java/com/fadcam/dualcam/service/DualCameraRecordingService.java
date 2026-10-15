@@ -235,6 +235,12 @@ public class DualCameraRecordingService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null || intent.getAction() == null) {
             FLog.w(TAG, "onStartCommand: null intent/action");
+            // A null intent is a sticky restart after a process kill; with
+            // nothing recording, don't linger idle (or ask to restart again).
+            if (state == DualCameraState.DISABLED) {
+                stopSelf(startId);
+                return START_NOT_STICKY;
+            }
             return START_STICKY;
         }
 

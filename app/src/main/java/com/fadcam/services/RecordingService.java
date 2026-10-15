@@ -1477,6 +1477,15 @@ public class RecordingService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {        if (intent == null) {
+            // A null intent is a sticky restart after the process was killed. A
+            // fresh process has nothing in progress (nothing restores a
+            // recording here), so an idle restart would only sit in memory with
+            // its listeners registered. Stop it and don't ask to be restarted.
+            if (!shouldServiceStayAlive()) {
+                FLog.d(TAG, "onStartCommand: null intent with nothing running; stopping idle restart");
+                stopSelf(startId);
+                return START_NOT_STICKY;
+            }
             FLog.d(TAG, "onStartCommand received null intent. Ensuring service stays alive.");
             return START_STICKY;
         }
