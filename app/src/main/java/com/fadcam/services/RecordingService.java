@@ -7949,6 +7949,8 @@ public class RecordingService extends Service {
 
             handOffGeotag();
             glRecordingPipeline.prepareSurfaces();
+            // Home's mute button state carries over to the next recording.
+            glRecordingPipeline.setAudioMuted(sharedPreferencesManager.isAudioMuted());
             applyScreenStateToPipeline();
             applyPreviewFrameRateCap();
 

@@ -308,6 +308,14 @@ public class DualCameraRecordingService extends Service {
                 handleCapturePhoto();
                 break;
 
+            case Constants.INTENT_ACTION_SET_AUDIO_MUTED:
+                // Home's mute button sends this to whichever service records.
+                if (recordingPipeline != null) {
+                    recordingPipeline.setAudioMuted(
+                            intent.getBooleanExtra(Constants.EXTRA_AUDIO_MUTED, false));
+                }
+                break;
+
             default:
                 FLog.w(TAG, "Unknown action: " + action);
                 break;
@@ -512,6 +520,19 @@ public class DualCameraRecordingService extends Service {
         }
         if (watermarkManager != null) watermarkManager.pauseSensors();
         state = DualCameraState.PAUSED;
+        // Nothing is encoded while paused, so both camera streams (two sensors,
+        // the ISP and a GPU pass per frame) stop until resume. The sessions stay
+        // configured so resume is a single request. Like single-camera pause,
+        // the preview holds its last frame meanwhile.
+        stopCameraStreams();
+        if (backgroundHandler != null) backgroundHandler.removeCallbacks(snapshotRunnable);
+        if (wakeLock != null && wakeLock.isHeld()) {
+            try {
+                wakeLock.release();
+            } catch (RuntimeException e) {
+                FLog.w(TAG, "Could not release wake lock for pause", e);
+            }
+        }
         pauseStartedAt = SystemClock.elapsedRealtime();
         if (durationLimitController != null && durationLimitController.pauseSession()) {
             FLog.d(TAG, "Paused maximum recording duration countdown");
@@ -528,11 +549,20 @@ public class DualCameraRecordingService extends Service {
             return;
         }
 
+        if (wakeLock != null && !wakeLock.isHeld()) {
+            wakeLock.acquire();
+        }
+        restartCameraStreams();
         if (recordingPipeline != null) {
+            // Frames left over from before the pause are old.
+            recordingPipeline.discardPendingCameraFrames();
             recordingPipeline.resumeRecording();
         }
         if (watermarkManager != null) watermarkManager.resumeSensors(null);
         state = DualCameraState.RECORDING;
+        if (fallbackMode && !useBlackFrameFallback) {
+            scheduleNextSnapshot();
+        }
         if (pauseStartedAt > 0L) {
             accumulatedPausedDurationMs += Math.max(0L, SystemClock.elapsedRealtime() - pauseStartedAt);
             pauseStartedAt = 0L;
@@ -553,6 +583,12 @@ public class DualCameraRecordingService extends Service {
     private void handleSwapCameras() {
         if (state != DualCameraState.RECORDING && state != DualCameraState.PAUSED) {
             FLog.w(TAG, "Cannot swap cameras — state=" + state);
+            return;
+        }
+        if (fallbackMode) {
+            // Only the main camera streams here (the PiP camera is opened for
+            // snapshots), so a swap would leave the full-screen picture frozen.
+            FLog.w(TAG, "Cannot swap cameras in single-stream fallback mode");
             return;
         }
 
@@ -843,6 +879,10 @@ public class DualCameraRecordingService extends Service {
      * @return {@code true} if the request was applied successfully.
      */
     private boolean applyPrimaryRepeating() {
+        if (state == DualCameraState.PAUSED) {
+            // Kept in the builder; resume starts the stream with it.
+            return true;
+        }
         try {
             primarySession.setRepeatingRequest(
                     primaryRequestBuilder.build(), null, backgroundHandler);
@@ -1279,7 +1319,8 @@ public class DualCameraRecordingService extends Service {
     }
 
     private void scheduleNextSnapshot() {
-        if (!isStopping && fallbackMode && state != DualCameraState.DISABLED) {
+        if (!isStopping && fallbackMode && state != DualCameraState.DISABLED
+                && state != DualCameraState.PAUSED) {
             long delay = FALLBACK_SNAPSHOT_INTERVAL_MS << Math.min(Math.max(snapshotFailStreak, 0), 4);
             backgroundHandler.removeCallbacks(snapshotRunnable);
             backgroundHandler.postDelayed(snapshotRunnable, delay);
@@ -1389,6 +1430,8 @@ public class DualCameraRecordingService extends Service {
                 FLog.i(TAG, "PiP camera stream " + pipStream + " (video " + videoWidth + "x" + videoHeight + ")");
             }
             recordingPipeline.prepareSurfaces();
+            // Home's mute button state carries over to the next recording.
+            recordingPipeline.setAudioMuted(prefs.isAudioMuted());
 
             // ── Create capture sessions ───────────────────────────────
             createCaptureSession(
@@ -1631,6 +1674,15 @@ public class DualCameraRecordingService extends Service {
                 + ") — " + sessionsConfigured + "/2");
 
         if (sessionsConfigured < 2) return;
+        if (sessionsConfigured > 2) {
+            // A camera swap recreated this session. The recording is already
+            // running: starting it again reset the timer, the duration limit and
+            // the thermal guard, and vibrated.
+            if (state == DualCameraState.PAUSED) {
+                stopRepeatingQuietly(isPrimary ? primarySession : secondarySession);
+            }
+            return;
+        }
 
         // Both sessions ready — start encoding
         try {
@@ -1696,7 +1748,40 @@ public class DualCameraRecordingService extends Service {
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
         if (pm != null) {
             wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FadCam:DualCamRecording");
-            wakeLock.acquire(4 * 60 * 60 * 1000L); // Max 4 hours
+            // No timeout: a recording past 4 hours lost its wake lock and could
+            // stall with the screen off. Stop, destroy and pause release it.
+            wakeLock.acquire();
+        }
+    }
+
+    // ── Pause: camera streams ─────────────────────────────────────────
+
+    private void stopCameraStreams() {
+        stopRepeatingQuietly(primarySession);
+        stopRepeatingQuietly(secondarySession);
+    }
+
+    private void stopRepeatingQuietly(@Nullable CameraCaptureSession session) {
+        if (session == null) return;
+        try {
+            session.stopRepeating();
+        } catch (CameraAccessException | IllegalStateException e) {
+            FLog.w(TAG, "Could not stop camera stream", e);
+        }
+    }
+
+    private void restartCameraStreams() {
+        restartRepeating(primarySession, primaryRequestBuilder);
+        restartRepeating(secondarySession, secondaryRequestBuilder);
+    }
+
+    private void restartRepeating(@Nullable CameraCaptureSession session,
+                                  @Nullable CaptureRequest.Builder builder) {
+        if (session == null || builder == null) return;
+        try {
+            session.setRepeatingRequest(builder.build(), null, backgroundHandler);
+        } catch (CameraAccessException | IllegalStateException e) {
+            FLog.e(TAG, "Could not restart camera stream after pause", e);
         }
     }
 

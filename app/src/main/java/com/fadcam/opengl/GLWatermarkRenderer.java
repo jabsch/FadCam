@@ -2869,8 +2869,10 @@ public class GLWatermarkRenderer {
     }
 
     private boolean isFrontCamera() {
-        // For dual camera, use the explicit flag set by session-level swap
-        if (pipEnabled && fullscreenCameraIsFront) return true;
+        // For dual camera, use the explicit flag set by session-level swap.
+        // The camera selection is always dual there, so the pref read below
+        // (on every frame) added nothing.
+        if (pipEnabled) return fullscreenCameraIsFront;
         // Prefer user-selected camera source; sensor orientation alone is not reliable
         try {
             CameraType selected = SharedPreferencesManager.getInstance(context).getCameraSelection();
