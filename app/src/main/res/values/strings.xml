@@ -1371,6 +1371,14 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="audio_channels_stereo_desc">Left and right from the phone\'s mics. Sound keeps its direction on playback.</string>
     <string name="audio_channels_mono">Mono</string>
     <string name="audio_channels_mono_desc">One channel. Half the audio work and data; sound no longer has a left and right.</string>
+    <string name="setting_other_audio_title">Other Audio While Recording</string>
+    <string name="other_audio_footer">What music, podcasts and other apps\' sound do when a video starts recording with audio. Android doesn\'t require them to stop. If they keep playing through the phone speaker, the mic records them too; with headphones or earbuds it won\'t. Voice and screen recordings never stop other audio. Applies from the next recording. No other Pixel settings need to change.</string>
+    <string name="other_audio_pause">Pause</string>
+    <string name="other_audio_pause_desc">Music and other apps stop when recording starts and stay stopped afterwards, so the video doesn\'t pick up music from the phone.</string>
+    <string name="other_audio_duck">Lower volume</string>
+    <string name="other_audio_duck_desc">Music keeps playing more quietly and returns to full volume when recording stops. Some podcast and audiobook apps pause instead.</string>
+    <string name="other_audio_keep">Keep playing</string>
+    <string name="other_audio_keep_desc">Other audio is left alone. Over the speaker, the video records it; with headphones, it doesn\'t.</string>
     <string name="setting_preview_resolution_title">Preview Resolution</string>
     <string name="preview_resolution_footer">The camera size used while you are only previewing (not recording). At 4K, the camera, image processor and graphics chip handle four times the pixels of 1080p just to fill a screen that shows far fewer. Starting a recording always switches the camera to your full recording resolution, so videos are not affected. Applies the next time the preview opens. No other Pixel settings need to change.</string>
     <string name="preview_resolution_screen">Screen size</string>
