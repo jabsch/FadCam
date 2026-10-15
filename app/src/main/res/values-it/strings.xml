@@ -997,10 +997,10 @@
     <string name="timer_custom_title">Timer personalizzato</string>
     <string name="timer_custom_low_hint">Secondi</string>
     <string name="timer_custom_high_hint">Minuti</string>
-    <string name="timer_custom_description">%1$d secondi (%2$d minuti)</string>
+    <string name="timer_custom_description">Inserisci il numero di minuti. Esempio: 5 = 5 minuti (300 secondi). Il timer fermerà la riproduzione dopo questi minuti.</string>
     <string name="timer_custom_placeholder">es., 90</string>
     <string name="timer_custom_helper_static">Inserisci durata in secondi.</string>
-    <string name="timer_custom_calc_format">%1$d secondi = %2$d minuti e %3$d secondi</string>
+    <string name="timer_custom_calc_format">Fermerà la riproduzione dopo %1$s (%2$.2f ore)</string>
     <string name="timer_disabled_hint">Scegli una durata o disattiva</string>
     <string name="shortcuts_customize_title">Scorciatoie</string>
     <string name="shortcuts_customize_subtitle">Personalizza le scorciatoie Home</string>
@@ -1197,13 +1197,13 @@
     <string name="faditor_export_cancelled">Esportazione annullata</string>
     <string name="faditor_export_failed">Esportazione fallita</string>
     <string name="export_eta_seconds">%1$ds</string>
-    <string name="export_eta_minutes">%1$dm %2$02ds</string>
-    <string name="export_eta_hours">%1$dh %2$dm</string>
+    <string name="export_eta_minutes">ETA %d min</string>
+    <string name="export_eta_hours">ETA %d h</string>
     <string name="export_complete">Completato</string>
     <string name="export_file_size">Dimensione file: %1$s</string>
     <string name="export_error_hint">Errore durante l\'esportazione</string>
     <string name="export_status">%1$d%%</string>
-    <string name="faditor_export_info">%1$d segmenti • %2$s</string>
+    <string name="faditor_export_info">%1$s • %2$d clip%3$s • H.264 + AAC</string>
     <string name="faditor_flip_title">Capovolgi</string>
     <string name="faditor_home_tagline">Modifica. Converti. Esporta.</string>
     <string name="faditor_new_project">Nuovo progetto</string>
@@ -1323,7 +1323,7 @@
     <string name="delete_video_error_null_toast">Errore: video non trovato</string>
     <string name="delete_videos_success_toast">%1$d video spostati nel cestino</string>
     <string name="delete_videos_partial_success_toast">%1$d spostati, %2$d falliti</string>
-    <string name="delete_videos_log">Eliminazione video: %1$d riusciti, %2$d falliti</string>
+    <string name="delete_videos_log">Eliminazione di %1$d video selezionati…</string>
     <string name="trash_auto_deleted_toast">Spostato nel cestino</string>
     <string name="trash_empty_toast_message">Il cestino è vuoto</string>
     <string name="trash_emptied_toast">Cestino svuotato</string>
@@ -1394,7 +1394,7 @@
     <string name="auto_delete_save_setting">Impostazione salvata</string>
     <string name="trash_auto_delete_picker_helper">Scegli dopo quanto tempo gli elementi nel cestino vengono eliminati automaticamente.</string>
     <string name="video_split_size_summary_mb">%1$d min</string>
-    <string name="video_split_size_summary_gb">%1$d.%2$d GB</string>
+    <string name="video_split_size_summary_gb">Attuale: %1$s GB</string>
     <string name="video_splitting_title">Divisione video</string>
     <string name="video_splitting_description">Divide automaticamente i video in segmenti più piccoli quando raggiungono una dimensione specificata. Questo aiuta la gestione dei file.</string>
     <string name="support_ko_fi">Supporta su Ko-fi</string>

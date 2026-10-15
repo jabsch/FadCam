@@ -42,6 +42,11 @@ public class RecordsDeletionService extends Service {
     public static final String ACTION_CANCEL_DELETE_SESSION = "com.fadcam.action.CANCEL_DELETE_SESSION";
     public static final String ACTION_RESUME_SESSION = "com.fadcam.action.RESUME_DELETE_SESSION";
     public static final String EXTRA_DELETE_ITEMS_JSON = "delete_items_json";
+    /** Name of a file under {@link #REQUEST_DIR} holding the items, for big selections. */
+    public static final String EXTRA_DELETE_ITEMS_FILE = "delete_items_file";
+    private static final String REQUEST_DIR = "records_delete_requests";
+    /** Item lists bigger than this go through a file: an Intent is limited to about 1 MB. */
+    private static final int MAX_INLINE_ITEMS_JSON_CHARS = 64 * 1024;
     public static final String EXTRA_SESSION_ID = "delete_session_id";
     public static final String EXTRA_OPERATION_KIND = "operation_kind";
     public static final String EXTRA_CUSTOM_TREE_URI = "custom_tree_uri";
@@ -105,7 +110,7 @@ public class RecordsDeletionService extends Service {
         }
 
         List<RecordsDeletionRequestItem> items = RecordsDeletionRequestItem.fromJson(
-                intent.getStringExtra(EXTRA_DELETE_ITEMS_JSON));
+                readItemsJson(intent));
         RecordsDeletionSessionSnapshot.OperationKind operationKind = parseOperationKind(
                 intent.getStringExtra(EXTRA_OPERATION_KIND),
                 action
@@ -218,12 +223,65 @@ public class RecordsDeletionService extends Service {
         }
         Intent intent = new Intent(context, RecordsDeletionService.class);
         intent.setAction(action);
-        intent.putExtra(EXTRA_DELETE_ITEMS_JSON, RecordsDeletionRequestItem.toJson(items));
+        String itemsJson = RecordsDeletionRequestItem.toJson(items);
+        String requestFile = itemsJson.length() > MAX_INLINE_ITEMS_JSON_CHARS
+                ? writeRequestFile(context, itemsJson)
+                : null;
+        if (requestFile != null) {
+            intent.putExtra(EXTRA_DELETE_ITEMS_FILE, requestFile);
+        } else {
+            intent.putExtra(EXTRA_DELETE_ITEMS_JSON, itemsJson);
+        }
         intent.putExtra(EXTRA_OPERATION_KIND, operationKind.name());
         if (customTreeUri != null) {
             intent.putExtra(EXTRA_CUSTOM_TREE_URI, customTreeUri);
         }
         startServiceCompat(context, intent);
+    }
+
+    /** Saves a big item list for the service to pick up. Returns the file name, or null. */
+    @Nullable
+    private static String writeRequestFile(@NonNull android.content.Context context, @NonNull String json) {
+        File dir = new File(context.getCacheDir(), REQUEST_DIR);
+        if (!dir.isDirectory() && !dir.mkdirs()) {
+            FLog.w(TAG, "Could not create " + dir);
+            return null;
+        }
+        String name = java.util.UUID.randomUUID() + ".json";
+        try (OutputStream out = new FileOutputStream(new File(dir, name))) {
+            out.write(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return name;
+        } catch (java.io.IOException e) {
+            FLog.w(TAG, "Could not save the delete request", e);
+            return null;
+        }
+    }
+
+    /** Reads the items from the intent, or from the request file it names (then deletes it). */
+    @Nullable
+    private String readItemsJson(@NonNull Intent intent) {
+        String name = intent.getStringExtra(EXTRA_DELETE_ITEMS_FILE);
+        if (name == null) {
+            return intent.getStringExtra(EXTRA_DELETE_ITEMS_JSON);
+        }
+        // Only a bare name under our own cache folder.
+        File file = new File(new File(getCacheDir(), REQUEST_DIR), new File(name).getName());
+        try (InputStream in = new java.io.FileInputStream(file)) {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream((int) file.length());
+            byte[] buffer = new byte[64 * 1024];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                bytes.write(buffer, 0, read);
+            }
+            return new String(bytes.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            FLog.w(TAG, "Could not read the delete request " + file, e);
+            return null;
+        } finally {
+            if (!file.delete()) {
+                FLog.w(TAG, "Could not remove the delete request " + file);
+            }
+        }
     }
 
     /**
@@ -498,7 +556,10 @@ public class RecordsDeletionService extends Service {
         lastProgressPublishMs = now;
         RecordsDeletionSessionSnapshot latest;
         synchronized (sessionLock) {
-            latest = sessionStore.read();
+            // Byte progress is only for the screen and resets with every item, so it is
+            // broadcast, not saved: rewriting the whole session twice a second costs a
+            // full JSON round trip and a prefs file write each time.
+            latest = sessionStore.lastWritten();
             if (latest == null || !latest.isActive() || latest.inFlightItem == null
                     || !item.uriString.equals(latest.inFlightItem.uriString)) {
                 return;
@@ -507,7 +568,6 @@ public class RecordsDeletionService extends Service {
                     ? Math.min(bytesDone, item.sizeBytes)
                     : bytesDone;
             latest.lastUpdatedAtMs = System.currentTimeMillis();
-            sessionStore.write(latest);
         }
         publishSnapshot(latest, false, false, false);
     }
@@ -937,7 +997,7 @@ public class RecordsDeletionService extends Service {
         Intent updateIntent = new Intent(Constants.ACTION_RECORDS_DELETE_SESSION_UPDATED);
         updateIntent.setPackage(getPackageName());
         updateIntent.putExtra(Constants.EXTRA_RECORDS_DELETE_SESSION_JSON,
-                RecordsDeletionSessionSnapshot.toJson(snapshot));
+                RecordsDeletionSessionSnapshot.toBroadcastJson(snapshot));
         sendBroadcast(updateIntent);
 
         if (itemCompleted && !snapshot.completedUriStrings.isEmpty()) {
@@ -956,7 +1016,7 @@ public class RecordsDeletionService extends Service {
             Intent finishedIntent = new Intent(Constants.ACTION_RECORDS_DELETE_SESSION_FINISHED);
             finishedIntent.setPackage(getPackageName());
             finishedIntent.putExtra(Constants.EXTRA_RECORDS_DELETE_SESSION_JSON,
-                    RecordsDeletionSessionSnapshot.toJson(snapshot));
+                    RecordsDeletionSessionSnapshot.toBroadcastJson(snapshot));
             sendBroadcast(finishedIntent);
         }
     }
