@@ -414,8 +414,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Register asset picker launchers (must be before onStart)
         registerAssetPickers();
 
-        // Keep screen on while editing
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        // The screen stays on while a preview plays or an export runs (see
+        // applyKeepScreenOn); left idle on the editor it times out as usual instead
+        // of staying lit at full refresh rate.
 
         // ── True fullscreen: hide status bar and nav bar ────────────
         com.fadcam.util.SystemBarUtil.hideSystemBars(getWindow().getDecorView());
@@ -2588,6 +2589,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                               @NonNull ExportResult result) {
                     runOnUiThread(() -> {
                         FLog.d(TAG, "Export saved to: " + outputPath);
+                        keepScreenOnForExport = false;
+                        applyKeepScreenOn();
 
                         if (exportProgressPercent != null) exportProgressPercent.setText("100%");
                         if (exportProgressBar != null) exportProgressBar.setProgress(100);
@@ -2711,6 +2714,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void updatePlayPauseButton(boolean isPlaying) {
         btnPlayPause.setText(isPlaying ? "pause" : "play_arrow");
+        keepScreenOnForPlayback = isPlaying;
+        applyKeepScreenOn();
+    }
+
+    private boolean keepScreenOnForPlayback = false;
+    private boolean keepScreenOnForExport = false;
+
+    private void applyKeepScreenOn() {
+        if (keepScreenOnForPlayback || keepScreenOnForExport) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        } else {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
     }
 
     // ── Time display helpers ─────────────────────────────────────────
@@ -3110,6 +3126,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void showExportProgress() {
+        keepScreenOnForExport = true;
+        applyKeepScreenOn();
         if (exportProgressOverlay == null) return;
 
         // Reset to initial exporting state (indeterminate until first progress poll)
@@ -3139,6 +3157,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void hideExportProgress() {
+        keepScreenOnForExport = false;
+        applyKeepScreenOn();
         if (exportProgressOverlay != null) {
             exportProgressOverlay.animate().alpha(0f).setDuration(200).withEndAction(() -> {
                 exportProgressOverlay.setVisibility(View.GONE);

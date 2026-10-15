@@ -25,6 +25,7 @@ public class FileOperationManager {
     
     private static final String TAG = "FileOperationManager";
     private static final int BUFFER_SIZE = 8192;
+    private static final long PROGRESS_INTERVAL_MS = 500L;
     
     public interface OperationListener {
         void onTaskStarted(FileOperationTask task);
@@ -160,12 +161,16 @@ public class FileOperationManager {
             
             byte[] buffer = new byte[BUFFER_SIZE];
             int bytesRead;
+            long lastProgressMs = 0L;
             while ((bytesRead = in.read(buffer)) != -1) {
                 out.write(buffer, 0, bytesRead);
                 task.progress += bytesRead;
                 
-                // Update progress periodically (every 100KB)
-                if (task.progress % (100 * 1024) == 0 || task.progress >= task.totalBytes) {
+                // Each update rebuilds and posts the notification; a few per second is
+                // enough (it fired about every 400 KB, dozens of times a second)
+                long now = android.os.SystemClock.elapsedRealtime();
+                if (now - lastProgressMs >= PROGRESS_INTERVAL_MS || task.progress >= task.totalBytes) {
+                    lastProgressMs = now;
                     notifyListener(listener -> listener.onTaskProgress(task));
                 }
             }

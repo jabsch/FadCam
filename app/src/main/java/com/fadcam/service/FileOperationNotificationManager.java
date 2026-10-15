@@ -79,7 +79,8 @@ public class FileOperationNotificationManager {
                 
         // Show progress if we have total bytes
         if (task.totalBytes > 0) {
-            builder.setProgress((int) task.totalBytes, (int) task.progress, false);
+            // Percent, not bytes: the int casts broke the bar for files over 2 GB
+            builder.setProgress(100, task.getProgressPercent(), false);
             builder.setSubText(task.getProgressPercent() + "%");
         } else {
             builder.setProgress(0, 0, true); // Indeterminate progress

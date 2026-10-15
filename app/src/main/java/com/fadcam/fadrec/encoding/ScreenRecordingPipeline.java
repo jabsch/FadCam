@@ -197,6 +197,9 @@ public class ScreenRecordingPipeline {
     // State management
     private boolean isRecording = false;
     private volatile boolean isPaused = false;
+    // Screen off: the mirrored display sends almost no frames, so the video drain
+    // polls at the paused rate. Audio keeps its rate (the mic still records).
+    private volatile boolean screenOff = false;
     /** The audio thread waits on this while paused. */
     private final Object audioPauseLock = new Object();
     private boolean isStopped = false;
@@ -969,7 +972,7 @@ public class ScreenRecordingPipeline {
                 // once per frame interval is enough; 10 ms woke the thread ~3 times per
                 // 30 fps frame. Paused, almost nothing arrives.
                 if (isRecording && !isStopped) {
-                    videoEncodingHandler.postDelayed(this, isPaused
+                    videoEncodingHandler.postDelayed(this, isPaused || screenOff
                             ? PAUSED_DRAIN_INTERVAL_MS : VIDEO_DRAIN_INTERVAL_MS);
                 }
             }
@@ -1062,6 +1065,7 @@ public class ScreenRecordingPipeline {
             
             ByteBuffer audioBuffer = ByteBuffer.allocateDirect(16384);
             long readCount = 0;
+            long readFailures = 0;
             
             while (isRecording && !isStopped) {
                 if (isPaused) {
@@ -1103,9 +1107,19 @@ public class ScreenRecordingPipeline {
                     queueAudioData(audioBuffer, bytesRead);
                 } else {
                     // read() <= 0: overrun, dead object, or stopped — capture
-                    // problems must be visible, not silent.
-                    FLog.w(TAG, "FadRec audio: read() returned " + bytesRead
-                            + " (chunk#" + readCount + ")");
+                    // problems must be visible, not silent. It returns at once, so
+                    // without a wait this urgent-priority thread spun a whole core.
+                    readFailures++;
+                    if (readFailures <= 3 || readFailures % 100 == 0) {
+                        FLog.w(TAG, "FadRec audio: read() returned " + bytesRead
+                                + " (chunk#" + readCount + ", failures=" + readFailures + ")");
+                    }
+                    try {
+                        Thread.sleep(20);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
             }
             FLog.i(TAG, "FadRec audio loop ended: chunks=" + readCount
@@ -1522,6 +1536,11 @@ public class ScreenRecordingPipeline {
                 rolloverRequestedByDrain = false;
             }
         }
+    }
+
+    /** Screen on/off from the service; with the screen off the video drain slows down. */
+    public void setScreenOff(boolean off) {
+        screenOff = off;
     }
 
     /**

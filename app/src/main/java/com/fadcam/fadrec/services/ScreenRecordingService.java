@@ -98,6 +98,17 @@ public class ScreenRecordingService extends Service {
     // Configuration
     private SharedPreferencesManager sharedPreferencesManager;
     private PowerManager.WakeLock recordingWakeLock;
+    /** Tells the pipeline when the screen goes off, so its video drain can slow down. */
+    private final android.content.BroadcastReceiver screenStateReceiver = new android.content.BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            ScreenRecordingPipeline pipeline = recordingPipeline;
+            if (pipeline != null) {
+                pipeline.setScreenOff(Intent.ACTION_SCREEN_OFF.equals(intent.getAction()));
+            }
+        }
+    };
+    private boolean screenStateReceiverRegistered = false;
     
     // Threading
     private Handler backgroundHandler;
@@ -133,6 +144,17 @@ public class ScreenRecordingService extends Service {
         backgroundThread = new HandlerThread("ScreenRecordingBackground");
         backgroundThread.start();
         backgroundHandler = new Handler(backgroundThread.getLooper());
+
+        try {
+            android.content.IntentFilter screenFilter = new android.content.IntentFilter();
+            screenFilter.addAction(Intent.ACTION_SCREEN_OFF);
+            screenFilter.addAction(Intent.ACTION_SCREEN_ON);
+            ContextCompat.registerReceiver(this, screenStateReceiver, screenFilter,
+                    ContextCompat.RECEIVER_NOT_EXPORTED);
+            screenStateReceiverRegistered = true;
+        } catch (RuntimeException e) {
+            FLog.w(TAG, "Could not watch screen on/off", e);
+        }
 
         // Get screen metrics
         WindowManager windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
@@ -650,6 +672,8 @@ public class ScreenRecordingService extends Service {
 
             recordingPipeline = pipelineBuilder.build();
             recordingPipeline.setAudioMuted(initialMuted);
+            PowerManager screenPm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            recordingPipeline.setScreenOff(screenPm != null && !screenPm.isInteractive());
             recordingPipeline.setPreviewSurface(
                 currentPreviewSurface,
                 currentPreviewSurfaceWidth,
@@ -1451,6 +1475,13 @@ public class ScreenRecordingService extends Service {
         
         // Release resources
         releaseWakeLock();
+        if (screenStateReceiverRegistered) {
+            try {
+                unregisterReceiver(screenStateReceiver);
+            } catch (IllegalArgumentException ignored) {
+            }
+            screenStateReceiverRegistered = false;
+        }
         stopNotificationUpdates();
         releasePreviewOnlyVirtualDisplay();
         releaseProjectionIfIdle();
