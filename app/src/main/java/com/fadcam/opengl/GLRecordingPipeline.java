@@ -2296,6 +2296,19 @@ public class GLRecordingPipeline {
                     }
                 }
 
+                // The keyframe that triggered the split went into the old file, and the
+                // new muxer drops video until a keyframe, so without this the new part
+                // lost up to one I-frame interval (1 s) of video.
+                if (muxerStarted && videoEncoder != null) {
+                    try {
+                        android.os.Bundle params = new android.os.Bundle();
+                        params.putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0);
+                        videoEncoder.setParameters(params);
+                    } catch (Exception e) {
+                        FLog.w(TAG, "Failed requesting sync frame for the new segment", e);
+                    }
+                }
+
                 // Ask the GL loop for a frame ASYNCHRONOUSLY (never block the drain
                 // thread on the render): a synchronous renderFrame() here deadlocks
                 // when the encoder input surface is full — the GL loop is stuck in

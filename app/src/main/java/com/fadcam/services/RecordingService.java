@@ -1322,8 +1322,10 @@ public class RecordingService extends Service {
                                 java.nio.channels.FileChannel ch =
                                         new java.io.RandomAccessFile(f, "rw").getChannel();
                                 try {
-                                    result = androidx.media3.muxer.FragmentedMp4Muxer
-                                            .finalizeAbandonedFile(ch);
+                                    result = com.fadcam.media.HybridMp4Layout.isFinalized(ch)
+                                            ? 0
+                                            : androidx.media3.muxer.FragmentedMp4Muxer
+                                                    .finalizeAbandonedFile(ch);
                                 } finally {
                                     try { ch.close(); } catch (Exception ignored) {}
                                 }
@@ -1340,12 +1342,14 @@ public class RecordingService extends Service {
                                     // NonReadableChannelException), so read via
                                     // FileInputStream's channel, write via
                                     // FileOutputStream's — the kernel offset is shared.
-                                    result = androidx.media3.muxer.FragmentedMp4Muxer
-                                            .finalizeAbandonedFile(
-                                                    new java.io.FileInputStream(
-                                                            pfd.getFileDescriptor()).getChannel(),
-                                                    new java.io.FileOutputStream(
-                                                            pfd.getFileDescriptor()).getChannel());
+                                    java.nio.channels.FileChannel readCh = new java.io.FileInputStream(
+                                            pfd.getFileDescriptor()).getChannel();
+                                    result = com.fadcam.media.HybridMp4Layout.isFinalized(readCh)
+                                            ? 0
+                                            : androidx.media3.muxer.FragmentedMp4Muxer
+                                                    .finalizeAbandonedFile(readCh,
+                                                            new java.io.FileOutputStream(
+                                                                    pfd.getFileDescriptor()).getChannel());
                                 } finally {
                                     try { pfd.close(); } catch (Exception ignored) {}
                                 }
@@ -1407,35 +1411,40 @@ public class RecordingService extends Service {
         }
     }
 
-    /** Safety net after a clean stop: converts the file if finalization silently skipped it. */
-    private void finalizeJustStoppedRecording() {
-        try {
-            String uriString = currentSegmentPath != null
-                    ? android.net.Uri.fromFile(new java.io.File(currentSegmentPath)).toString()
-                    : currentSegmentUriString;
-            if (uriString == null) return;
-            int result = finalizeFileChannelFor(uriString);
-            if (result >= 0) {
-                // Room forbids DB access on the main thread — dispatch the
-                // markFinalized write to the background handler.
-                final String finalUri = uriString;
-                if (backgroundHandler != null) {
-                    backgroundHandler.post(() -> {
-                        try {
-                            com.fadcam.data.VideoIndexRepository.getInstance(
-                                    RecordingService.this).markFinalized(finalUri, 1);
-                        } catch (Exception e) {
-                            FLog.w(TAG, "Safety-net markFinalized failed", e);
-                        }
-                    });
+    /**
+     * Safety net after a clean stop: converts the file if finalization silently skipped it.
+     * {@code uriString} is the file that was stopped, captured when the stop began: by
+     * now a new recording may already be writing to the current segment fields. The
+     * file stays guarded from the self-healing scan until this check is done, and the
+     * check runs off the main thread. While a new recording runs it is skipped (opening
+     * a second fd on the volume can break the new file's fd on some SAF providers); the
+     * file stays pending in the index, so a later self-healing scan checks it.
+     */
+    private void finalizeJustStoppedRecording(@Nullable final String uriString) {
+        if (uriString == null || uriString.isEmpty()) return;
+        if (recordingState != RecordingState.NONE) {
+            removeInFlightFinalization(uriString);
+            return;
+        }
+        Runnable work = () -> {
+            try {
+                int result = finalizeFileChannelFor(uriString);
+                if (result >= 0) {
+                    com.fadcam.data.VideoIndexRepository.getInstance(
+                            RecordingService.this).markFinalized(uriString, 1);
                 }
+                if (result == 1) {
+                    FLog.i(TAG, "Safety-net finalization converted "
+                            + fileNameFromUri(uriString));
+                }
+            } catch (Exception e) {
+                FLog.w(TAG, "Safety-net finalization failed", e);
+            } finally {
+                removeInFlightFinalization(uriString);
             }
-            if (result == 1) {
-                FLog.i(TAG, "Safety-net finalization converted "
-                        + fileNameFromUri(uriString));
-            }
-        } catch (Exception e) {
-            FLog.w(TAG, "Safety-net finalization failed", e);
+        };
+        if (backgroundHandler == null || !backgroundHandler.post(work)) {
+            new Thread(work, "StopSafetyNet").start();
         }
     }
 
@@ -1451,9 +1460,12 @@ public class RecordingService extends Service {
                 try {
                     // Two channels over the same fd (FileOutputStream channel is
                     // write-only; reads would throw NonReadableChannelException).
-                    result = androidx.media3.muxer.FragmentedMp4Muxer.finalizeAbandonedFile(
-                            new java.io.FileInputStream(pfd.getFileDescriptor()).getChannel(),
-                            new java.io.FileOutputStream(pfd.getFileDescriptor()).getChannel());
+                    java.nio.channels.FileChannel readCh =
+                            new java.io.FileInputStream(pfd.getFileDescriptor()).getChannel();
+                    result = com.fadcam.media.HybridMp4Layout.isFinalized(readCh)
+                            ? 0
+                            : androidx.media3.muxer.FragmentedMp4Muxer.finalizeAbandonedFile(readCh,
+                                    new java.io.FileOutputStream(pfd.getFileDescriptor()).getChannel());
                 } finally {
                     try { pfd.close(); } catch (Exception ignored) {}
                 }
@@ -1462,7 +1474,9 @@ public class RecordingService extends Service {
                 if (!f.exists()) return -1;
                 java.nio.channels.FileChannel ch = new java.io.RandomAccessFile(f, "rw").getChannel();
                 try {
-                    result = androidx.media3.muxer.FragmentedMp4Muxer.finalizeAbandonedFile(ch);
+                    result = com.fadcam.media.HybridMp4Layout.isFinalized(ch)
+                            ? 0
+                            : androidx.media3.muxer.FragmentedMp4Muxer.finalizeAbandonedFile(ch);
                 } finally {
                     try { ch.close(); } catch (Exception ignored) {}
                 }
@@ -2603,8 +2617,7 @@ public class RecordingService extends Service {
                     }
 
                     FLog.d(TAG, "stopRecording sequence completed successfully");
-                    removeInFlightFinalization(inFlightUri);
-                    finalizeJustStoppedRecording();
+                    finalizeJustStoppedRecording(inFlightUri);
                 });            } catch (Exception e) {
                 FLog.e(TAG, "Error in stopRecording cleanup thread", e);
                 removeInFlightFinalization(inFlightUri);
