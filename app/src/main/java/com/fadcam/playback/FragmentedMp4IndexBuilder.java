@@ -281,9 +281,6 @@ public class FragmentedMp4IndexBuilder {
                     // Found moof - read fragment duration from video track's trun
                     long fragmentDurationUnits = readMoofFragmentDuration(raf, position, atomSize, timescale, videoTrackId);
                     long fragmentDurationUs = (fragmentDurationUnits * 1000000L) / timescale;
-                    
-                    FLog.d(TAG, "Found moof at " + position + ": fragmentDurationUnits=" + fragmentDurationUnits +
-                          ", fragmentDurationUs=" + fragmentDurationUs);
 
                     // Find mdat size following moof
                     long mdatSize = 0;
@@ -310,10 +307,6 @@ public class FragmentedMp4IndexBuilder {
                     FragmentEntry entry = new FragmentEntry(position, fragmentSize, cumulativeDecodeTimeUs);
                     entry.durationUs = fragmentDurationUs > 0 ? fragmentDurationUs : 2000000; // Default 2s
                     fragments.add(entry);
-
-                    FLog.d(TAG, "Fragment #" + fragments.size() + " at " + position + ": timeUs=" + cumulativeDecodeTimeUs + 
-                          " (" + (cumulativeDecodeTimeUs / 1000000.0) + "s), durationUs=" + entry.durationUs +
-                          ", size=" + fragmentSize);
 
                     // Update cumulative time for next fragment
                     cumulativeDecodeTimeUs += entry.durationUs;
@@ -595,7 +588,6 @@ public class FragmentedMp4IndexBuilder {
                     // Match against the video track ID we found in moov
                     if (trafInfo.trackId == targetVideoTrackId && videoTrackDuration == 0) {
                         videoTrackDuration = trafInfo.duration;
-                        FLog.d(TAG, "  Using video traf (track " + trafInfo.trackId + ") duration: " + trafInfo.duration + " units");
                     }
                 }
             }
@@ -605,9 +597,6 @@ public class FragmentedMp4IndexBuilder {
 
         // Prefer video track duration, fall back to first track
         long result = videoTrackDuration > 0 ? videoTrackDuration : firstTrackDuration;
-        if (result > 0 && videoTrackDuration == 0) {
-            FLog.d(TAG, "  No video track found (targetId=" + targetVideoTrackId + "), using first traf duration: " + result + " units");
-        }
         return result;
     }
 
@@ -698,9 +687,6 @@ public class FragmentedMp4IndexBuilder {
         int flags = ((data[1] & 0xFF) << 16) | ((data[2] & 0xFF) << 8) | (data[3] & 0xFF);
         long sampleCount = readUint32(data, 4);
 
-        FLog.d(TAG, "    trun: version=" + version + ", flags=0x" + Integer.toHexString(flags) + 
-              ", sampleCount=" + sampleCount);
-
         // Check if sample_duration is present
         boolean hasSampleDuration = (flags & 0x100) != 0;
         boolean hasDataOffset = (flags & 0x001) != 0;
@@ -713,7 +699,6 @@ public class FragmentedMp4IndexBuilder {
             // No per-sample duration - use default (typically from tfhd)
             // For Media3 fMP4, default is typically fragment_duration / sample_count
             // We'll use 2 seconds as fallback which matches the muxer config
-            FLog.d(TAG, "    trun has no sample_duration flag, using default duration");
             return 0;
         }
 
@@ -758,8 +743,6 @@ public class FragmentedMp4IndexBuilder {
             remainingSamples -= samplesToRead;
         }
 
-        FLog.d(TAG, "    trun total duration: " + totalDuration + " units (" + 
-              sampleCount + " samples)");
         return totalDuration;
     }
 
