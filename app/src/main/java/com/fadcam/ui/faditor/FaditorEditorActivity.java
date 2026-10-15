@@ -500,6 +500,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         playheadHandler.removeCallbacks(playheadUpdater);
+        // The video player pauses with the screen; the audio clip players, the
+        // audio-only tail and image clip playback kept going behind it.
+        if (audioTailActive || imagePlaybackActive) {
+            audioTailActive = false;
+            if (imagePlaybackActive) {
+                stopImagePlayback();
+            } else {
+                updatePlayPauseButton(false);
+            }
+        }
+        pauseAudioPlayer();
         // Save project on pause (e.g. user switches away)
         saveProjectNow();
     }
@@ -2090,8 +2101,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
 
-            // Collect all decoded PCM samples (short values)
-            List<Short> allSamples = new ArrayList<>();
+            // Sum |sample| into equal bins while decoding (boxing every sample into a
+            // List<Short> was ~57M objects for 10 min of stereo). When the bins run
+            // out, neighbours merge and each bin covers twice as many samples.
+            int binCapacity = Math.max(64, targetSamples * 4);
+            long[] binSums = new long[binCapacity];
+            long samplesPerBin = 1;
+            int bin = 0;
+            long inBin = 0;
+            long totalSamples = 0;
             boolean inputDone = false;
             boolean outputDone = false;
 
@@ -2125,7 +2143,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     outBuf.limit(info.offset + info.size);
                     ShortBuffer shorts = outBuf.asShortBuffer();
                     while (shorts.hasRemaining()) {
-                        allSamples.add(shorts.get());
+                        if (inBin == samplesPerBin) {
+                            bin++;
+                            inBin = 0;
+                            if (bin == binCapacity) {
+                                for (int k = 0; k < binCapacity / 2; k++) {
+                                    binSums[k] = binSums[2 * k] + binSums[2 * k + 1];
+                                }
+                                java.util.Arrays.fill(binSums, binCapacity / 2, binCapacity, 0L);
+                                bin = binCapacity / 2;
+                                samplesPerBin *= 2;
+                            }
+                        }
+                        binSums[bin] += Math.abs(shorts.get());
+                        inBin++;
+                        totalSamples++;
                     }
                     codec.releaseOutputBuffer(outIdx, false);
                 }
@@ -2135,20 +2167,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
             codec.release();
             extractor.release();
 
-            if (allSamples.isEmpty()) return null;
+            if (totalSamples == 0) return null;
 
-            // Downsample to targetSamples bins
-            int totalSamples = allSamples.size();
-            int samplesPerBin = Math.max(1, totalSamples / targetSamples);
-            int[] waveform = new int[Math.min(targetSamples, totalSamples)];
+            // Spread the filled bins over targetSamples bars
+            int filled = bin + 1;
+            int[] waveform = new int[(int) Math.min(targetSamples, totalSamples)];
             for (int i = 0; i < waveform.length; i++) {
+                int from = (int) ((long) i * filled / waveform.length);
+                int to = Math.max(from + 1, (int) ((long) (i + 1) * filled / waveform.length));
                 long sum = 0;
-                int start = i * samplesPerBin;
-                int end = Math.min(start + samplesPerBin, totalSamples);
-                for (int j = start; j < end; j++) {
-                    sum += Math.abs(allSamples.get(j));
+                long count = 0;
+                for (int j = from; j < to; j++) {
+                    sum += binSums[j];
+                    count += (j == bin) ? inBin : samplesPerBin;
                 }
-                long avg = sum / (end - start);
+                long avg = count > 0 ? sum / count : 0;
                 // Normalise to 0–255
                 waveform[i] = (int) Math.min(255, (avg * 255) / 32768);
             }

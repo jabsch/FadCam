@@ -87,6 +87,8 @@ public class ExportManager {
 
     /** Handler for periodic progress polling. */
     private final Handler progressHandler = new Handler(Looper.getMainLooper());
+    /** Delivers completion after the SAF copy (kept apart from polling, which clears its queue). */
+    private final Handler completionHandler = new Handler(Looper.getMainLooper());
 
     /** Reusable progress holder to avoid allocation on every poll. */
     private final ProgressHolder progressHolder = new ProgressHolder();
@@ -171,26 +173,28 @@ public class ExportManager {
                 public void onCompleted(@NonNull Composition composition,
                                         @NonNull ExportResult result) {
                     stopProgressPolling();
-                    isExporting = false;
-                    String finalPath = outputPath;
 
-                    // If exported to temp for SAF, copy to custom storage now
+                    // If exported to temp for SAF, copy to custom storage now. The copy
+                    // runs off the main thread (a whole export file); the export counts
+                    // as running until it is done.
                     if (pendingSafCopy) {
-                        String safResult = copyTempToSaf(outputPath);
-                        if (safResult != null) {
-                            finalPath = safResult;
-                            FLog.d(TAG, "Export copied to SAF: " + safResult);
-                        } else {
-                            FLog.e(TAG, "SAF copy failed, file remains at: " + outputPath);
-                        }
+                        final String tempPath = outputPath;
+                        final String safName = safExportFileName;
                         pendingSafCopy = false;
                         safExportFileName = null;
+                        new Thread(() -> {
+                            String safResult = copyTempToSaf(tempPath, safName);
+                            if (safResult != null) {
+                                FLog.d(TAG, "Export copied to SAF: " + safResult);
+                            } else {
+                                FLog.e(TAG, "SAF copy failed, file remains at: " + tempPath);
+                            }
+                            String finalPath = safResult != null ? safResult : tempPath;
+                            completionHandler.post(() -> finishExport(finalPath, result));
+                        }, "FaditorSafCopy").start();
+                        return;
                     }
-
-                    FLog.d(TAG, "Export completed: " + finalPath);
-                    if (listener != null) {
-                        listener.onExportCompleted(finalPath, result);
-                    }
+                    finishExport(outputPath, result);
                 }
 
                 @Override
@@ -242,6 +246,14 @@ public class ExportManager {
     /**
      * Cancel the current export.
      */
+    private void finishExport(@NonNull String finalPath, @NonNull ExportResult result) {
+        isExporting = false;
+        FLog.d(TAG, "Export completed: " + finalPath);
+        if (listener != null) {
+            listener.onExportCompleted(finalPath, result);
+        }
+    }
+
     public void cancel() {
         if (transformer != null && isExporting) {
             stopProgressPolling();
@@ -720,10 +732,11 @@ public class ExportManager {
      * Copy a temp export file to the user's custom SAF storage location.
      *
      * @param tempFilePath path to the temporary export file
+     * @param fileName     name for the SAF file, or null for the temp file's name
      * @return the SAF display name on success, or null on failure
      */
     @Nullable
-    private String copyTempToSaf(@NonNull String tempFilePath) {
+    private String copyTempToSaf(@NonNull String tempFilePath, @Nullable String fileName) {
         String customUriString = prefsManager.getCustomStorageUri();
         if (customUriString == null) {
             FLog.e(TAG, "SAF copy: custom storage URI is null");
@@ -753,7 +766,7 @@ public class ExportManager {
                 return null;
             }
 
-            String name = safExportFileName != null ? safExportFileName : tempFile.getName();
+            String name = fileName != null ? fileName : tempFile.getName();
             DocumentFile docFile = pickedDir.createFile(
                     "video/" + Constants.RECORDING_FILE_EXTENSION, name);
             if (docFile == null) {
@@ -769,7 +782,7 @@ public class ExportManager {
                     FLog.e(TAG, "SAF copy: failed to open output stream");
                     return null;
                 }
-                byte[] buffer = new byte[8192];
+                byte[] buffer = new byte[1 << 20];
                 int bytesRead;
                 while ((bytesRead = in.read(buffer)) != -1) {
                     out.write(buffer, 0, bytesRead);
