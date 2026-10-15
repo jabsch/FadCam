@@ -347,8 +347,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Only reload and reset playhead if selecting a different segment
         if (!isReselection) {
-            // Stop any active image playback timer
-            imagePlaybackActive = false;
+            // Stop any active image playback timer (also drops the keep-screen-on flag)
+            if (imagePlaybackActive) stopImagePlayback();
 
             // Preserve current playhead position within the new segment
             long currentPlayheadMs = editorTimeline.getPlayheadPositionMs();
@@ -629,7 +629,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onPlayheadSeeked(int segmentIndex, float fractionInSegment, boolean isDragging) {
                 userDragging = true;
-                audioTailActive = false;  // Cancel audio-tail on seek
+                if (audioTailActive) {
+                    // Cancel audio-tail on seek, and release the keep-screen-on flag with it
+                    audioTailActive = false;
+                    pauseAudioPlayer();
+                    updatePlayPauseButton(false);
+                }
                 // Get clip directly — DON'T call selectSegment() during scrubbing.
                 // selectSegment triggers setPlayheadFraction → centerPlayhead which
                 // modifies scrollOffsetPx, causing a feedback loop that makes the
@@ -1185,7 +1190,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         audioTailActive = true;
                         audioTailStartWall = android.os.SystemClock.elapsedRealtime();
                         audioTailStartMs = playheadMs;
-                        btnPlayPause.setText("pause");
+                        updatePlayPauseButton(true);
                         syncAndPlayAudioPlayer();
                         startPlayheadUpdates();
                         FLog.d(TAG, "Play from audio-tail region: playhead=" + playheadMs + " videoEnd=" + videoEndMs);
@@ -2553,6 +2558,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 public void onExportStarted(@NonNull String outputPath) {
                     exportStartTimeMs = System.currentTimeMillis();
                     runOnUiThread(() -> showExportProgress());
+                }
+
+                @Override
+                public void onExportCancelled() {
+                    // Cancel from the notification: close the overlay so the screen can sleep
+                    runOnUiThread(FaditorEditorActivity.this::hideExportProgress);
                 }
 
                 @Override

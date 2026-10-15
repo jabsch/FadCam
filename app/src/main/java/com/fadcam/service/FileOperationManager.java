@@ -162,6 +162,7 @@ public class FileOperationManager {
             byte[] buffer = new byte[BUFFER_SIZE];
             int bytesRead;
             long lastProgressMs = 0L;
+            boolean finalSent = false;
             while ((bytesRead = in.read(buffer)) != -1) {
                 out.write(buffer, 0, bytesRead);
                 task.progress += bytesRead;
@@ -169,8 +170,10 @@ public class FileOperationManager {
                 // Each update rebuilds and posts the notification; a few per second is
                 // enough (it fired about every 400 KB, dozens of times a second)
                 long now = android.os.SystemClock.elapsedRealtime();
-                if (now - lastProgressMs >= PROGRESS_INTERVAL_MS || task.progress >= task.totalBytes) {
+                boolean reachedEnd = task.totalBytes > 0 && task.progress >= task.totalBytes;
+                if (now - lastProgressMs >= PROGRESS_INTERVAL_MS || (reachedEnd && !finalSent)) {
                     lastProgressMs = now;
+                    if (reachedEnd) finalSent = true;
                     notifyListener(listener -> listener.onTaskProgress(task));
                 }
             }
@@ -222,9 +225,16 @@ public class FileOperationManager {
     }
     
     private long getFileSize(Uri uri) throws Exception {
-        try (InputStream in = context.getContentResolver().openInputStream(uri)) {
-            if (in == null) return 0;
-            return in.available(); // Approximate size
+        if ("file".equals(uri.getScheme()) && uri.getPath() != null) {
+            return new File(uri.getPath()).length();
+        }
+        // available() only reports what can be read without blocking, often a few KB,
+        // which pinned progress at 100% and posted an update on every buffer
+        try (android.content.res.AssetFileDescriptor afd =
+                     context.getContentResolver().openAssetFileDescriptor(uri, "r")) {
+            if (afd == null) return 0;
+            long length = afd.getLength();
+            return length > 0 ? length : 0;
         }
     }
     

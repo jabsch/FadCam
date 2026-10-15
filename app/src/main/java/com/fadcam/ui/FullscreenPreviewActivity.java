@@ -2302,7 +2302,8 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
                 avd2.registerAnimationCallback(
                     new android.graphics.drawable.Animatable2.AnimationCallback() {
                         @Override public void onAnimationEnd(android.graphics.drawable.Drawable drawable) {
-                            if (ivFullscreenPreviewAvatar != null && ivFullscreenPreviewAvatar.isAttachedToWindow() && fullscreenAvatarLastEnabled) {
+                            if (ivFullscreenPreviewAvatar != null && ivFullscreenPreviewAvatar.isAttachedToWindow() && fullscreenAvatarLastEnabled
+                                    && !avatarLoopsPaused) {
                                 ivFullscreenPreviewAvatar.setImageResource(resolveFullscreenDrawable(RES_IDLE));
                                 scheduleNextFullscreenBlink(3000 + fullscreenBlinkRandom.nextInt(2500));
                             }
@@ -2312,7 +2313,8 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
             } else if (d instanceof android.graphics.drawable.Animatable) {
                 ((android.graphics.drawable.Animatable) d).start();
                 fullscreenBlinkHandler.postDelayed(() -> {
-                    if (ivFullscreenPreviewAvatar != null && ivFullscreenPreviewAvatar.isAttachedToWindow() && fullscreenAvatarLastEnabled) {
+                    if (ivFullscreenPreviewAvatar != null && ivFullscreenPreviewAvatar.isAttachedToWindow() && fullscreenAvatarLastEnabled
+                            && !avatarLoopsPaused) {
                         ivFullscreenPreviewAvatar.setImageResource(resolveFullscreenDrawable(RES_IDLE));
                         scheduleNextFullscreenBlink(3000 + fullscreenBlinkRandom.nextInt(2500));
                     }

@@ -73,6 +73,8 @@ public class ExportService extends Service {
         void onExportCompleted(@NonNull String outputPath,
                                @NonNull androidx.media3.transformer.ExportResult result);
         void onExportError(@NonNull Exception error);
+        /** The export was cancelled, from the UI or the notification. */
+        default void onExportCancelled() {}
     }
 
     // ── Instance fields ──────────────────────────────────────────────
@@ -271,6 +273,7 @@ public class ExportService extends Service {
             FLog.d(TAG, "Broadcasting ACTION_EXPORT_CANCELLED");
             sendBroadcast(broadcast.setPackage(getPackageName()));
             FLog.d(TAG, "ACTION_EXPORT_CANCELLED broadcast sent");
+            if (serviceListener != null) serviceListener.onExportCancelled();
         }
         com.fadcam.Utils.stopForegroundCompat(ExportService.this, true);
         stopSelf();

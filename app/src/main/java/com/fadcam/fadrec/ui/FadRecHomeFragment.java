@@ -2445,6 +2445,11 @@ public class FadRecHomeFragment extends HomeFragment {
         if (!isAdded() || mediaProjectionHelper == null) {
             return;
         }
+        // Stopped with the preview held back: state broadcasts (pause/resume from the
+        // notification or overlay) would attach the hidden preview again
+        if (previewHeldBackWhileStopped) {
+            return;
+        }
 
         boolean shouldPush = isScreenPreviewEnabled
             && (screenRecordingState == ScreenRecordingState.IN_PROGRESS
