@@ -1135,6 +1135,13 @@ public class VideoPlayerActivity extends AppCompatActivity {
                                 waveformView.setVisibility(
                                     state ? View.VISIBLE : View.GONE
                                 );
+                                if (state) {
+                                    // Analysis and progress updates only run while it's on
+                                    if (currentVideoUri != null) {
+                                        waveformView.analyzeAudioFromVideo(currentVideoUri);
+                                    }
+                                    setupWaveformUpdates();
+                                }
                             }
 
                             FLog.d(
@@ -1644,27 +1651,24 @@ public class VideoPlayerActivity extends AppCompatActivity {
         new Thread(() -> {
             MediaMetadataRetriever retriever = null;
             try {
+                // The index already holds the FFprobe duration for listed recordings;
+                // opening the file again with MediaMetadataRetriever is then redundant
+                // (and it misreads fragmented MP4 durations)
+                long indexed = com.fadcam.data.VideoIndexRepository
+                    .getInstance(getApplicationContext())
+                    .getCachedDuration(uri.toString());
+                if (indexed > 0) {
+                    applyCachedDuration(indexed);
+                    return;
+                }
                 retriever = new MediaMetadataRetriever();
                 retriever.setDataSource(VideoPlayerActivity.this, uri);
                 String durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
                 if (durationStr != null && !durationStr.isEmpty()) {
                     long durationMs = Long.parseLong(durationStr);
                     if (durationMs > 0) {
-                        cachedDurationMs = durationMs;
                         FLog.d(TAG, "Cached duration fetched via MediaMetadataRetriever: " + durationMs + "ms");
-                        // Update slider max on UI thread if needed
-                        runOnUiThread(() -> {
-                            try {
-                                // Don't update slider during scrubbing or grace period
-                                boolean inGracePeriod = (System.currentTimeMillis() - scrubEndTimeMs) < SCRUB_GRACE_PERIOD_MS;
-                                if (timeSlider != null && !isTimebarScrubbing && !inGracePeriod && timeSlider.getValueTo() < durationMs) {
-                                    timeSlider.setValueTo((float) durationMs);
-                                    FLog.d(TAG, "Slider max updated from cached duration: " + durationMs);
-                                }
-                            } catch (Exception e) {
-                                FLog.w(TAG, "Error updating slider max from cached duration", e);
-                            }
-                        });
+                        applyCachedDuration(durationMs);
                     }
                 }
             } catch (Exception e) {
@@ -1677,6 +1681,23 @@ public class VideoPlayerActivity extends AppCompatActivity {
                 }
             }
         }).start();
+    }
+
+    private void applyCachedDuration(long durationMs) {
+        cachedDurationMs = durationMs;
+        // Update slider max on UI thread if needed
+        runOnUiThread(() -> {
+            try {
+                // Don't update slider during scrubbing or grace period
+                boolean inGracePeriod = (System.currentTimeMillis() - scrubEndTimeMs) < SCRUB_GRACE_PERIOD_MS;
+                if (timeSlider != null && !isTimebarScrubbing && !inGracePeriod && timeSlider.getValueTo() < durationMs) {
+                    timeSlider.setValueTo((float) durationMs);
+                    FLog.d(TAG, "Slider max updated from cached duration: " + durationMs);
+                }
+            } catch (Exception e) {
+                FLog.w(TAG, "Error updating slider max from cached duration", e);
+            }
+        });
     }
 
     // Save current position to prefs keyed by current media URI
@@ -3638,9 +3659,12 @@ public class VideoPlayerActivity extends AppCompatActivity {
                     : true;
                 waveformView.setVisibility(enabled ? View.VISIBLE : View.GONE);
 
-                // Start real audio analysis if we have a video URI
+                // Start real audio analysis if we have a video URI. Off, the decode
+                // ran anyway for a view nobody sees; turning it on starts it.
                 android.net.Uri currentUri = getCurrentVideoUri();
-                if (currentUri != null) {
+                if (!enabled) {
+                    FLog.d(TAG, "Waveform off: skipping audio analysis");
+                } else if (currentUri != null) {
                     FLog.i(
                         TAG,
                         "Starting real audio analysis for URI: " + currentUri +
@@ -3685,8 +3709,9 @@ public class VideoPlayerActivity extends AppCompatActivity {
                         try {
                             updateWaveformProgress();
                             // Update every 100ms for smooth waveform animation, only
-                            // while playing (kickUiTicks() restarts it).
-                            if (waveformHandler != null && keepUiTicking()) {
+                            // while playing (kickUiTicks() restarts it) and shown.
+                            boolean waveformOn = spm == null || spm.isAudioWaveformEnabled();
+                            if (waveformHandler != null && keepUiTicking() && waveformOn) {
                                 waveformHandler.postDelayed(this, 100);
                             }
                         } catch (Exception e) {
@@ -3709,8 +3734,9 @@ public class VideoPlayerActivity extends AppCompatActivity {
             boolean enabled = spm != null ? spm.isAudioWaveformEnabled() : true;
             if (!enabled) return;
 
-            com.fadcam.ui.custom.AudioWaveformView waveformView =
-                playerView.findViewById(R.id.audio_waveform);
+            com.fadcam.ui.custom.AudioWaveformView waveformView = audioWaveformView != null
+                ? audioWaveformView
+                : playerView.findViewById(R.id.audio_waveform);
             if (
                 waveformView != null &&
                 player != null &&
