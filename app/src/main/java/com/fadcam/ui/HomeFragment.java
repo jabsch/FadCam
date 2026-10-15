@@ -289,6 +289,40 @@ public class HomeFragment extends BaseFragment {
     protected MaterialButton buttonMirrorSwitch;
     
     private boolean isPreviewEnabled = true;
+
+    /**
+     * A settings overlay (OverlayNavUtil) covers Home. It is opaque, so while it is
+     * up the preview gets no surface: the service otherwise kept drawing every
+     * camera frame under a page nobody could see through.
+     */
+    private boolean previewCoveredByOverlay = false;
+    private final androidx.fragment.app.FragmentManager.OnBackStackChangedListener overlayCoverListener =
+        this::onOverlayStackChanged;
+
+    private void onOverlayStackChanged() {
+        if (!isAdded() || getActivity() == null) {
+            return;
+        }
+        View container = getActivity().findViewById(R.id.overlay_fragment_container);
+        boolean covered = container != null
+            && container.getVisibility() == View.VISIBLE
+            && getActivity().getSupportFragmentManager().findFragmentById(R.id.overlay_fragment_container) != null;
+        if (covered == previewCoveredByOverlay) {
+            return;
+        }
+        previewCoveredByOverlay = covered;
+        if (!isRecordingOrPaused() && !isPreviewOnlyActive) {
+            return;
+        }
+        if (covered) {
+            FLog.d(TAG, "Overlay covers Home: detaching preview surface");
+            updateServiceWithCurrentSurface(null);
+        } else if (isResumed() && !isHidden() && isPreviewEnabled
+            && textureViewSurface != null && textureViewSurface.isValid()) {
+            FLog.d(TAG, "Overlay closed: reattaching preview surface");
+            updateServiceWithCurrentSurface(textureViewSurface);
+        }
+    }
     private boolean isPreviewOnlyActive = false;
     private boolean isPreviewOnlyStartPending = false;
     private long lastPreviewOnlyToggleDispatchMs = 0L;
@@ -3904,6 +3938,7 @@ public class HomeFragment extends BaseFragment {
     ) {
         super.onViewCreated(view, savedInstanceState);
         FLog.i(TAG, "[FragmentLifecycle] onViewCreated: Starting view setup, view is attached: " + view.isAttachedToWindow());
+        requireActivity().getSupportFragmentManager().addOnBackStackChangedListener(overlayCoverListener);
 
         // Initialize SharedPreferencesManager
         sharedPreferencesManager = SharedPreferencesManager.getInstance(
@@ -9452,6 +9487,10 @@ public class HomeFragment extends BaseFragment {
 
     @Override
     public void onDestroyView() {
+        if (getActivity() != null) {
+            getActivity().getSupportFragmentManager().removeOnBackStackChangedListener(overlayCoverListener);
+        }
+        previewCoveredByOverlay = false;
         // Clean up bubble rotation animation (legacy - ivBubbleBackground now null)
         if (ivBubbleBackground != null) {
             ivBubbleBackground.clearAnimation();
@@ -12116,6 +12155,10 @@ public class HomeFragment extends BaseFragment {
         if (isLaunchingFullscreen && !isFullscreenTransition) {
             FLog.d(TAG, "updateServiceWithCurrentSurface: Blocked — fullscreen is launching");
             return;
+        }
+        if (surfaceToUse != null && previewCoveredByOverlay && !isFullscreenTransition) {
+            // Covered by a settings overlay; it reattaches when the overlay closes
+            surfaceToUse = null;
         }
 
         // Avoid waking RecordingService with ACTION_CHANGE_SURFACE when nothing is active.

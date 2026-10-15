@@ -330,9 +330,16 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
         scheduleAutoHide();
     }
 
+    /**
+     * Set while the screen is stopped mid-recording with its surface taken back from
+     * the service; no surface goes out until onResume sends it again.
+     */
+    private boolean surfaceHeldBack = false;
+
     @Override
     protected void onResume() {
         super.onResume();
+        surfaceHeldBack = false;
         enterImmersiveMode();
         updateMirrorButtonVisibilityAndState();
         isTorchOn = prefs.sharedPreferences.getBoolean(Constants.PREF_TORCH_STATE, false);
@@ -376,6 +383,17 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
                 isPreviewOnlyActive = false;
             } catch (RuntimeException e) {
                 FLog.w("FullscreenPreview", "Could not stop preview on leave: " + e.getMessage());
+            }
+        }
+        // Recording on behind Home or another app: the service kept drawing every
+        // preview frame into this hidden screen's surface. onResume sends it again.
+        if (!isFinishing() && !isChangingConfigurations()
+                && (isRecordingActive || isRecordingPaused)) {
+            try {
+                sendSurfaceToService(null, 0, 0);
+                surfaceHeldBack = true;
+            } catch (RuntimeException e) {
+                FLog.w("FullscreenPreview", "Could not detach preview on leave: " + e.getMessage());
             }
         }
     }
@@ -1943,6 +1961,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
 
     private void sendSurfaceToService(@Nullable Surface surface, int w, int h) {
         if (isFinishing() || isDestroyed()) return;
+        if (surface != null && surfaceHeldBack) return; // A late resend after onStop
         Class<?> svc = getTargetServiceClass();
 
         boolean shouldSync = isRecordingActive || isRecordingPaused || isPreviewOnlyActive
