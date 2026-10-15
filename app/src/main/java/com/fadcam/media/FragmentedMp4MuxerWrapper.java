@@ -1116,8 +1116,17 @@ public class FragmentedMp4MuxerWrapper {
                 payload.flip();
             }
 
-            byte[] data = new byte[payload.remaining()];
-            payload.get(data);
+            byte[] data;
+            if (payload.hasArray() && payload.arrayOffset() == 0 && payload.position() == 0
+                    && payload.remaining() == payload.array().length) {
+                // Media3 builds each segment in a fresh heap buffer of exactly this
+                // size and drops it after this callback, so its array can be used as
+                // is. Copying it allocated another 5-10 MB every fragment (2 s).
+                data = payload.array();
+            } else {
+                data = new byte[payload.remaining()];
+                payload.get(data);
+            }
             
             // Lazy-init cached streaming state.  Callback runs on the library's
             // writer thread — never block it with heavy init.
