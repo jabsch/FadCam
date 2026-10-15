@@ -23,6 +23,8 @@ public class ShimmerEffectHelper {
      */
     public static void applyShimmerEffect(View view) {
         if (view == null) return;
+        // A second apply would orphan the first animator, still running
+        removeShimmerEffect(view);
         
         try {
             // Create shimmer drawable
@@ -34,7 +36,25 @@ public class ShimmerEffectHelper {
             // Create and start animation
             ValueAnimator shimmerAnimator = createShimmerAnimator(view);
             view.setTag(com.fadcam.R.id.shimmer_animator_tag, shimmerAnimator);
-            shimmerAnimator.start();
+            // The endless animator holds the view, so it ran every frame after its
+            // screen closed (sidebar update cards, recycled rows). Run it only while
+            // the view is attached.
+            View.OnAttachStateChangeListener attachListener = new View.OnAttachStateChangeListener() {
+                @Override
+                public void onViewAttachedToWindow(View v) {
+                    if (!shimmerAnimator.isStarted()) shimmerAnimator.start();
+                }
+
+                @Override
+                public void onViewDetachedFromWindow(View v) {
+                    shimmerAnimator.cancel();
+                }
+            };
+            view.addOnAttachStateChangeListener(attachListener);
+            view.setTag(com.fadcam.R.id.shimmer_attach_listener_tag, attachListener);
+            if (view.isAttachedToWindow()) {
+                shimmerAnimator.start();
+            }
             
             FLog.d(TAG, "Shimmer effect applied to view: " + view.getClass().getSimpleName());
             
@@ -55,6 +75,11 @@ public class ShimmerEffectHelper {
             if (animator != null) {
                 animator.cancel();
                 view.setTag(com.fadcam.R.id.shimmer_animator_tag, null);
+            }
+            Object attachListener = view.getTag(com.fadcam.R.id.shimmer_attach_listener_tag);
+            if (attachListener instanceof View.OnAttachStateChangeListener) {
+                view.removeOnAttachStateChangeListener((View.OnAttachStateChangeListener) attachListener);
+                view.setTag(com.fadcam.R.id.shimmer_attach_listener_tag, null);
             }
             
             // Clear foreground

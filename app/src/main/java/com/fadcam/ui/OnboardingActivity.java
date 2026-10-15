@@ -47,6 +47,9 @@ public class OnboardingActivity extends AppIntro {
     // Use View instead of Button to avoid class cast exceptions
     private View backButton;
     private View nextButton;
+    /** Endless intro-slide loops and their handlers, stopped in onDestroy. */
+    private final java.util.List<android.animation.Animator> endlessAnimators = new java.util.ArrayList<>();
+    private final java.util.List<Handler> slideHandlers = new java.util.ArrayList<>();
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -207,6 +210,7 @@ public class OnboardingActivity extends AppIntro {
                             // ===== SLEEP STATE =====
                             ivOnboardingAvatar.setImageResource(R.drawable.toggle_off);
                             final Handler handler = new Handler(android.os.Looper.getMainLooper());
+                            slideHandlers.add(handler);
                             final boolean[] wakeDone = {false};
                             final boolean[] blinkLoopActive = {false};
                             final android.widget.TextView tvZ1 = v.findViewById(R.id.tvOnboardZ1);
@@ -267,6 +271,7 @@ public class OnboardingActivity extends AppIntro {
                                                 ivOnboardingAvatar.setScaleX(sc2); ivOnboardingAvatar.setScaleY(sc2);
                                             });
                                             idleBreath.start();
+                                            endlessAnimators.add(idleBreath);
                                             // Floating bob
                                             android.animation.ObjectAnimator floatAnim = android.animation.ObjectAnimator
                                                     .ofFloat(ivOnboardingAvatar, "translationY", 0f, -8f);
@@ -275,11 +280,12 @@ public class OnboardingActivity extends AppIntro {
                                             floatAnim.setRepeatMode(android.animation.ObjectAnimator.REVERSE);
                                             floatAnim.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
                                             floatAnim.start();
+                                            endlessAnimators.add(floatAnim);
                                             // Blink loop
                                             blinkLoopActive[0] = true;
                                             final Runnable[] blinkRef = {null};
                                             blinkRef[0] = () -> {
-                                                if (!blinkLoopActive[0]) return;
+                                                if (!blinkLoopActive[0] || !ivOnboardingAvatar.isAttachedToWindow()) return;
                                                 ivOnboardingAvatar.setImageResource(R.drawable.toggle_on_blink);
                                                 android.graphics.drawable.Drawable bd = ivOnboardingAvatar.getDrawable();
                                                 if (bd instanceof android.graphics.drawable.Animatable2) {
@@ -987,6 +993,18 @@ public class OnboardingActivity extends AppIntro {
      * even though we've hidden the done button and are using our custom Start
      * button.
      */
+    @Override
+    protected void onDestroy() {
+        // The intro slide's breathing and floating loops are endless and its handler
+        // keeps the blink and greeting loops going; without this they ran every frame
+        // after onboarding finished, until the process died.
+        for (android.animation.Animator a : endlessAnimators) a.cancel();
+        endlessAnimators.clear();
+        for (Handler h : slideHandlers) h.removeCallbacksAndMessages(null);
+        slideHandlers.clear();
+        super.onDestroy();
+    }
+
     @Override
     protected void onDonePressed(Fragment currentFragment) {
         super.onDonePressed(currentFragment);
