@@ -11,6 +11,9 @@ package com.fadcam.shortcuts;
  *       fires on that second press.</li>
  *   <li>A single short press still changes the volume. When a double tap is bound
  *       to that key, the change waits for the double-tap window to pass.</li>
+ *   <li>Holding a key with no hold bound keeps stepping the volume, as without
+ *       JaCam. A consumed key press gets no auto-repeat from the system, so the
+ *       repeat is done here.</li>
  *   <li>Keys with nothing bound are never consumed.</li>
  * </ul>
  */
@@ -38,6 +41,7 @@ public final class VolumeKeyGestureDetector {
     private final Host host;
     private final long holdTimeoutMs;
     private final long doubleTapTimeoutMs;
+    private final long keyRepeatDelayMs;
 
     private int downKey = NO_KEY;
     private boolean holdFired;
@@ -48,10 +52,16 @@ public final class VolumeKeyGestureDetector {
     private int pendingTapKey = NO_KEY;
     private Runnable pendingTap;
 
-    public VolumeKeyGestureDetector(Host host, long holdTimeoutMs, long doubleTapTimeoutMs) {
+    /**
+     * @param holdTimeoutMs    how long a key is down before it counts as held
+     * @param keyRepeatDelayMs interval between volume steps while an unbound hold lasts
+     */
+    public VolumeKeyGestureDetector(Host host, long holdTimeoutMs, long doubleTapTimeoutMs,
+            long keyRepeatDelayMs) {
         this.host = host;
         this.holdTimeoutMs = holdTimeoutMs;
         this.doubleTapTimeoutMs = doubleTapTimeoutMs;
+        this.keyRepeatDelayMs = keyRepeatDelayMs;
     }
 
     /** @return true when the event was consumed. */
@@ -62,11 +72,7 @@ public final class VolumeKeyGestureDetector {
             return keyCode == downKey;
         }
         if (repeatCount > 0) {
-            // Key auto-repeat. With no hold bound, holding still steps the volume.
-            if (keyCode == downKey && hold == null && !secondTap) {
-                repeating = true;
-                host.adjustVolume(keyCode);
-            }
+            // The hold repeat below steps the volume; a system repeat would double it
             return true;
         }
         if (pendingTapKey != NO_KEY && pendingTapKey != keyCode) {
@@ -88,6 +94,17 @@ public final class VolumeKeyGestureDetector {
                 pendingHold = null;
                 holdFired = true;
                 host.runShortcut(holdId);
+            };
+            host.schedule(pendingHold, holdTimeoutMs);
+        } else {
+            // Only a double tap is bound: holding steps the volume like a normal hold
+            pendingHold = new Runnable() {
+                @Override
+                public void run() {
+                    repeating = true;
+                    host.adjustVolume(keyCode);
+                    host.schedule(this, keyRepeatDelayMs);
+                }
             };
             host.schedule(pendingHold, holdTimeoutMs);
         }
