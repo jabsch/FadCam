@@ -2817,6 +2817,7 @@ public class GLRecordingPipeline {
                     audioManager.setMode(originalAudioMode);
                     FLog.i(TAG, "AudioManager mode restored to: " + originalAudioMode);
                 }
+                com.fadcam.utils.OwnCommunicationMode.set(false);
                 setSpeakerphoneOnCompat(audioManager, originalSpeakerphoneOn);
                 // Stop BT SCO if it was started
                 if (isBtSco) {
@@ -3674,6 +3675,7 @@ public class GLRecordingPipeline {
                     audioManager.startBluetoothSco();
                     audioManager.setBluetoothScoOn(true);
                     audioManager.setMode(android.media.AudioManager.MODE_IN_COMMUNICATION);
+                    com.fadcam.utils.OwnCommunicationMode.set(true);
                     setSpeakerphoneOnCompat(audioManager, false);
                     FLog.i(TAG, "AudioManager: BT SCO started, mode=MODE_IN_COMMUNICATION");
                 } else {
