@@ -83,15 +83,43 @@ public class AudioSettingsFragment extends Fragment {
         rowInputSource = root.findViewById(R.id.row_audio_input_source);
     rowAdvanced = root.findViewById(R.id.row_audio_advanced);
     rowRawAudio = root.findViewById(R.id.row_raw_audio);
+    rowAudioChannels = root.findViewById(R.id.row_audio_channels);
+    valueAudioChannels = root.findViewById(R.id.value_audio_channels);
+    }
+
+    private View rowAudioChannels;
+    private TextView valueAudioChannels;
+
+    /** Opens the Audio Channels picker; applies from the next recording. */
+    private void showAudioChannelsBottomSheet(){
+        com.fadcam.utils.AudioChannelMode current = com.fadcam.utils.AudioChannelMode.current(prefs);
+        ArrayList<com.fadcam.ui.picker.OptionItem> items = new ArrayList<>();
+        for (com.fadcam.utils.AudioChannelMode m : com.fadcam.utils.AudioChannelMode.values()) {
+            items.add(new com.fadcam.ui.picker.OptionItem(m.id, getString(m.labelRes), getString(m.descriptionRes)));
+        }
+        final String resultKey = "picker_result_audio_channels";
+        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k,b)->{
+            com.fadcam.utils.AudioChannelMode picked = com.fadcam.utils.AudioChannelMode.fromId(
+                    b.getString(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID));
+            if (picked == null || picked == current) {
+                return;
+            }
+            com.fadcam.utils.AudioChannelMode.save(prefs, picked);
+            refreshAllValues();
+        });
+        com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(getString(R.string.setting_audio_channels_title),
+                items, current.id, resultKey, getString(R.string.audio_channels_footer))
+                .show(getParentFragmentManager(), "audio_channels_picker");
     }
 
     private void bindRowHandlers(View root){
     // Pill-style tap animation for every tappable arrow row.
     // Wide full-width rows: smaller scale (1.03) so the growth stays subtle.
-    int[] rowIds = { R.id.row_record_audio, R.id.row_audio_input_source, R.id.row_raw_audio, R.id.row_audio_advanced };
+    int[] rowIds = { R.id.row_record_audio, R.id.row_audio_input_source, R.id.row_raw_audio, R.id.row_audio_channels, R.id.row_audio_advanced };
     root.findViewById(R.id.row_record_audio).setOnClickListener(v -> showRecordAudioBottomSheet());
     rowInputSource.setOnClickListener(v -> showMicSelectionBottomSheet());
     root.findViewById(R.id.row_raw_audio).setOnClickListener(v -> showRawAudioBottomSheet());
+    rowAudioChannels.setOnClickListener(v -> showAudioChannelsBottomSheet());
         rowAdvanced.setOnClickListener(v -> showAudioAdvancedBottomSheet());
     }
 
@@ -104,6 +132,10 @@ public class AudioSettingsFragment extends Fragment {
         boolean raw = prefs.isRawAudioEnabled();
         if(valueRawAudio!=null){
             valueRawAudio.setText(raw? getString(R.string.setting_enabled) : getString(R.string.setting_disabled));
+        }
+
+        if(valueAudioChannels!=null){
+            valueAudioChannels.setText(com.fadcam.utils.AudioChannelMode.current(prefs).labelRes);
         }
 
         // Advanced summary (bitrate + sampling)
@@ -415,6 +447,15 @@ public class AudioSettingsFragment extends Fragment {
                 rowAdvanced.setOnClickListener(v-> showAudioAdvancedBottomSheet());
             } else {
                 rowAdvanced.setOnClickListener(null);
+            }
+        }
+        if(rowAudioChannels!=null){
+            rowAudioChannels.setAlpha(recordAudioEnabled?1f:disabledAlpha);
+            rowAudioChannels.setEnabled(recordAudioEnabled);
+            if(recordAudioEnabled){
+                rowAudioChannels.setOnClickListener(v-> showAudioChannelsBottomSheet());
+            } else {
+                rowAudioChannels.setOnClickListener(null);
             }
         }
         if(rowRawAudio!=null){
