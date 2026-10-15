@@ -105,6 +105,14 @@ public class CloudStatusManager {
                     return size() > 64;
                 }
             });
+    /**
+     * Failed fetches per command id. Transient failures retry on the next poll
+     * up to {@link #MAX_COMMAND_FETCH_ATTEMPTS}; after that, or on a bad body or
+     * a 4xx, the id stays handled so the next poll deletes it instead of
+     * fetching it again every few seconds forever. Executor thread only.
+     */
+    private final java.util.Map<String, Integer> commandFetchFailures = new java.util.HashMap<>();
+    private static final int MAX_COMMAND_FETCH_ATTEMPTS = 3;
     private Runnable commandRunnable;
     private Runnable viewersRunnable;
     // ❌ REMOVED: usageRunnable (moved to relay server)
@@ -760,6 +768,7 @@ public class CloudStatusManager {
         executor.execute(() -> {
             HttpURLConnection conn = null;
             boolean executed = false;
+            boolean retryable = false;
             try {
                 conn = (HttpURLConnection) java.net.URI.create(urlStr).toURL().openConnection();
                 conn.setRequestMethod("GET");
@@ -771,6 +780,10 @@ public class CloudStatusManager {
                 FLog.d(TAG, "☁️ Command fetch response: " + responseCode);
                 if (responseCode != 200) {
                     HttpKeepAlive.drain(conn, responseCode);
+                    // Server trouble, rate limit or an expiring token may pass;
+                    // another 4xx (gone, forbidden) will not.
+                    retryable = responseCode >= 500 || responseCode == 401
+                            || responseCode == 408 || responseCode == 429;
                 }
                 if (responseCode == 200) {
                     java.io.InputStream is = conn.getInputStream();
@@ -782,15 +795,28 @@ public class CloudStatusManager {
                     executed = true;
                     executeCommand(cmdId, command);
                 }
+            } catch (org.json.JSONException e) {
+                FLog.e(TAG, "Unreadable command " + cmdId + ": " + e.getMessage());
             } catch (Exception e) {
+                // Timeouts and dropped connections
+                retryable = !executed;
                 FLog.e(TAG, "Failed to fetch command " + cmdId + ": " + e.getMessage());
             } finally {
                 if (conn != null) {
                     conn.disconnect();
                 }
-                if (!executed) {
-                    // Not run (timeout, non-200, bad body): the next poll retries it
-                    handledCommandIds.remove(cmdId);
+                if (executed) {
+                    commandFetchFailures.remove(cmdId);
+                } else {
+                    int failures = commandFetchFailures.merge(cmdId, 1, Integer::sum);
+                    if (retryable && failures < MAX_COMMAND_FETCH_ATTEMPTS) {
+                        // The next poll fetches it again
+                        handledCommandIds.remove(cmdId);
+                    } else {
+                        // Still marked handled: the next poll deletes it
+                        commandFetchFailures.remove(cmdId);
+                        FLog.w(TAG, "☁️ Dropping command " + cmdId + " after failed fetch");
+                    }
                 }
             }
         });
