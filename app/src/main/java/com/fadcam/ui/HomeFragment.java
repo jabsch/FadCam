@@ -296,6 +296,8 @@ public class HomeFragment extends BaseFragment {
      * camera frame under a page nobody could see through.
      */
     private boolean previewCoveredByOverlay = false;
+    /** Preview-only was stopped because an overlay covered Home; it restarts when the overlay closes. */
+    private boolean previewOnlyStoppedForOverlay = false;
     private final androidx.fragment.app.FragmentManager.OnBackStackChangedListener overlayCoverListener =
         this::onOverlayStackChanged;
 
@@ -311,7 +313,29 @@ public class HomeFragment extends BaseFragment {
             return;
         }
         previewCoveredByOverlay = covered;
+        if (!covered && previewOnlyStoppedForOverlay) {
+            previewOnlyStoppedForOverlay = false;
+            CameraType cameraType = sharedPreferencesManager.getCameraSelection();
+            if (isResumed() && !isHidden() && !isRecordingOrPaused()
+                && !isPreviewOnlyActive && !isPreviewOnlyStartPending
+                && cameraType != null && !cameraType.isDual()) {
+                FLog.d(TAG, "Overlay closed: restarting preview-only");
+                startPreviewOnly();
+            }
+            return;
+        }
         if (!isRecordingOrPaused() && !isPreviewOnlyActive) {
+            return;
+        }
+        if (covered && !isRecordingOrPaused()) {
+            // Preview only: stop the camera. Without a surface it still streamed every
+            // frame (with GPS and the watermark) under the page for as long as it was open.
+            FLog.d(TAG, "Overlay covers Home: stopping preview-only until it closes");
+            dispatchStopPreviewOnly();
+            clearPreviewOnlyPendingState(true);
+            isPreviewOnlyActive = false;
+            updatePreviewVisibility();
+            previewOnlyStoppedForOverlay = true;
             return;
         }
         if (covered) {
@@ -863,36 +887,20 @@ public class HomeFragment extends BaseFragment {
                             Utils.showQuickToast(getContext(), R.string.preview_dual_not_supported);
                             return;
                         }
-                        Intent previewIntent = new Intent(getContext(), RecordingService.class);
                         boolean shouldStopPreviewOnly = isPreviewOnlyActive
                                 && textureView != null
                                 && textureView.getVisibility() == View.VISIBLE;
-                        previewIntent.setAction(shouldStopPreviewOnly
-                                ? Constants.INTENT_ACTION_STOP_PREVIEW_ONLY
-                                : Constants.INTENT_ACTION_START_PREVIEW_ONLY);
-                        if (!shouldStopPreviewOnly) {
-                            isPreviewOnlyStartPending = true;
-                            previewOnlyStartPendingDeadlineMs = SystemClock.elapsedRealtime() + 1800L;
-                            isPreviewEnabled = true;
-                            resetTextureView(); // avoid stale last frame from previous recording session
-                            ensureTextureViewSurfaceForPreviewStart();
-                            if (textureViewSurface != null && textureViewSurface.isValid()) {
-                                previewIntent.putExtra("SURFACE", textureViewSurface);
-                                previewIntent.putExtra("SURFACE_WIDTH", textureView.getWidth());
-                                previewIntent.putExtra("SURFACE_HEIGHT", textureView.getHeight());
-                            }
-                            schedulePreviewOnlySurfacePushBurst();
-                            schedulePreviewOnlyStartTimeout();
-                        } else {
+                        if (shouldStopPreviewOnly) {
+                            Intent stopIntent = new Intent(getContext(), RecordingService.class);
+                            stopIntent.setAction(Constants.INTENT_ACTION_STOP_PREVIEW_ONLY);
                             clearPreviewOnlyPendingState(true);
                             isPreviewOnlyActive = false;
+                            ServiceStartPolicy.startRecordingAction(requireContext(), stopIntent);
+                            animateNextPreviewTransition = true;
+                            updatePreviewVisibility();
+                        } else {
+                            startPreviewOnly();
                         }
-                        ServiceStartPolicy.startRecordingAction(requireContext(), previewIntent);
-                        if (!shouldStopPreviewOnly) {
-                            schedulePreviewOnlySurfacePushBurst();
-                        }
-                        animateNextPreviewTransition = true;
-                        updatePreviewVisibility();
                         return;
                     }
 
@@ -1659,10 +1667,20 @@ public class HomeFragment extends BaseFragment {
             }
         }
 
+        // onStart and onResume each ask within a few ms. With no recording, every ask
+        // created the service (camera thread, forensics DB, stale-file scan) and tore it down.
+        long now = SystemClock.uptimeMillis();
+        if (now - lastStateRequestUptimeMs < STATE_REQUEST_COALESCE_MS) {
+            return;
+        }
+        lastStateRequestUptimeMs = now;
         Intent startIntent = new Intent(getActivity(), RecordingService.class);
         startIntent.setAction(Constants.BROADCAST_ON_RECORDING_STATE_REQUEST);
         requireActivity().startService(startIntent);
     }
+
+    private static final long STATE_REQUEST_COALESCE_MS = 500L;
+    private long lastStateRequestUptimeMs;
 
     private void onRecordingStarted(boolean toast) {
         FLog.d(TAG, "📍 onRecordingStarted(toast=" + toast + ") - Timer managed by service in SharedPreferences");
@@ -5899,7 +5917,9 @@ public class HomeFragment extends BaseFragment {
             public void run() {
                 if (isAdded()) {
                     updateClock();
-                    handlerClock.postDelayed(this, 1000);
+                    // The clock shows minutes: wake at the next minute, not every second
+                    long msIntoMinute = System.currentTimeMillis() % 60_000L;
+                    handlerClock.postDelayed(this, 60_000L - msIntoMinute + 50L);
                 }
             }
         };
@@ -12606,6 +12626,31 @@ public class HomeFragment extends BaseFragment {
                 updateServiceWithCurrentSurface(null);
             }
         }
+    }
+
+    /** Starts the camera preview without recording (the long-press on the preview card). */
+    private void startPreviewOnly() {
+        if (!isAdded() || getContext() == null) {
+            return;
+        }
+        Intent previewIntent = new Intent(getContext(), RecordingService.class);
+        previewIntent.setAction(Constants.INTENT_ACTION_START_PREVIEW_ONLY);
+        isPreviewOnlyStartPending = true;
+        previewOnlyStartPendingDeadlineMs = SystemClock.elapsedRealtime() + 1800L;
+        isPreviewEnabled = true;
+        resetTextureView(); // avoid stale last frame from previous recording session
+        ensureTextureViewSurfaceForPreviewStart();
+        if (textureViewSurface != null && textureViewSurface.isValid()) {
+            previewIntent.putExtra("SURFACE", textureViewSurface);
+            previewIntent.putExtra("SURFACE_WIDTH", textureView.getWidth());
+            previewIntent.putExtra("SURFACE_HEIGHT", textureView.getHeight());
+        }
+        schedulePreviewOnlySurfacePushBurst();
+        schedulePreviewOnlyStartTimeout();
+        ServiceStartPolicy.startRecordingAction(requireContext(), previewIntent);
+        schedulePreviewOnlySurfacePushBurst();
+        animateNextPreviewTransition = true;
+        updatePreviewVisibility();
     }
 
     private void dispatchStopPreviewOnly() {
