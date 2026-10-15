@@ -1359,6 +1359,11 @@ public class DualCameraRecordingService extends Service {
                         config);            // DualCameraConfig enables PiP
             }
 
+            android.util.Size pipStream = choosePipStreamSize(videoWidth, videoHeight);
+            if (pipStream != null) {
+                recordingPipeline.setPipStreamSize(pipStream.getWidth(), pipStream.getHeight());
+                FLog.i(TAG, "PiP camera stream " + pipStream + " (video " + videoWidth + "x" + videoHeight + ")");
+            }
             recordingPipeline.prepareSurfaces();
 
             // ── Create capture sessions ───────────────────────────────
@@ -1392,6 +1397,78 @@ public class DualCameraRecordingService extends Service {
             FLog.e(TAG, "Failed to start dual recording", e);
             transitionToError("Recording setup failed: " + e.getMessage());
         }
+    }
+
+    /**
+     * Picks a smaller stream for the PiP camera. The PiP box is at most 40% of the
+     * output width, yet the second camera streamed at the full video size (1080p
+     * or 4K), which costs sensor, ISP and GPU texture work on every frame. The
+     * target short side is half the video's, but at least 720 (or the video's own
+     * if smaller), which still leaves more pixels than the largest box shows. The
+     * size must have the video's aspect ratio and be offered by both cameras,
+     * since swapping cameras moves either one into the PiP. Returns null to keep
+     * the full video size.
+     */
+    @Nullable
+    private android.util.Size choosePipStreamSize(int videoWidth, int videoHeight) {
+        if (cameraManager == null || frontCameraId == null || backCameraId == null) {
+            return null;
+        }
+        int videoLong = Math.max(videoWidth, videoHeight);
+        int videoShort = Math.min(videoWidth, videoHeight);
+        if (videoShort <= 0) {
+            return null;
+        }
+        int targetShort = Math.max(Math.min(videoShort, 720), videoShort / 2);
+        if (targetShort >= videoShort) {
+            return null;
+        }
+        try {
+            android.util.Size[] back = streamSizes(backCameraId);
+            android.util.Size[] front = streamSizes(frontCameraId);
+            if (back == null || front == null) {
+                return null;
+            }
+            java.util.Set<android.util.Size> frontSet = new java.util.HashSet<>(java.util.Arrays.asList(front));
+            android.util.Size best = null;
+            for (android.util.Size size : back) {
+                if (!frontSet.contains(size)) {
+                    continue;
+                }
+                int sLong = Math.max(size.getWidth(), size.getHeight());
+                int sShort = Math.min(size.getWidth(), size.getHeight());
+                // Same aspect ratio within 1%.
+                if (Math.abs((long) sLong * videoShort - (long) sShort * videoLong) * 100L
+                        > (long) videoLong * sShort) {
+                    continue;
+                }
+                if (sShort < targetShort || sShort >= videoShort) {
+                    continue;
+                }
+                if (best == null || sShort < Math.min(best.getWidth(), best.getHeight())) {
+                    best = size;
+                }
+            }
+            if (best == null) {
+                return null;
+            }
+            // Keep the video's orientation (landscape or portrait sizes).
+            boolean videoLandscape = videoWidth >= videoHeight;
+            int bLong = Math.max(best.getWidth(), best.getHeight());
+            int bShort = Math.min(best.getWidth(), best.getHeight());
+            return videoLandscape ? new android.util.Size(bLong, bShort) : new android.util.Size(bShort, bLong);
+        } catch (Exception e) {
+            FLog.w(TAG, "Could not pick a PiP stream size; using the video size", e);
+            return null;
+        }
+    }
+
+    @Nullable
+    private android.util.Size[] streamSizes(String cameraId) throws CameraAccessException {
+        CameraCharacteristics chars = cameraManager.getCameraCharacteristics(cameraId);
+        android.hardware.camera2.params.StreamConfigurationMap map =
+                chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+        return map != null ? map.getOutputSizes(android.graphics.SurfaceTexture.class) : null;
     }
 
     /**

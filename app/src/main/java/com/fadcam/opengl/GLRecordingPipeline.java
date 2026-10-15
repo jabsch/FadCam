@@ -239,6 +239,14 @@ public class GLRecordingPipeline {
     /** Optional dual camera config — when non-null, enables PiP rendering in the GL pipeline. */
     @Nullable
     private DualCameraConfig dualCameraConfig;
+    /** Secondary (PiP) camera stream size; 0 = the video size. Set before prepareSurfaces(). */
+    private int pipStreamWidth;
+    private int pipStreamHeight;
+
+    public void setPipStreamSize(int width, int height) {
+        pipStreamWidth = width;
+        pipStreamHeight = height;
+    }
 
     /** Secondary camera input surface, lazily obtained from GLWatermarkRenderer after PiP init. */
     private Surface secondaryCameraInputSurface;
@@ -647,6 +655,7 @@ public class GLRecordingPipeline {
 
                         // Initialize PiP if dual camera mode is enabled
                         if (dualCameraConfig != null) {
+                            glRenderer.setPipStreamSize(pipStreamWidth, pipStreamHeight);
                             glRenderer.initializePiP(dualCameraConfig);
                             secondaryCameraInputSurface = glRenderer.getSecondaryCameraInputSurface();
                             if (secondaryCameraInputSurface == null || !secondaryCameraInputSurface.isValid()) {
