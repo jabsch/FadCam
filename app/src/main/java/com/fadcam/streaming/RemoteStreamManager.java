@@ -465,6 +465,12 @@ public class RemoteStreamManager {
         
         bufferLock.writeLock().lock();
         try {
+            if (initializationSegment == null) {
+                // Server started mid-recording: the muxer sent its init segment
+                // before, so nothing can play these until the next file. Buffering
+                // and uploading them (each upload refused) was work for nothing.
+                return;
+            }
             // Detect unexpected sequence gaps (helps catch encoder reset issues)
             if (fragmentSequence > 0 && sequenceNumber != fragmentSequence + 1) {
                 FLog.w(TAG, "⚠️ Fragment gap: last=" + fragmentSequence + " incoming=" + sequenceNumber + " (possible encoder restart)");
@@ -936,8 +942,6 @@ public class RemoteStreamManager {
             float exposureCompensationStep = spMgr != null ? spMgr.getExposureCompensationStep() : 0.33f;
             // Compute display EV for web dashboard (backend is single source of truth)
             float exposureCompensationDisplay = exposureCompensation * exposureCompensationStep;
-            // DIAGNOSTIC: Log exposure values before inserting into JSON
-            FLog.d(TAG, "🔍 [getStatusJson] EXPOSURE DEBUG: ev=" + exposureCompensation + ", step=" + exposureCompensationStep + ", display=" + exposureCompensationDisplay);
             int exposureCompensationMin = spMgr != null ? spMgr.getExposureCompensationMin() : -12;
             int exposureCompensationMax = spMgr != null ? spMgr.getExposureCompensationMax() : 12;
             boolean mirrorEnabled = spMgr != null && spMgr.isFrontVideoMirrorEnabled();
@@ -1045,47 +1049,11 @@ public class RemoteStreamManager {
                 lastRelayUploadMs
             );
             
-            // ULTRA-CRITICAL DIAGNOSTIC: Check String.format output immediately
-            if (result.length() < 100) {
-                FLog.e(TAG, "❌ String.format produced tiny response: " + result.length() + " bytes");
-                FLog.e(TAG, "Full result: " + result);
-            } else if (!result.contains("exposureCompensation")) {
-                FLog.e(TAG, "❌ String.format result missing exposureCompensation!");
-                FLog.e(TAG, "First 500 chars: " + result.substring(0, Math.min(500, result.length())));
-            } else {
-                FLog.d(TAG, "✅ String.format executed, result size: " + result.length() + " bytes");
-            }
-            
             // OPTIMIZATION: Store result in cache for 1 second
             // This avoids expensive String.format() calls for repeated /status requests
             // Impact: 9 out of 10 status polls now served from cache (80% CPU reduction)
             cachedStatusJson = result;
             lastStatusJsonTime = currentTime;
-            
-            long generationTime = System.currentTimeMillis() - startTime;
-            FLog.d(TAG, "📊 [getStatusJson] JSON generated successfully in " + generationTime + "ms, size: " + result.length() + " bytes");
-            
-            // DIAGNOSTIC: Check if exposure fields are actually in the response
-            if (result.contains("\"exposureCompensationDisplay\"")) {
-                FLog.d(TAG, "✅ [getStatusJson] exposureCompensationDisplay IS in JSON response");
-            } else {
-                FLog.e(TAG, "❌ [getStatusJson] CRITICAL BUG: exposureCompensationDisplay MISSING from JSON response!");
-                FLog.e(TAG, "❌ Response length: " + result.length());
-            }
-            
-            // ULTRA-DEBUG: Log the part of JSON that SHOULD contain exposure fields
-            int expIdx = result.indexOf("\"exposureCompensation\"");
-            if (expIdx > 0) {
-                String snippet = result.substring(expIdx, Math.min(expIdx + 300, result.length()));
-                FLog.d(TAG, "📋 [getStatusJson] Exposure snippet:\n" + snippet);
-            } else {
-                FLog.e(TAG, "❌ exposureCompensation field not found at all!");
-            }
-            
-            // DEBUG: Log first 350 chars to help identify JSON errors
-            String preview = result.substring(0, Math.min(350, result.length()));
-            if (result.length() > 350) preview += "...[truncated]";
-            FLog.d(TAG, "📋 [getStatusJson] JSON preview:\n" + preview);
             
             return result;
         } catch (Exception e) {

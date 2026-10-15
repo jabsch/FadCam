@@ -351,23 +351,6 @@ import fi.iki.elonen.NanoHTTPD;
         streamManager.incrementConnections();
         
         try {
-            FLog.d(TAG, "📋 Serving initialization segment (" + (initSegment.length / 1024) + " KB) to " + clientIP);
-            
-            // DEBUG: Log first few bytes of init segment to verify ftyp box
-            if (initSegment.length > 8) {
-                String firstBytes = String.format(java.util.Locale.US, "%02X %02X %02X %02X %02X %02X %02X %02X",
-                    initSegment[0] & 0xFF, initSegment[1] & 0xFF, initSegment[2] & 0xFF, initSegment[3] & 0xFF,
-                    initSegment[4] & 0xFF, initSegment[5] & 0xFF, initSegment[6] & 0xFF, initSegment[7] & 0xFF);
-                FLog.d(TAG, "📋 Init segment header (hex): " + firstBytes + " (should start with ftyp signature)");
-                
-                // Check for ftyp box signature
-                if (initSegment[4] == 'f' && initSegment[5] == 't' && initSegment[6] == 'y' && initSegment[7] == 'p') {
-                    FLog.d(TAG, "✅ Init segment has valid ftyp box");
-                } else {
-                    FLog.w(TAG, "❌ Init segment missing ftyp box! May be corrupted");
-                }
-            }
-            
             // Check if this is first request from this client
             ClientMetrics metrics = streamManager.getClientMetrics(clientIP);
             boolean isFirstRequest = (metrics == null || metrics.getTotalBytesServed() == 0);
@@ -430,23 +413,6 @@ import fi.iki.elonen.NanoHTTPD;
             streamManager.incrementConnections();
             
             try {
-                FLog.d(TAG, "📦 Serving fragment #" + sequenceNumber + " (" + (fragment.sizeBytes / 1024) + " KB) to " + clientIP);
-                
-                // DEBUG: Log first few bytes of fragment to verify moof box
-                if (fragment.data.length > 8) {
-                    String firstBytes = String.format(java.util.Locale.US, "%02X %02X %02X %02X %02X %02X %02X %02X",
-                        fragment.data[0] & 0xFF, fragment.data[1] & 0xFF, fragment.data[2] & 0xFF, fragment.data[3] & 0xFF,
-                        fragment.data[4] & 0xFF, fragment.data[5] & 0xFF, fragment.data[6] & 0xFF, fragment.data[7] & 0xFF);
-                    FLog.d(TAG, "📦 Fragment #" + sequenceNumber + " header (hex): " + firstBytes + " (should start with moof)");
-                    
-                    // Check for moof box signature
-                    if (fragment.data[4] == 'm' && fragment.data[5] == 'o' && fragment.data[6] == 'o' && fragment.data[7] == 'f') {
-                        FLog.d(TAG, "✅ Fragment #" + sequenceNumber + " has valid moof box");
-                    } else {
-                        FLog.w(TAG, "❌ Fragment #" + sequenceNumber + " missing moof box! May be corrupted");
-                    }
-                }
-                
                 // Get previous data before adding new
                 ClientMetrics prevMetrics = streamManager.getClientMetrics(clientIP);
                 long previousData = prevMetrics != null ? prevMetrics.getTotalBytesServed() : 0;
@@ -1302,14 +1268,7 @@ import fi.iki.elonen.NanoHTTPD;
     @NonNull
     private Response serveStatus() {
         try {
-            long startTime = System.currentTimeMillis();
-            FLog.d(TAG, "📊 [/status] Request received");
-            
             String statusJson = streamManager.getStatusJson();
-            long jsonTime = System.currentTimeMillis();
-            FLog.d(TAG, "📊 [/status] JSON generated in " + (jsonTime - startTime) + "ms, size: " + statusJson.length() + " bytes");
-            
-            FLog.d(TAG, "📊 [/status] Response prepared, sending to client");
             return jsonResponse(Response.Status.OK, statusJson);
         } catch (Exception e) {
             FLog.e(TAG, "❌ [/status] Error in serveStatus: " + e.getMessage(), e);

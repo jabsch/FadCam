@@ -66,18 +66,17 @@ public final class SegmentEncryptor {
                 Cipher.ENCRYPT_MODE,
                 new SecretKeySpec(deviceKeyBytes, "AES"),
                 new GCMParameterSpec(GCM_TAG_BITS, iv));
-        byte[] ciphertextWithTag = cipher.doFinal(plaintext);
-
-        // Assemble: [magic 4B][iv 12B][ciphertext+tag]
-        int totalLen = MAGIC.length + GCM_IV_LEN + ciphertextWithTag.length;
-        byte[] out = new byte[totalLen];
-
-        System.arraycopy(MAGIC,            0, out,                    0, MAGIC.length);
-        System.arraycopy(iv,               0, out, MAGIC.length,         GCM_IV_LEN);
-        System.arraycopy(ciphertextWithTag, 0, out, MAGIC.length + GCM_IV_LEN, ciphertextWithTag.length);
-
-        FLog.d(TAG, "Segment encrypted: " + plaintext.length + "B → " + out.length + "B (+" +
-                (out.length - plaintext.length) + "B overhead)");
+        // Assemble: [magic 4B][iv 12B][ciphertext+tag]. The cipher writes straight
+        // into the output (a segment is ~1 MB; a separate ciphertext array and copy
+        // doubled the allocation every 2 s).
+        int header = MAGIC.length + GCM_IV_LEN;
+        byte[] out = new byte[header + cipher.getOutputSize(plaintext.length)];
+        System.arraycopy(MAGIC, 0, out, 0, MAGIC.length);
+        System.arraycopy(iv, 0, out, MAGIC.length, GCM_IV_LEN);
+        int written = cipher.doFinal(plaintext, 0, plaintext.length, out, header);
+        if (header + written != out.length) {
+            out = java.util.Arrays.copyOf(out, header + written);
+        }
         return out;
     }
 
