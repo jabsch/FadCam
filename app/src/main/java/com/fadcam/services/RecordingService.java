@@ -2282,6 +2282,18 @@ public class RecordingService extends Service {
             motionDetectorWarmupExecutor = null;
         }
 
+        // The TFLite interpreter (and its worker threads) otherwise outlives the
+        // service until the process dies. close() is synchronized with detect().
+        com.fadcam.motion.domain.detector.EfficientDetLite1Detector detector = efficientDetDetector;
+        efficientDetDetector = null;
+        if (detector != null) {
+            try {
+                detector.close();
+            } catch (Exception e) {
+                FLog.w(TAG, "Error closing EfficientDet detector", e);
+            }
+        }
+
         FLog.d(TAG, "Service destroyed.");
         // Clean up GeotagHelper when service is destroyed
         super.onDestroy();
@@ -3254,10 +3266,12 @@ public class RecordingService extends Service {
         float motionScore = motionScoreEma;
         List<com.fadcam.motion.domain.detector.EfficientDetLite1Detector.DetectionResult> detections;
         boolean freshDetections = false;
-        if (efficientDetDetector == null) {
+        // Read once: onDestroy nulls the field while this thread may still run.
+        final com.fadcam.motion.domain.detector.EfficientDetLite1Detector aiDetector = efficientDetDetector;
+        if (aiDetector == null) {
             detections = java.util.Collections.emptyList();
         } else if (framePacket != null && personCheckDue(rawMotionScore, nowMs)) {
-            detections = efficientDetDetector.detect(framePacket);
+            detections = aiDetector.detect(framePacket);
             motionLastPersonDetections = detections;
             motionLastPersonDetectMs = nowMs;
             freshDetections = true;
@@ -3266,9 +3280,9 @@ public class RecordingService extends Service {
             detections = motionLastPersonDetections;
         }
         com.fadcam.motion.domain.detector.EfficientDetLite1Detector.DetectionResult primaryDetection =
-                efficientDetDetector != null ? efficientDetDetector.choosePrimary(detections) : null;
-        float personConfidence = efficientDetDetector != null ? efficientDetDetector.bestPersonConfidence(detections) : 0f;
-        boolean personDetectedRaw = efficientDetDetector != null && efficientDetDetector.hasPerson(detections);
+                aiDetector != null ? aiDetector.choosePrimary(detections) : null;
+        float personConfidence = aiDetector != null ? aiDetector.bestPersonConfidence(detections) : 0f;
+        boolean personDetectedRaw = aiDetector != null && aiDetector.hasPerson(detections);
         // Hit counting and the person-likely window only advance on a fresh
         // detector run; a reused result must not count as extra confirmations.
         if (freshDetections) {
@@ -4317,6 +4331,7 @@ public class RecordingService extends Service {
 
                 // First pause any ongoing work with black frames
                 final boolean wasRenderingBlackFrames = isRenderingBlackFrames;
+                final int generation = reconnectGeneration;
 
                 // Use a longer delay between stopping black frames and starting camera session
                 // to ensure all GL resources are properly cleaned up
@@ -4330,10 +4345,10 @@ public class RecordingService extends Service {
                             FLog.d(TAG, "Waiting for black frame renderer cleanup before reconnecting camera");
 
                             // Resume camera session after delay
-                            mainHandler.postDelayed(() -> resumeCameraAfterReconnection(), 1500);
+                            mainHandler.postDelayed(() -> resumeCameraAfterReconnection(generation), 1500);
                         } else {
                             // If we weren't rendering black frames, proceed immediately
-                            resumeCameraAfterReconnection();
+                            resumeCameraAfterReconnection(generation);
                         }
                     } catch (Exception e) {
                         FLog.e(TAG, "Error during camera reconnection sequence", e);
@@ -4409,6 +4424,9 @@ public class RecordingService extends Service {
                 mainHandler.postDelayed(() -> {
                     handleCameraInterruption();
                 }, 300);
+            } else if (isResumingAfterReconnect()) {
+                FLog.w(TAG, "Camera disconnected while resuming after reconnection, waiting again");
+                mainHandler.postDelayed(() -> handleCameraLostDuringResume(), 300);
             } else if (recordingState != RecordingState.NONE && recordingState != RecordingState.WAITING_FOR_CAMERA) {
                 // For other states like PAUSED, just stop recording
                 FLog.w(TAG, "Camera disconnected while in state " + recordingState + ", stopping recording");
@@ -4463,6 +4481,9 @@ public class RecordingService extends Service {
                 mainHandler.postDelayed(() -> {
                     handleCameraInterruption();
                 }, 300);
+            } else if (isResumingAfterReconnect()) {
+                FLog.w(TAG, "Camera error " + error + " while resuming after reconnection, waiting again");
+                mainHandler.postDelayed(() -> handleCameraLostDuringResume(), 300);
             }
             // For other errors or states, stop recording
             else if (recordingState != RecordingState.NONE && recordingState != RecordingState.WAITING_FOR_CAMERA) {
@@ -4575,7 +4596,11 @@ public class RecordingService extends Service {
      * Helper method to resume normal recording after camera reconnection.
      * This is called after any black frame rendering has been properly stopped.
      */
-    private void resumeCameraAfterReconnection() {
+    private void resumeCameraAfterReconnection(int generation) {
+        if (generation != reconnectGeneration || !isResumingAfterReconnect()) {
+            FLog.d(TAG, "Skipping stale camera resume (camera lost again or recording ended)");
+            return;
+        }
         try {
             FLog.d(TAG, "Resuming normal camera recording after reconnection");
 
@@ -4584,6 +4609,10 @@ public class RecordingService extends Service {
 
             // Wait a moment for the session to be fully configured
             mainHandler.postDelayed(() -> {
+                if (generation != reconnectGeneration || !isResumingAfterReconnect()) {
+                    FLog.d(TAG, "Camera lost again or recording ended before resume finished");
+                    return;
+                }
                 try {
                     // Update recording state
                     recordingState = RecordingState.IN_PROGRESS;
@@ -7990,6 +8019,8 @@ public class RecordingService extends Service {
     // Flag to track if we need to automatically resume recording after camera
     // interruption
     private volatile boolean pendingCameraReconnect = false;
+    /** Bumped on every camera loss so queued resume steps can tell they are stale. */
+    private volatile int reconnectGeneration = 0;
     /**
      * Fallback retry interval. The camera service tells us when the camera is
      * free again (see {@link #reconnectAvailabilityCallback}); blind retries
@@ -8147,6 +8178,33 @@ public class RecordingService extends Service {
         }
 
         FLog.i(TAG, "Camera interrupted during recording - switching to black frame mode");
+        enterCameraWaitMode();
+    }
+
+    /**
+     * True between the camera coming back ({@code pendingCameraReconnect}
+     * cleared in onOpened) and the recording switching back to IN_PROGRESS.
+     */
+    private boolean isResumingAfterReconnect() {
+        return recordingState == RecordingState.WAITING_FOR_CAMERA && !pendingCameraReconnect && !isStopping;
+    }
+
+    /**
+     * The camera came back but was lost again before recording resumed.
+     * Without this the recording stayed in WAITING_FOR_CAMERA with no black
+     * frames and no reconnect attempts until the user stopped it.
+     */
+    private void handleCameraLostDuringResume() {
+        if (!isResumingAfterReconnect()) {
+            return;
+        }
+        FLog.i(TAG, "Camera lost again during reconnection - back to black frame mode");
+        enterCameraWaitMode();
+    }
+
+    private void enterCameraWaitMode() {
+        // Invalidates resume steps still queued from an earlier reconnection
+        reconnectGeneration++;
 
         // Save the current camera ID for reconnection
         String cameraToReconnect = null;
