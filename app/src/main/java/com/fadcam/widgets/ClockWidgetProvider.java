@@ -32,10 +32,18 @@ public class ClockWidgetProvider extends AppWidgetProvider {
 
     private static final String ACTION_UPDATE_CLOCK = "com.fadcam.widgets.ACTION_UPDATE_CLOCK";
 
+    /**
+     * Per widget: everything the last full update drew except the time. When a minute
+     * tick finds it unchanged, only the time bitmap is drawn and sent; the date, AM/PM
+     * and Arabic bitmaps were redrawn and re-sent to the launcher every minute.
+     */
+    private static final java.util.Map<Integer, String> lastFullUpdateKeys =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
         for (int id : appWidgetIds) {
-            updateClock(context, appWidgetManager, id);
+            updateClock(context, appWidgetManager, id, false);
         }
         scheduleMinuteUpdates(context);
     }
@@ -48,13 +56,22 @@ public class ClockWidgetProvider extends AppWidgetProvider {
     @Override
     public void onDisabled(Context context) {
         cancelMinuteUpdates(context);
+        lastFullUpdateKeys.clear();
+    }
+
+    @Override
+    public void onDeleted(Context context, int[] appWidgetIds) {
+        super.onDeleted(context, appWidgetIds);
+        for (int id : appWidgetIds) {
+            lastFullUpdateKeys.remove(id);
+        }
     }
 
     @Override
     public void onAppWidgetOptionsChanged(Context context, AppWidgetManager appWidgetManager, int appWidgetId, android.os.Bundle newOptions) {
         super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions);
         // Update widget when size changes
-        updateClock(context, appWidgetManager, appWidgetId);
+        updateClock(context, appWidgetManager, appWidgetId, false);
     }
 
     @Override
@@ -66,13 +83,16 @@ public class ClockWidgetProvider extends AppWidgetProvider {
                 ACTION_UPDATE_CLOCK.equals(intent.getAction())) {
             AppWidgetManager mgr = AppWidgetManager.getInstance(context);
             int[] ids = mgr.getAppWidgetIds(new ComponentName(context, ClockWidgetProvider.class));
+            boolean minuteTick = ACTION_UPDATE_CLOCK.equals(intent.getAction())
+                    || Intent.ACTION_TIME_TICK.equals(intent.getAction());
             for (int id : ids) {
-                updateClock(context, mgr, id);
+                updateClock(context, mgr, id, minuteTick);
             }
         }
     }
 
-    private void updateClock(Context context, AppWidgetManager manager, int appWidgetId) {
+    private void updateClock(Context context, AppWidgetManager manager, int appWidgetId,
+                             boolean minuteTick) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_clock);
         WidgetPreferences prefs = new WidgetPreferences(context);
 
@@ -82,6 +102,23 @@ public class ClockWidgetProvider extends AppWidgetProvider {
 
     // Compute dynamic text sizes (in sp)
     float timeSizeSp = Math.max(42f, 56f * scaleFactor);
+
+    Date now = new Date();
+    boolean use24h = prefs.is24HourFormat();
+    String timeText = new SimpleDateFormat(use24h ? "HH:mm" : "h:mm", Locale.getDefault()).format(now);
+    String fullKey = use24h + "|" + (use24h ? "" : new SimpleDateFormat("a", Locale.getDefault()).format(now))
+            + "|" + prefs.showDate() + "|" + (prefs.showDate()
+                    ? new SimpleDateFormat(prefs.getDateFormat(), Locale.getDefault()).format(now) : "")
+            + "|" + prefs.showArabicDate() + "|" + (prefs.showArabicDate()
+                    ? ArabicDateUtils.getArabicDate(prefs.getArabicDateFormat()) : "")
+            + "|" + prefs.hasBlackBackground() + "|" + prefs.showBranding() + "|" + widgetSize;
+    if (minuteTick && fullKey.equals(lastFullUpdateKeys.get(appWidgetId))) {
+        RemoteViews timeOnly = new RemoteViews(context.getPackageName(), R.layout.widget_clock);
+        timeOnly.setImageViewBitmap(R.id.clock_time, renderTextBitmap(context, timeText, timeSizeSp,
+                Color.WHITE, true, false, 0, ResourcesCompat.getFont(context, R.font.ubuntu_regular)));
+        manager.partiallyUpdateAppWidget(appWidgetId, timeOnly);
+        return;
+    }
     float ampmSizeSp = Math.max(12f, 14f * scaleFactor);
 
     final float baseWidth = 250f;
@@ -181,6 +218,7 @@ public class ClockWidgetProvider extends AppWidgetProvider {
         views.setOnClickPendingIntent(R.id.clock_root, pi);
 
     manager.updateAppWidget(appWidgetId, views);
+    lastFullUpdateKeys.put(appWidgetId, fullKey);
     }
 
     private static int dpToPx(Context context, float dp) {

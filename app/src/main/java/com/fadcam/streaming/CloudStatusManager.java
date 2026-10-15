@@ -307,8 +307,9 @@ public class CloudStatusManager {
                 }
                 // While uploads or updates wait for a viewer, check sooner so a new
                 // viewer gets video and live status within about 10 s instead of 30 s.
-                boolean waiting = RemoteStreamManager.getInstance().isWaitingForCloudViewer()
-                        || (updateRate().slowsWhenUnwatched() && !isWatched());
+                // An unwatched Adaptive rate needs no fast tick here: the command poll
+                // checks viewers then, and this one woke every 10 s to do nothing.
+                boolean waiting = RemoteStreamManager.getInstance().isWaitingForCloudViewer();
                 handler.postDelayed(this, waiting
                         ? VIEWERS_POLL_WAITING_INTERVAL_MS
                         : VIEWERS_POLL_INTERVAL_MS);
