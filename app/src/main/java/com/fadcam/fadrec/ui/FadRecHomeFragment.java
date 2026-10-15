@@ -72,6 +72,8 @@ public class FadRecHomeFragment extends HomeFragment {
     private boolean isScreenPreviewOnlyActive = false;
     private boolean pendingPreviewOnlyPermission = false;
     private Surface previewSurface;
+    /** Preview surface detached in onStop while recording; onResume sends it again. */
+    private boolean previewHeldBackWhileStopped = false;
     private int previewSurfaceWidth = -1;
     private int previewSurfaceHeight = -1;
     private final android.os.Handler previewUiHandler = new android.os.Handler(android.os.Looper.getMainLooper());
@@ -2614,6 +2616,12 @@ public class FadRecHomeFragment extends HomeFragment {
         
         // Timer updates are handled by updateUIForRecordingState().
         reapplyScreenRecordingCardState(false);
+        if (previewHeldBackWhileStopped) {
+            // After the state check above, so a recording that ended meanwhile
+            // doesn't start the service again
+            previewHeldBackWhileStopped = false;
+            pushPreviewSurfaceToService();
+        }
     }
 
     @Override
@@ -2724,6 +2732,15 @@ public class FadRecHomeFragment extends HomeFragment {
     @Override
     public void onStop() {
         unregisterAudioDeviceCallback();
+        // A TextureView's surface stays valid while the app is in the background, so
+        // the recorder kept drawing every frame into a preview nobody could see while
+        // you recorded another app. onResume sends it again.
+        if (mediaProjectionHelper != null && isScreenPreviewEnabled
+                && (screenRecordingState == ScreenRecordingState.IN_PROGRESS
+                || screenRecordingState == ScreenRecordingState.PAUSED)) {
+            mediaProjectionHelper.updateScreenPreviewSurface(null, -1, -1);
+            previewHeldBackWhileStopped = true;
+        }
         super.onStop();
         FLog.d(TAG, "FadRecHomeFragment onStop");
         // Note: Broadcast receivers remain registered to continue receiving state updates
