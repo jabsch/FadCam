@@ -130,7 +130,7 @@ public class ScreenRecordingPipeline {
      * and to the preview surface if one is attached.
      */
     private final Runnable renderRunnable = new Runnable() {
-        private int frameCount = 0;
+        private long lastWatermarkRefreshMs = 0L;
 
         @Override
         public void run() {
@@ -146,7 +146,12 @@ public class ScreenRecordingPipeline {
                 // inside this runnable and returned early, the SurfaceTexture buffer queue
                 // would fill up (only 1-2 buffers capacity in async mode), the VirtualDisplay
                 // producer would block on dequeueBuffer(), and the pipeline would stall.
-                if (++frameCount % 30 == 0 && watermarkInfoProvider != null && glWatermarkRenderer != null) {
+                // Refresh by time, not frame count: a still screen draws few frames, and
+                // counting froze the clock until 30 new frames had arrived.
+                long nowMs = android.os.SystemClock.elapsedRealtime();
+                if (nowMs - lastWatermarkRefreshMs >= 1000L
+                        && watermarkInfoProvider != null && glWatermarkRenderer != null) {
+                    lastWatermarkRefreshMs = nowMs;
                     try {
                         String text = watermarkInfoProvider.getWatermarkText();
                         if (text != null) {
@@ -192,6 +197,8 @@ public class ScreenRecordingPipeline {
     // State management
     private boolean isRecording = false;
     private volatile boolean isPaused = false;
+    /** The audio thread waits on this while paused. */
+    private final Object audioPauseLock = new Object();
     private boolean isStopped = false;
     private boolean muxerStarted = false;
     private volatile boolean audioMuted = false;
@@ -1040,10 +1047,16 @@ public class ScreenRecordingPipeline {
             
             while (isRecording && !isStopped) {
                 if (isPaused) {
-                    try {
-                        Thread.sleep(10);
-                    } catch (InterruptedException e) {
-                        break;
+                    // Sleep until resume or stop wakes us (was a 10 ms poll,
+                    // 100 wakeups a second for the whole pause).
+                    synchronized (audioPauseLock) {
+                        if (isPaused && isRecording && !isStopped) {
+                            try {
+                                audioPauseLock.wait(5000L);
+                            } catch (InterruptedException e) {
+                                break;
+                            }
+                        }
                     }
                     continue;
                 }
@@ -1524,6 +1537,7 @@ public class ScreenRecordingPipeline {
         }
         
         isPaused = false;
+        wakeAudioThread();
         // Start the resumed part on a keyframe so it never refers to frames
         // from before the pause.
         try {
@@ -1536,6 +1550,12 @@ public class ScreenRecordingPipeline {
             FLog.w(TAG, "Sync frame request on resume failed", e);
         }
         FLog.d(TAG, "Recording resumed");
+    }
+
+    private void wakeAudioThread() {
+        synchronized (audioPauseLock) {
+            audioPauseLock.notifyAll();
+        }
     }
 
     /**
@@ -1559,6 +1579,7 @@ public class ScreenRecordingPipeline {
         FLog.d(TAG, "Stopping screen recording");
         isStopped = true;
         isRecording = false;
+        wakeAudioThread();
         
         // Stop audio recording
         if (audioRecord != null) {
