@@ -123,11 +123,11 @@ public class VideoPlayerActivity extends AppCompatActivity {
     private void updateKeepScreenOn() {
         boolean keepAwake = false;
         try {
-            int state = player != null ? player.getPlaybackState() : Player.STATE_IDLE;
+            // isPlaying() is false while a call holds audio focus (playWhenReady stays true)
             keepAwake = screenInFront
                     && player != null
-                    && player.getPlayWhenReady()
-                    && (state == Player.STATE_READY || state == Player.STATE_BUFFERING)
+                    && (player.isPlaying()
+                            || (player.getPlayWhenReady() && player.getPlaybackState() == Player.STATE_BUFFERING))
                     && SharedPreferencesManager.getInstance(this).isPlayerKeepScreenOn();
         } catch (Exception ignored) {}
         if (keepAwake) {
@@ -3617,6 +3617,14 @@ public class VideoPlayerActivity extends AppCompatActivity {
 
                         @Override
                         public void onPlaybackStateChanged(int playbackState) {
+                            if (screenInFront) {
+                                updateKeepScreenOn();
+                            }
+                        }
+
+                        @Override
+                        public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
+                            // Pausing mid-seek (buffering) changes no playing state
                             if (screenInFront) {
                                 updateKeepScreenOn();
                             }

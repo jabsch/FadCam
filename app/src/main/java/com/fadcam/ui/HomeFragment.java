@@ -10706,6 +10706,7 @@ public class HomeFragment extends BaseFragment {
     protected void stopBubbleRotation() {
         stopHomeBlinkLoop();
         if (ambianceTwinkleAnim != null) { ambianceTwinkleAnim.cancel(); ambianceTwinkleAnim = null; }
+        if (getView() != null) requestSlowLoopFrameRate(getView().findViewById(R.id.iv_sleep_ambiance), false);
         if (ivWakeSun != null) { ivWakeSun.animate().cancel(); }
         if (homeBreathingAnimator != null) { homeBreathingAnimator.cancel(); homeBreathingAnimator = null; }
         if (homeAvatarFloatAnim != null) { homeAvatarFloatAnim.cancel(); homeAvatarFloatAnim = null; }
@@ -10733,6 +10734,7 @@ public class HomeFragment extends BaseFragment {
             ivPreviewAvatar.setAlpha(1.0f);
             // Cancel twinkle + animate moon out, spin sun in
             if (ambianceTwinkleAnim != null) { ambianceTwinkleAnim.cancel(); ambianceTwinkleAnim = null; }
+            if (getView() != null) requestSlowLoopFrameRate(getView().findViewById(R.id.iv_sleep_ambiance), false);
             if (getView() != null) {
                 View ivAmbiance = getView().findViewById(R.id.iv_sleep_ambiance);
                 if (ivAmbiance != null) {

@@ -121,6 +121,8 @@ public class AnnotationService extends Service {
     private Runnable recordingTimerRunnable;
     private SharedPreferencesManager sharedPreferencesManager;
     private com.fadcam.fadrec.ScreenRecordingState recordingState = com.fadcam.fadrec.ScreenRecordingState.NONE;
+    /** When the pause began (elapsedRealtime), so the timer holds still while paused; 0 = not known. */
+    private long timerPausedAtMs = 0L;
     private boolean isRecordingControlsExpanded = false;
 
     // Project section
@@ -3227,6 +3229,11 @@ public class AnnotationService extends Service {
                         com.fadcam.fadrec.ScreenRecordingState oldState = recordingState;
                         recordingState = com.fadcam.fadrec.ScreenRecordingState.valueOf(stateStr);
                         FLog.d(TAG, "[BROADCAST] State updated: " + oldState + " -> " + recordingState);
+                        if (recordingState != com.fadcam.fadrec.ScreenRecordingState.PAUSED) {
+                            timerPausedAtMs = 0L;
+                        } else if (oldState != com.fadcam.fadrec.ScreenRecordingState.PAUSED) {
+                            timerPausedAtMs = SystemClock.elapsedRealtime();
+                        }
 
                         // Handle timer based on state changes
                         if (recordingState == com.fadcam.fadrec.ScreenRecordingState.IN_PROGRESS
@@ -4013,7 +4020,11 @@ public class AnnotationService extends Service {
             return;
         }
 
-        long elapsed = SystemClock.elapsedRealtime() - recordingStartTime;
+        // The service moves the start time forward only on resume, so while paused
+        // "now" stops at the pause (opening the controls showed paused time added).
+        long now = recordingState == com.fadcam.fadrec.ScreenRecordingState.PAUSED && timerPausedAtMs > 0
+                ? timerPausedAtMs : SystemClock.elapsedRealtime();
+        long elapsed = now - recordingStartTime;
         long seconds = elapsed / 1000;
         long minutes = seconds / 60;
         long hours = minutes / 60;
