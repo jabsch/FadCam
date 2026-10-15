@@ -349,6 +349,11 @@ public class RemoteFragment extends BaseFragment {
             cloudUploadRow.setOnClickListener(v -> showCloudUploadModePicker());
             refreshCloudUploadModeValue(view);
         }
+        View streamBitrateRow = view.findViewById(R.id.stream_bitrate_mode_row);
+        if (streamBitrateRow != null) {
+            streamBitrateRow.setOnClickListener(v -> showStreamBitrateModePicker());
+            refreshStreamBitrateModeValue(view);
+        }
         
         // View endpoints row click listener
         viewEndpointsRow.setOnClickListener(v -> showEndpointsPicker());
@@ -988,6 +993,37 @@ public class RemoteFragment extends BaseFragment {
         com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(getString(R.string.setting_cloud_upload_title),
                 items, current.id, resultKey, getString(R.string.cloud_upload_footer))
                 .show(getParentFragmentManager(), "cloud_upload_picker");
+    }
+
+    /** Stream Bitrate picker; the encoder reads it when the next recording starts. */
+    private void showStreamBitrateModePicker() {
+        com.fadcam.SharedPreferencesManager prefs = com.fadcam.SharedPreferencesManager.getInstance(requireContext());
+        com.fadcam.utils.StreamBitrateMode current = com.fadcam.utils.StreamBitrateMode.current(prefs);
+        java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
+        for (com.fadcam.utils.StreamBitrateMode m : com.fadcam.utils.StreamBitrateMode.values()) {
+            items.add(new com.fadcam.ui.picker.OptionItem(m.id, getString(m.labelRes), getString(m.descriptionRes)));
+        }
+        final String resultKey = "picker_result_stream_bitrate";
+        getParentFragmentManager().setFragmentResultListener(resultKey, getViewLifecycleOwner(), (k, b) -> {
+            com.fadcam.utils.StreamBitrateMode picked = com.fadcam.utils.StreamBitrateMode.fromId(
+                    b.getString(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID));
+            if (picked == null || picked == current) {
+                return;
+            }
+            com.fadcam.utils.StreamBitrateMode.save(prefs, picked);
+            refreshStreamBitrateModeValue(getView());
+        });
+        com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(getString(R.string.setting_stream_bitrate_title),
+                items, current.id, resultKey, getString(R.string.stream_bitrate_footer))
+                .show(getParentFragmentManager(), "stream_bitrate_picker");
+    }
+
+    private void refreshStreamBitrateModeValue(@Nullable View root) {
+        TextView value = root != null ? root.findViewById(R.id.stream_bitrate_mode_value) : null;
+        if (value != null) {
+            value.setText(com.fadcam.utils.StreamBitrateMode.current(
+                    com.fadcam.SharedPreferencesManager.getInstance(requireContext())).labelRes);
+        }
     }
 
     private void refreshCloudUploadModeValue(@Nullable View root) {

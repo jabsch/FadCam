@@ -1214,11 +1214,13 @@ public class GLRecordingPipeline {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
             try {
                 boolean isStreaming = com.fadcam.streaming.RemoteStreamManager.getInstance().isStreamingEnabled();
-                int bitrateMode = isStreaming
+                // Remote > Stream Bitrate: Variable keeps VBR while streaming
+                boolean constantBitrate = isStreaming && streamUsesConstantBitrate();
+                int bitrateMode = constantBitrate
                     ? MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
                     : MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
                 format.setInteger(MediaFormat.KEY_BITRATE_MODE, bitrateMode);
-                FLog.i(TAG, "[ENCODER] CBR=" + isStreaming + " | bitrate=" + (videoBitrate/1_000_000) + "Mbps | fps=" + videoFramerate);
+                FLog.i(TAG, "[ENCODER] CBR=" + constantBitrate + " | bitrate=" + (videoBitrate/1_000_000) + "Mbps | fps=" + videoFramerate);
             } catch (Exception e) {
                 FLog.w(TAG, "Bitrate mode not supported", e);
             }
@@ -1297,7 +1299,9 @@ public class GLRecordingPipeline {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
             try {
                 boolean isStreaming = com.fadcam.streaming.RemoteStreamManager.getInstance().isStreamingEnabled();
-                int bitrateMode = isStreaming
+                // Remote > Stream Bitrate: Variable keeps VBR while streaming
+                boolean constantBitrate = isStreaming && streamUsesConstantBitrate();
+                int bitrateMode = constantBitrate
                     ? MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
                     : MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
                 format.setInteger(MediaFormat.KEY_BITRATE_MODE, bitrateMode);
@@ -4083,6 +4087,16 @@ public class GLRecordingPipeline {
     public void releasePreviewResources() {
         if (glRenderer != null) {
             glRenderer.releasePreviewEGL();
+        }
+    }
+
+    private boolean streamUsesConstantBitrate() {
+        try {
+            return com.fadcam.utils.StreamBitrateMode.current(
+                    com.fadcam.SharedPreferencesManager.getInstance(context))
+                    == com.fadcam.utils.StreamBitrateMode.CONSTANT;
+        } catch (Exception e) {
+            return true;
         }
     }
 }

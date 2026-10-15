@@ -1400,6 +1400,12 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="cloud_upload_always_desc">Uploads all the time, so the stream is ready the moment the dashboard opens. Most radio use and heat.</string>
     <string name="cloud_upload_watched">Only when watched</string>
     <string name="cloud_upload_watched_desc">Uploads only while a viewer has the dashboard open. A new viewer sees \"Stream offline\" for about 10 to 20 s until video arrives; refresh the page if it stays stuck. If the viewer count can\'t be read, it uploads anyway.</string>
+    <string name="setting_stream_bitrate_title">Stream Bitrate</string>
+    <string name="stream_bitrate_footer">While the stream server is on, the video encoder normally holds the stream quality\'s bitrate on every frame. That makes a still scene cost as much as a busy one: every byte is encoded, encrypted, uploaded or served, and saved to the recording. Variable lets the encoder spend less when little moves. Applies from the next recording. Without the stream server, recordings always use variable. No other phone settings need to change.</string>
+    <string name="stream_bitrate_constant">Constant</string>
+    <string name="stream_bitrate_constant_desc">Steady bitrate, easiest for viewers on slow connections. Most data, processor and radio use on still scenes.</string>
+    <string name="stream_bitrate_variable">Variable</string>
+    <string name="stream_bitrate_variable_desc">Much less data on still scenes, so less heat and upload. Bitrate jumps when things move, which can make a viewer on a slow connection buffer.</string>
     <string name="setting_person_check_title">Person Check</string>
     <string name="person_check_footer">After the quick motion check, Motion Lab runs an AI detector to tell people and objects apart. The detector is the heaviest part of motion analysis: a neural network on several CPU cores for every analysed frame. When almost no pixels change between frames, the detector can rest and keep its last answer, checking again every 2 or 10 seconds (your pick) as a safety net. Faint or distant movement still gets checked on every frame.</string>
     <string name="person_check_movement">When something moves</string>
