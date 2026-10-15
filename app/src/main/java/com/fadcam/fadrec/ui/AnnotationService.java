@@ -85,6 +85,10 @@ public class AnnotationService extends Service {
     private static final String CHANNEL_ID = "AnnotationServiceChannel";
     private static final int NOTIFICATION_ID = 3003;
     private static final long AUTO_SAVE_INTERVAL = 5000; // 5 seconds backup save
+    // Each backup that finds nothing new doubles the wait, up to this. A change
+    // resets it to 5 s. Every check builds the whole project's JSON.
+    private static final long AUTO_SAVE_MAX_INTERVAL = 30000;
+    private long autoSaveIntervalMs = AUTO_SAVE_INTERVAL;
 
     private WindowManager windowManager;
     private AnnotationView annotationView;
@@ -942,6 +946,7 @@ public class AnnotationService extends Service {
         annotationView.setOnStateChangeListener(() -> {
             updateUndoRedoButtons();
             saveCurrentState(); // Save immediately on every change
+            resetAutoSaveInterval();
 
             // CRITICAL: Refresh layer panel overlay when state changes (objects
             // added/removed)
@@ -2640,32 +2645,54 @@ public class AnnotationService extends Service {
         autoSaveRunnable = new Runnable() {
             @Override
             public void run() {
-                saveBackupState();
-                autoSaveHandler.postDelayed(this, AUTO_SAVE_INTERVAL);
+                boolean foundChange = saveBackupState();
+                autoSaveIntervalMs = foundChange
+                        ? AUTO_SAVE_INTERVAL
+                        : Math.min(autoSaveIntervalMs * 2, AUTO_SAVE_MAX_INTERVAL);
+                autoSaveHandler.postDelayed(this, autoSaveIntervalMs);
             }
         };
+        autoSaveIntervalMs = AUTO_SAVE_INTERVAL;
         autoSaveHandler.postDelayed(autoSaveRunnable, AUTO_SAVE_INTERVAL);
         FLog.d(TAG, "Auto-save started (interval: " + AUTO_SAVE_INTERVAL + "ms)");
+    }
+
+    /** After a change, the next backup check runs at the normal 5 s again. */
+    private void resetAutoSaveInterval() {
+        if (autoSaveHandler == null || autoSaveRunnable == null
+                || autoSaveIntervalMs == AUTO_SAVE_INTERVAL) {
+            return;
+        }
+        autoSaveIntervalMs = AUTO_SAVE_INTERVAL;
+        autoSaveHandler.removeCallbacks(autoSaveRunnable);
+        autoSaveHandler.postDelayed(autoSaveRunnable, AUTO_SAVE_INTERVAL);
     }
 
     /**
      * Timer backup save: writes only when something changed that the
      * immediate saves missed, instead of rewriting the project every tick.
+     *
+     * @return false when there was nothing new (screen off or content unchanged)
      */
-    private void saveBackupState() {
+    private boolean saveBackupState() {
         // Nothing can be drawn with the screen off, so there is nothing new to
         // back up; skip building the project JSON (it otherwise ran every 5 s
         // through screen-off camera recordings while the overlay was enabled).
         android.os.PowerManager pm = (android.os.PowerManager) getSystemService(POWER_SERVICE);
         if (pm != null && !pm.isInteractive()) {
-            return;
+            return false;
         }
         if (annotationView != null && projectFileManager != null && currentProjectName != null) {
             AnnotationState state = annotationView.getState();
-            if (state != null && !projectFileManager.saveProjectIfChanged(state, currentProjectName)) {
-                FLog.e(TAG, "❌ Backup save failed for: " + currentProjectName + ".fadrec");
+            if (state != null) {
+                if (!projectFileManager.saveProjectIfChanged(state, currentProjectName)) {
+                    FLog.e(TAG, "❌ Backup save failed for: " + currentProjectName + ".fadrec");
+                    return true;
+                }
+                return !projectFileManager.lastBackupFoundNoChange();
             }
         }
+        return false;
     }
 
     /**

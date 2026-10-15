@@ -62,6 +62,8 @@ public class ProjectFileManager {
     private String backupSavedProject;
     private int backupSavedHash;
     private int backupSavedLength;
+    // Whether the last backup save found the content unchanged and skipped the write
+    private volatile boolean lastBackupUnchanged;
     
     public static class ProjectSummary {
         public String folderName;
@@ -155,8 +157,14 @@ public class ProjectFileManager {
         return saveProject(state, projectName, true);
     }
 
+    /** True when the last {@link #saveProjectIfChanged} call found nothing new to write. */
+    public boolean lastBackupFoundNoChange() {
+        return lastBackupUnchanged;
+    }
+
     private boolean saveProject(AnnotationState state, String projectName, boolean skipIfUnchanged) {
         if (skipIfUnchanged) {
+            lastBackupUnchanged = false;
             try {
                 JSONObject meta = new JSONObject(state.getMetadata().toString());
                 meta.remove("modified");
@@ -170,6 +178,7 @@ public class ProjectFileManager {
                             && content.hashCode() == backupSavedHash
                             && content.length() == backupSavedLength
                             && getProjectFile(projectName).exists()) {
+                        lastBackupUnchanged = true;
                         return true;
                     }
                 }
