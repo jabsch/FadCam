@@ -577,6 +577,23 @@ public class DigitalForensicsEventRecorder {
         }
     }
 
+    @Nullable
+    private Typeface watermarkTypefaceCache;
+
+    /** Loaded once: createFromAsset parsed the font file again for every snapshot. */
+    private Typeface watermarkTypeface() {
+        Typeface cached = watermarkTypefaceCache;
+        if (cached == null) {
+            try {
+                cached = Typeface.createFromAsset(appContext.getAssets(), "ubuntu_regular.ttf");
+            } catch (Exception ignored) {
+                cached = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD);
+            }
+            watermarkTypefaceCache = cached;
+        }
+        return cached;
+    }
+
     private void drawSnapshotWatermark(@NonNull Bitmap bitmap, long timelineMs, long captureEpochMs) {
         try {
             Canvas canvas = new Canvas(bitmap);
@@ -588,12 +605,7 @@ public class DigitalForensicsEventRecorder {
             paint.setTextSize(maxTextSize);
             paint.setShadowLayer(1.4f, 0f, 0.6f, Color.BLACK);
             paint.setFakeBoldText(false);
-            try {
-                Typeface ubuntu = Typeface.createFromAsset(appContext.getAssets(), "ubuntu_regular.ttf");
-                paint.setTypeface(ubuntu);
-            } catch (Exception ignored) {
-                paint.setTypeface(Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD));
-            }
+            paint.setTypeface(watermarkTypeface());
 
             int padding = Math.max(1, Math.round(Math.min(bitmap.getWidth(), bitmap.getHeight()) * 0.0035f));
             int maxWidth = Math.max(20, bitmap.getWidth() - (padding * 2));
