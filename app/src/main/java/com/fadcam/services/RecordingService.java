@@ -1189,8 +1189,9 @@ public class RecordingService extends Service {
                 return;
             }
             new Thread(() -> {
+                boolean repaired = false;
                 try {
-                    doSelfHealingScan(app);
+                    repaired = doSelfHealingScan(app);
                 } catch (Throwable e) {
                     FLog.w(TAG, "Self-healing scan failed", e);
                 } finally {
@@ -1199,15 +1200,18 @@ public class RecordingService extends Service {
                     if (scanRerunRequested.compareAndSet(true, false)) {
                         runSelfHealingScan(app, null);
                     }
-                    // A repair may have been recorded by an observer-triggered scan
-                    // (onDone == null) — notify the Records UI so the banner appears
-                    // without requiring a manual refresh.
-                    try {
-                        android.content.Intent repair =
-                                new android.content.Intent(ACTION_SELF_HEAL_REPAIRED)
-                                        .setPackage(app.getPackageName());
-                        app.sendBroadcast(repair);
-                    } catch (Exception ignored) {}
+                    // A repair recorded by an observer-triggered scan (onDone ==
+                    // null) — notify the Records UI so the banner appears without
+                    // a manual refresh. Scans run after every video index write,
+                    // so only broadcast when there is something to show.
+                    if (repaired) {
+                        try {
+                            android.content.Intent repair =
+                                    new android.content.Intent(ACTION_SELF_HEAL_REPAIRED)
+                                            .setPackage(app.getPackageName());
+                            app.sendBroadcast(repair);
+                        } catch (Exception ignored) {}
+                    }
                     if (onDone != null) {
                         try {
                             new android.os.Handler(android.os.Looper.getMainLooper()).post(onDone);
@@ -1258,7 +1262,8 @@ public class RecordingService extends Service {
      */
     public static final long REPAIR_RETRY_DELAY_MS = 24L * 60 * 60 * 1000; // 24h
 
-    private static void doSelfHealingScan(final android.content.Context app) {
+    /** @return true when a file was repaired (a repair event was recorded). */
+    private static boolean doSelfHealingScan(final android.content.Context app) {
                     final SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(app);
                     com.fadcam.data.VideoIndexRepository repo =
                             com.fadcam.data.VideoIndexRepository.getInstance(app);
@@ -1276,9 +1281,10 @@ public class RecordingService extends Service {
                     java.util.List<String> pending = repo.getUnfinalizedUris();
                     if (pending.isEmpty()) {
                         FLog.d(TAG, "Self-healing scan: no pending files");
-                        return;
+                        return false;
                     }
                     FLog.i(TAG, "Self-healing scan: " + pending.size() + " pending file(s)");
+                    boolean repaired = false;
                     final long now = System.currentTimeMillis();
                     final long retryAfter = now + REPAIR_RETRY_DELAY_MS;
                     for (String uriString : pending) {
@@ -1341,6 +1347,7 @@ public class RecordingService extends Service {
                                 repo.markFinalized(uriString, 1);
                                 recordRepairEventStatic(prefs,
                                         fileNameFromUri(uriString), now, "background_interrupted");
+                                repaired = true;
                             } else if (result == 0) {
                                 // Already hybrid/plain MP4 — confirmed fine.
                                 repo.markFinalized(uriString, 1);
@@ -1357,10 +1364,7 @@ public class RecordingService extends Service {
                             try { repo.markUnrepairableWithRetry(uriString, retryAfter); } catch (Exception ignored) {}
                         }
                     }
-                    // A stale in-progress session that produced no file is dead.
-                    if (prefs.isRecordingInProgress()) {
-                        prefs.setRecordingInProgress(false);
-                    }
+                    return repaired;
     }
 
     /** Extracts a clean file name from file:// or content:// URIs for user messages. */
@@ -3523,7 +3527,10 @@ public class RecordingService extends Service {
             boolean shouldEmitForensicsSnapshot = digitalForensicsEventRecorder != null
                     && forensicsCaptureEnabled
                     && motionStateMachine.getState() == com.fadcam.motion.domain.state.MotionSessionState.RECORDING
-                    && (nowMs - motionLastForensicsHeartbeatMs) >= FORENSICS_HEARTBEAT_INTERVAL_MS;
+                    && (nowMs - motionLastForensicsHeartbeatMs) >= FORENSICS_HEARTBEAT_INTERVAL_MS
+                    // The recorder drops frames without detections, so don't
+                    // JPEG-encode a full frame for it every 1.6 s.
+                    && detections != null && !detections.isEmpty();
             boolean shouldEmitDebugFrame = (nowMs - motionLastDebugBroadcastMs) >= 900L
                     || stateBefore != motionStateMachine.getState()
                     || (action != null && action != com.fadcam.motion.domain.state.MotionStateMachine.TransitionAction.NONE);

@@ -195,6 +195,15 @@ public class CloudStatusManager {
             FLog.d(TAG, "☁️ Cloud mode not enabled, not starting");
             return;
         }
+
+        // Picking Cloud mode in Remote while the stream service is off used to
+        // start these loops with nothing to stop them (stop() runs when the
+        // service ends), so they polled the relay every few seconds for good.
+        // The service enables streaming right before it calls start().
+        if (!RemoteStreamManager.getInstance().isStreamingEnabled()) {
+            FLog.d(TAG, "☁️ Remote streaming is off, not starting");
+            return;
+        }
         
         if (!isCloudReady()) {
             FLog.d(TAG, "☁️ Cloud not ready (no credentials), not starting");

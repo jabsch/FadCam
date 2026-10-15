@@ -224,6 +224,11 @@ public class RemoteStreamService extends Service {
      * Start HTTP server on a free port.
      */
     private boolean startHttpServer() {
+        // A repeat start (double toggle, sticky restart) keeps the running
+        // server; a second one on the next port leaked the first.
+        if (httpServer != null && httpServer.isAlive()) {
+            return true;
+        }
         // Find free port
         int port = findFreePort(DEFAULT_PORT);
         if (port == -1) {
@@ -277,6 +282,8 @@ public class RemoteStreamService extends Service {
      * Start periodic notification updates.
      */
     private void startNotificationUpdates() {
+        // A repeat start stacked another 30 s loop that stop could not remove.
+        stopNotificationUpdates();
         notificationHandler = new Handler(Looper.getMainLooper());
         notificationUpdateRunnable = new Runnable() {
             @Override
