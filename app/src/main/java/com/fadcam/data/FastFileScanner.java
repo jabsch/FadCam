@@ -347,25 +347,30 @@ public class FastFileScanner {
             // Use the tree root directly as the recording root.
             // Fallback: check if there's a "FadCam" subdirectory (some setups may
             // point to a parent directory containing a FadCam folder).
-            DocumentFile recordingRoot = treeDoc;
-            DocumentFile fadCamChild = treeDoc.findFile(Constants.RECORDING_DIRECTORY);
-            if (fadCamChild != null && fadCamChild.isDirectory()) {
+            // Directories are looked up from one listing per level: DocumentFile.findFile
+            // lists the folder and then queries each child's name separately, and it ran
+            // eight times per scan, so a scan made dozens of storage-provider calls
+            // before listing any file.
+            Uri recordingRoot = treeDoc.getUri();
+            java.util.Map<String, Uri> rootDirs = listChildDirectories(recordingRoot);
+            Uri fadCamChild = rootDirs.get(Constants.RECORDING_DIRECTORY);
+            if (fadCamChild != null) {
                 FLog.d(TAG, "Found FadCam subdirectory under tree, using it as root");
                 recordingRoot = fadCamChild;
-            } else {
+                rootDirs = listChildDirectories(recordingRoot);
             }
 
             // Scan each known subdirectory
-            scanSafCategory(results, recordingRoot, Constants.RECORDING_SUBDIR_CAMERA, VideoItem.Category.CAMERA);
-            scanSafCategory(results, recordingRoot, Constants.RECORDING_SUBDIR_DUAL, VideoItem.Category.CAMERA);
-            scanSafCategory(results, recordingRoot, Constants.RECORDING_SUBDIR_SCREEN, VideoItem.Category.SCREEN);
-            scanSafCategory(results, recordingRoot, Constants.RECORDING_SUBDIR_FADITOR, VideoItem.Category.FADITOR);
-            scanSafCategory(results, recordingRoot, Constants.RECORDING_SUBDIR_STREAM, VideoItem.Category.STREAM);
-            scanSafCategory(results, recordingRoot, Constants.RECORDING_SUBDIR_SHOT, VideoItem.Category.SHOT);
-            scanSafCategory(results, recordingRoot, Constants.RECORDING_SUBDIR_MINIAPPS, VideoItem.Category.MINIAPPS);
+            scanSafCategory(results, rootDirs, Constants.RECORDING_SUBDIR_CAMERA, VideoItem.Category.CAMERA);
+            scanSafCategory(results, rootDirs, Constants.RECORDING_SUBDIR_DUAL, VideoItem.Category.CAMERA);
+            scanSafCategory(results, rootDirs, Constants.RECORDING_SUBDIR_SCREEN, VideoItem.Category.SCREEN);
+            scanSafCategory(results, rootDirs, Constants.RECORDING_SUBDIR_FADITOR, VideoItem.Category.FADITOR);
+            scanSafCategory(results, rootDirs, Constants.RECORDING_SUBDIR_STREAM, VideoItem.Category.STREAM);
+            scanSafCategory(results, rootDirs, Constants.RECORDING_SUBDIR_SHOT, VideoItem.Category.SHOT);
+            scanSafCategory(results, rootDirs, Constants.RECORDING_SUBDIR_MINIAPPS, VideoItem.Category.MINIAPPS);
 
             // Root-level legacy files
-            scanSafDirectoryFiles(results, recordingRoot.getUri(), VideoItem.Category.UNKNOWN,
+            scanSafDirectoryFiles(results, recordingRoot, VideoItem.Category.UNKNOWN,
                     VideoItem.ShotSubtype.UNKNOWN, VideoItem.CameraSubtype.UNKNOWN, VideoItem.FaditorSubtype.UNKNOWN,
                     true);
 
@@ -376,29 +381,59 @@ public class FastFileScanner {
         return results;
     }
 
-    private void scanSafCategory(List<VideoIndexEntity> out, DocumentFile fadCamRoot,
+    /**
+     * Child directories of a tree document, by display name (the first one when a
+     * name repeats, as DocumentFile.findFile picks), from a single children query.
+     */
+    @NonNull
+    private java.util.Map<String, Uri> listChildDirectories(@NonNull Uri directoryUri) {
+        java.util.Map<String, Uri> dirs = new java.util.HashMap<>();
+        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+                directoryUri, DocumentsContract.getDocumentId(directoryUri));
+        try (Cursor cursor = context.getContentResolver().query(childrenUri,
+                new String[]{
+                        DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                        DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                        DocumentsContract.Document.COLUMN_MIME_TYPE
+                },
+                null, null, null)) {
+            if (cursor == null) return dirs;
+            while (cursor.moveToNext()) {
+                String name = cursor.getString(1);
+                if (name != null && DocumentsContract.Document.MIME_TYPE_DIR.equals(cursor.getString(2))
+                        && !dirs.containsKey(name)) {
+                    dirs.put(name, DocumentsContract.buildDocumentUriUsingTree(directoryUri, cursor.getString(0)));
+                }
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "Could not list SAF folders under " + directoryUri, e);
+        }
+        return dirs;
+    }
+
+    private void scanSafCategory(List<VideoIndexEntity> out, java.util.Map<String, Uri> rootDirs,
                                  String subdirName, VideoItem.Category category) {
-        DocumentFile subdir = fadCamRoot.findFile(subdirName);
-        if (subdir == null || !subdir.isDirectory()) return;
+        Uri subdir = rootDirs.get(subdirName);
+        if (subdir == null) return;
 
         if (category == VideoItem.Category.SHOT || category == VideoItem.Category.CAMERA
                 || category == VideoItem.Category.FADITOR) {
             // These have sub-subdirectories (Back, Front, Selfie, etc.)
             scanSafWithSubdirectories(out, subdir, category);
         } else {
-            scanSafDirectoryFiles(out, subdir.getUri(), category,
+            scanSafDirectoryFiles(out, subdir, category,
                     VideoItem.ShotSubtype.UNKNOWN, VideoItem.CameraSubtype.UNKNOWN,
                     VideoItem.FaditorSubtype.UNKNOWN, false);
         }
     }
 
-    private void scanSafWithSubdirectories(List<VideoIndexEntity> out, DocumentFile categoryDir,
+    private void scanSafWithSubdirectories(List<VideoIndexEntity> out, Uri categoryDir,
                                            VideoItem.Category category) {
         // Use ContentResolver to list children (both files and dirs)
         ContentResolver cr = context.getContentResolver();
         Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
-                categoryDir.getUri(),
-                DocumentsContract.getDocumentId(categoryDir.getUri()));
+                categoryDir,
+                DocumentsContract.getDocumentId(categoryDir));
 
         try (Cursor cursor = cr.query(childrenUri,
                 new String[]{
@@ -433,12 +468,12 @@ public class FastFileScanner {
                         fadSub = inferFaditorSubtypeFromFolder(name);
                     }
 
-                    Uri subdirUri = DocumentsContract.buildDocumentUriUsingTree(categoryDir.getUri(), docId);
+                    Uri subdirUri = DocumentsContract.buildDocumentUriUsingTree(categoryDir, docId);
                     scanSafDirectoryFiles(out, subdirUri, category, shotSub, camSub, fadSub, false);
                 } else {
                     // It's a file at category root level
                     VideoIndexEntity entity = buildEntityFromSafCursor(
-                            categoryDir.getUri(), docId, name, mimeType, size, lastMod,
+                            categoryDir, docId, name, mimeType, size, lastMod,
                             category, VideoItem.ShotSubtype.UNKNOWN,
                             VideoItem.CameraSubtype.UNKNOWN, VideoItem.FaditorSubtype.UNKNOWN);
                     if (entity != null) out.add(entity);
