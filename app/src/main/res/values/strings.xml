@@ -1365,6 +1365,12 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="preview_fps_15">15 fps</string>
     <string name="preview_fps_15_desc">Visibly choppier preview, least heat. Good for mounted or dashcam use.</string>
     <string name="preview_fps_auto">Auto</string>
+    <string name="setting_preview_resolution_title">Preview Resolution</string>
+    <string name="preview_resolution_footer">The camera size used while you are only previewing (not recording). At 4K, the camera, image processor and graphics chip handle four times the pixels of 1080p just to fill a screen that shows far fewer. Starting a recording always switches the camera to your full recording resolution, so videos are not affected. Applies the next time the preview opens. No other Pixel settings need to change.</string>
+    <string name="preview_resolution_screen">Screen size</string>
+    <string name="preview_resolution_screen_desc">Up to 1080p, same shape as your video. Much less heat while the preview is open. Photos taken while only previewing come from this size.</string>
+    <string name="preview_resolution_full">Video size</string>
+    <string name="preview_resolution_full_desc">The camera runs at your recording resolution even when just previewing. Most detail in photos taken from the preview, most heat at 4K.</string>
     <string name="preview_fps_auto_desc">While recording, up to 30 fps, then 15 fps while the phone is warm. Previewing alone runs at 30 fps.</string>
     <string name="setting_display_refresh_title">Screen Refresh Rate</string>
     <string name="display_refresh_footer">How often the screen redraws while JaCam is open. A 120 Hz screen uses more power than 60 Hz, most of all while the camera preview keeps it busy. Other apps are not affected. If Smooth Display is already off in Settings &gt; Display, the phone is at 60 Hz anyway and this changes nothing.</string>

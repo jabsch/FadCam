@@ -7176,9 +7176,15 @@ public class RecordingService extends Service {
                     CameraCharacteristics characteristics = characteristicsFor(cameraManager, cameraId);
                     Integer so = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
                     if (so != null) sensorOrientation = so;
+                    Size previewSize = previewOnlyCaptureSize(characteristics, videoWidth, videoHeight, videoFramerate);
+                    if (previewSize != null) {
+                        FLog.d(TAG, "Preview-only: camera at " + previewSize + " instead of " + videoWidth + "x" + videoHeight);
+                        videoWidth = previewSize.getWidth();
+                        videoHeight = previewSize.getHeight();
+                    }
                 }
             } catch (Exception e) {
-                FLog.w(TAG, "Preview-only: failed to read sensor orientation", e);
+                FLog.w(TAG, "Preview-only: failed to read camera characteristics", e);
             }
 
             deleteStalePreviewTempFiles();
@@ -7522,6 +7528,37 @@ public class RecordingService extends Service {
             return streamFpsCap;
         }
         return targetFrameRate;
+    }
+
+    /**
+     * Camera size for preview-only under the Preview Resolution setting, or null to
+     * use the recording size. Recording builds a new pipeline and session at the full
+     * size, so only the preview (and photos taken from it) see this size.
+     */
+    @Nullable
+    private Size previewOnlyCaptureSize(@NonNull CameraCharacteristics characteristics,
+                                        int videoWidth, int videoHeight, int videoFramerate) {
+        if (sharedPreferencesManager == null || com.fadcam.utils.PreviewResolutionMode.current(sharedPreferencesManager)
+                != com.fadcam.utils.PreviewResolutionMode.SCREEN) {
+            return null;
+        }
+        int cap = com.fadcam.utils.PreviewFrameRateMode.current(sharedPreferencesManager).previewOnlyFps();
+        int previewFps = cap > 0 ? Math.min(videoFramerate, cap) : videoFramerate;
+        if (previewFps >= 120) {
+            return null; // High-speed sessions only run at the recording size
+        }
+        android.hardware.camera2.params.StreamConfigurationMap map =
+                characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+        Size[] sizes = map != null ? map.getOutputSizes(SurfaceTexture.class) : null;
+        if (sizes == null) {
+            return null;
+        }
+        int[][] candidates = new int[sizes.length][];
+        for (int i = 0; i < sizes.length; i++) {
+            candidates[i] = new int[] {sizes[i].getWidth(), sizes[i].getHeight()};
+        }
+        int[] picked = com.fadcam.utils.PreviewResolutionMode.pickScreenSize(videoWidth, videoHeight, candidates);
+        return picked != null ? new Size(picked[0], picked[1]) : null;
     }
 
     /**

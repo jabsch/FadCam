@@ -257,6 +257,28 @@ public class VideoSettingsFragment extends Fragment {
                 .show(getParentFragmentManager(), "preview_fps_picker");
     }
 
+    /** Opens the preview resolution picker; applies the next time the preview opens. */
+    private void showPreviewResolutionBottomSheet() {
+        com.fadcam.utils.PreviewResolutionMode current = com.fadcam.utils.PreviewResolutionMode.current(prefs);
+        java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
+        for (com.fadcam.utils.PreviewResolutionMode m : com.fadcam.utils.PreviewResolutionMode.values()) {
+            items.add(new com.fadcam.ui.picker.OptionItem(m.id, getString(m.labelRes), getString(m.descriptionRes)));
+        }
+        final String resultKey = "picker_result_preview_resolution";
+        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
+            com.fadcam.utils.PreviewResolutionMode picked = com.fadcam.utils.PreviewResolutionMode.fromId(
+                    b.getString(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID));
+            if (picked == null || picked == current) {
+                return;
+            }
+            com.fadcam.utils.PreviewResolutionMode.save(prefs, picked);
+            refreshAllValues();
+        });
+        com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(getString(R.string.setting_preview_resolution_title),
+                items, current.id, resultKey, getString(R.string.preview_resolution_footer))
+                .show(getParentFragmentManager(), "preview_resolution_picker");
+    }
+
     /** Opens the preview letterbox picker; applies live to a running preview. */
     private void showPreviewLetterboxBottomSheet() {
         com.fadcam.utils.PreviewLetterboxMode current = com.fadcam.utils.PreviewLetterboxMode.current(prefs);
@@ -431,7 +453,7 @@ public class VideoSettingsFragment extends Fragment {
         // Pill-style tap animation for every tappable arrow row.
         // Wide full-width rows: smaller scale (1.03) so the growth stays subtle.
         int[] rowIds = {
-            R.id.row_camera_type, R.id.row_video_stabilization, R.id.row_preview_fps, R.id.row_preview_bars, R.id.row_low_light_fps, R.id.row_heat_response, R.id.row_lens,
+            R.id.row_camera_type, R.id.row_video_stabilization, R.id.row_preview_fps, R.id.row_preview_resolution, R.id.row_preview_bars,R.id.row_low_light_fps, R.id.row_heat_response, R.id.row_lens,
             R.id.row_resolution, R.id.row_framerate, R.id.row_codec, R.id.row_bitrate,
             R.id.row_orientation, R.id.row_zoom_ratio, R.id.row_video_splitting,
             R.id.row_location_embed, R.id.row_dual_camera_settings
@@ -439,6 +461,7 @@ public class VideoSettingsFragment extends Fragment {
         root.findViewById(R.id.row_camera_type).setOnClickListener(v -> showCameraBottomSheet());
         root.findViewById(R.id.row_video_stabilization).setOnClickListener(v -> showVideoStabilizationBottomSheet());
         root.findViewById(R.id.row_preview_fps).setOnClickListener(v -> showPreviewFrameRateBottomSheet());
+        root.findViewById(R.id.row_preview_resolution).setOnClickListener(v -> showPreviewResolutionBottomSheet());
         root.findViewById(R.id.row_preview_bars).setOnClickListener(v -> showPreviewLetterboxBottomSheet());
         root.findViewById(R.id.row_low_light_fps).setOnClickListener(v -> showLowLightFrameRateBottomSheet());
         root.findViewById(R.id.row_heat_response).setOnClickListener(v -> showHeatResponseBottomSheet());
@@ -520,6 +543,10 @@ public class VideoSettingsFragment extends Fragment {
         TextView valuePreviewFps = getView() != null ? getView().findViewById(R.id.value_preview_fps) : null;
         if (valuePreviewFps != null) {
             valuePreviewFps.setText(com.fadcam.utils.PreviewFrameRateMode.current(prefs).labelRes);
+        }
+        TextView valuePreviewResolution = getView() != null ? getView().findViewById(R.id.value_preview_resolution) : null;
+        if (valuePreviewResolution != null) {
+            valuePreviewResolution.setText(com.fadcam.utils.PreviewResolutionMode.current(prefs).labelRes);
         }
         TextView valuePreviewBars = getView() != null ? getView().findViewById(R.id.value_preview_bars) : null;
         if (valuePreviewBars != null) {
