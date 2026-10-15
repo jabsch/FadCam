@@ -221,7 +221,8 @@ public class SensorDataProvider implements SensorEventListener {
         // 3) Nothing usable — keep last known (do NOT zero it, avoids the
         //    "stuck at 0 after pause/resume" symptom when a fix is briefly stale).
         lastLocationUpdateTime = System.currentTimeMillis();
-        FLog.d(TAG, "Speed: computed=" + String.format("%.1f", computedSpeed)
+        // Runs every second while recording; skip the formatting when logs are off
+        if (FLog.isEnabled()) FLog.d(TAG, "Speed: computed=" + String.format("%.1f", computedSpeed)
                 + "km/h, kept=" + String.format("%.1f", currentSpeedMs * 3.6f)
                 + "km/h (hasSpeed=" + currentLocation.hasSpeed()
                 + " rawGpsMs=" + String.format("%.2f", currentLocation.getSpeed())

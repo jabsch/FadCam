@@ -18,6 +18,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class LocationHelper {
 
     private final GpsMyLocationProvider provider;
+    // Coarse fallback for when GPS has no fix (indoors). The GPS provider used to
+    // request network fixes too, at the same 1-5 s cadence, which kept Play
+    // services scanning Wi-Fi and cells beside the running GPS chip all recording
+    // long; osmdroid then dropped those fixes anyway once GPS had one.
+    private final GpsMyLocationProvider networkProvider;
+    private static final long NETWORK_FALLBACK_MIN_TIME_MS = 30_000L;
+    private static final float NETWORK_FALLBACK_MIN_DISTANCE_M = 25f;
+    /** A network fix is used only when the last GPS fix is older than this. */
+    private static final long GPS_FIX_FRESH_MS = 20_000L;
+    private volatile long lastGpsFixTime = 0;
     // volatile: written on the location callback thread, read from the
     // watermark/GL thread — without this the reader can see a stale null even
     // though fixes are arriving (a classic invisible-reader bug).
@@ -36,6 +46,13 @@ public class LocationHelper {
     public LocationHelper(Context context, boolean fastUpdates) {
         FLog.d(TAG, "LOCATION_HELPER: Initializing LocationHelper");
         provider = new GpsMyLocationProvider(context);
+        provider.clearLocationSources();
+        provider.addLocationSource(android.location.LocationManager.GPS_PROVIDER);
+        networkProvider = new GpsMyLocationProvider(context);
+        networkProvider.clearLocationSources();
+        networkProvider.addLocationSource(android.location.LocationManager.NETWORK_PROVIDER);
+        networkProvider.setLocationUpdateMinTime(NETWORK_FALLBACK_MIN_TIME_MS);
+        networkProvider.setLocationUpdateMinDistance(NETWORK_FALLBACK_MIN_DISTANCE_M);
         this.fastUpdates = fastUpdates;
 
         // Standard speedometer cadence: 1000ms. GPS chipsets natively deliver
@@ -57,10 +74,18 @@ public class LocationHelper {
     public void startLocationUpdates() {
         if (provider != null && !isInitializing.getAndSet(true)) {
             FLog.d(TAG, "🗺️ LOCATION_HELPER: Starting location updates with 1s polling");
-            provider.startLocationProvider(new IMyLocationConsumer() {
+            IMyLocationConsumer consumer = new IMyLocationConsumer() {
                 @Override
                 public void onLocationChanged(Location location, IMyLocationProvider source) {
                     if (location != null) {
+                        if (source == networkProvider) {
+                            if (System.currentTimeMillis() - lastGpsFixTime < GPS_FIX_FRESH_MS) {
+                                // GPS is fixing; a coarse network fix would only jitter the position
+                                return;
+                            }
+                        } else {
+                            lastGpsFixTime = System.currentTimeMillis();
+                        }
                         // Only trust GPS/network-fused fixes that carry real motion
                         // data. Network-only fixes (no speed, coarse accuracy)
                         // would poison the speed/altitude computation below.
@@ -73,7 +98,7 @@ public class LocationHelper {
                         }
                         lastLocationUpdateTime = System.currentTimeMillis();
                         currentLocation = new GeoPoint(location.getLatitude(), location.getLongitude());
-                        FLog.d(TAG, "✅ LOCATION_HELPER: GPS updated to " + 
+                        if (FLog.isEnabled()) FLog.d(TAG, "✅ LOCATION_HELPER: GPS updated to " + 
                             com.fadcam.FLog.redactedCoords(currentLocation.getLatitude(), currentLocation.getLongitude()) + 
                             " (accuracy: " + String.format("%.0f", location.getAccuracy()) + "m)");
                     } else {
@@ -81,7 +106,9 @@ public class LocationHelper {
                     }
                     isInitializing.set(false);
                 }
-            });
+            };
+            provider.startLocationProvider(consumer);
+            networkProvider.startLocationProvider(consumer);
 
             // If we don't get a location update in 30 seconds, log a warning.
             // Cold GPS start can take 30-60s, so 5s was a false alarm on many devices.
@@ -100,6 +127,9 @@ public class LocationHelper {
         if (provider != null) {
             FLog.d(TAG, "LOCATION_HELPER: Stopping location updates");
             provider.stopLocationProvider();
+        }
+        if (networkProvider != null) {
+            networkProvider.stopLocationProvider();
         }
         // Reset the init gate so a later startLocationUpdates() actually
         // re-registers the provider (previously it stayed true forever after a
@@ -129,8 +159,8 @@ public class LocationHelper {
             return null;
         }
         
-        // Redact to ~1km precision for log privacy
-        FLog.d(TAG, "LOCATION_HELPER: Providing location: ~" +
+        // Redact to ~1km precision for log privacy. Called every second by the weather path.
+        if (FLog.isEnabled()) FLog.d(TAG, "LOCATION_HELPER: Providing location: ~" +
             String.format(java.util.Locale.US, "%.2f", currentLocation.getLatitude()) + ", ~" +
             String.format(java.util.Locale.US, "%.2f", currentLocation.getLongitude()));
         return currentLocation;
