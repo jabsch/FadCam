@@ -94,10 +94,18 @@ public class RemoteStreamManager {
     // Cloud viewer tracking (fetched from relay by CloudStatusManager)
     // This tracks viewers who connect via cloud relay, not directly to phone
     // PRIVACY: We only track count and aggregate bytes, never individual IPs
-    private int cloudViewerCount = 0;
-    private long cloudViewerCountUpdatedAt = 0; // Timestamp of last update
+    // Volatile: written on CloudStatusManager's executor, read on the muxer thread.
+    private volatile int cloudViewerCount = 0;
+    private volatile long cloudViewerCountUpdatedAt = 0; // Timestamp of last update
     private long cloudBytesServed = 0; // Cumulative bytes served by relay since its persisted counter began
-    private boolean cloudViewerTelemetryAvailable = false;
+    private volatile boolean cloudViewerTelemetryAvailable = false;
+
+    // "Upload only when watched" (CloudUploadMode.WHEN_WATCHED). Guarded by bufferLock.
+    private boolean cloudUploadPaused = false;
+    /** First segment the cloud playlist may list: earlier ones may never have been uploaded. */
+    private int cloudPlaylistMinSeq = 1;
+    /** An older viewer count can't be trusted to say nobody is watching. */
+    private static final long CLOUD_VIEWER_COUNT_MAX_AGE_MS = 75_000L;
 
     // Tracks the timestamp of the last successfully uploaded segment to the cloud relay.
     // Used by the dashboard to detect when the relay stream has gone stale/dead.
@@ -409,6 +417,8 @@ public class RemoteStreamManager {
             
             // Reset sequence tracking
             fragmentSequence = 0;
+            cloudUploadPaused = false;
+            cloudPlaylistMinSeq = 1;
             oldestSequence = 1;
             bufferHead = 0;
             
@@ -493,9 +503,17 @@ public class RemoteStreamManager {
             // This prevents race condition where viewer gets playlist before segment is available
             if (context != null) {
                 CloudStreamUploader uploader = CloudStreamUploader.getInstance(context);
-                if (uploader.isEnabled() && uploader.isReady()) {
+                if (uploader.isEnabled() && uploader.isReady() && !shouldUploadToCloud()) {
+                    cloudUploadPaused = true;
+                } else if (uploader.isEnabled() && uploader.isReady()) {
+                    if (cloudUploadPaused) {
+                        // Resuming after a stretch with no viewers: the skipped
+                        // segments were never uploaded, so the playlist starts here.
+                        cloudUploadPaused = false;
+                        cloudPlaylistMinSeq = sequenceNumber;
+                    }
                     // Capture playlist now (while we have the lock) but upload after segment succeeds
-                    final String playlist = generateCloudPlaylist();
+                    final String playlist = generateCloudPlaylist(cloudPlaylistMinSeq);
                     
                     // Upload segment with callback - playlist uploaded only after segment succeeds
                     uploader.uploadSegment(sequenceNumber, fragmentData, new CloudStreamUploader.UploadCallback() {
@@ -523,6 +541,32 @@ public class RemoteStreamManager {
         }
     }
     
+    /**
+     * Whether to upload this fragment. With "Upload only when watched" on, uploads stop
+     * while the relay reports no viewers. When the count is missing or stale it uploads
+     * anyway, so a viewer is never left without video because of a failed poll. The
+     * init segment is always uploaded.
+     */
+    private boolean shouldUploadToCloud() {
+        if (context == null || com.fadcam.utils.CloudUploadMode.current(SharedPreferencesManager.getInstance(context))
+                != com.fadcam.utils.CloudUploadMode.WHEN_WATCHED) {
+            return true;
+        }
+        if (!cloudViewerTelemetryAvailable
+                || System.currentTimeMillis() - cloudViewerCountUpdatedAt > CLOUD_VIEWER_COUNT_MAX_AGE_MS) {
+            return true;
+        }
+        return cloudViewerCount > 0;
+    }
+
+    /** True while "Upload only when watched" is on and nobody is watching, so viewers are polled more often. */
+    public boolean isWaitingForCloudViewer() {
+        return context != null
+                && com.fadcam.utils.CloudUploadMode.current(SharedPreferencesManager.getInstance(context))
+                        == com.fadcam.utils.CloudUploadMode.WHEN_WATCHED
+                && cloudViewerCount == 0;
+    }
+
     /**
      * Get initialization segment for HLS #EXT-X-MAP.
      */
@@ -661,12 +705,12 @@ public class RemoteStreamManager {
      * @return M3U8 playlist string, or null if not enough fragments buffered
      */
     @Nullable
-    private String generateCloudPlaylist() {
+    private String generateCloudPlaylist(int minSeq) {
         bufferLock.readLock().lock();
         try {
             // Get buffered fragments
             List<FragmentData> fragments = new ArrayList<>();
-            int validRangeStart = Math.max(1, fragmentSequence - BUFFER_SIZE + 1);
+            int validRangeStart = Math.max(Math.max(1, fragmentSequence - BUFFER_SIZE + 1), minSeq);
             
             for (FragmentData fragment : fragmentBuffer) {
                 if (fragment != null && fragment.sequenceNumber >= validRangeStart && fragment.sequenceNumber <= fragmentSequence) {

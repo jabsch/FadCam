@@ -95,6 +95,22 @@ public class VideoPlayerActivity extends AppCompatActivity {
         }
     }
 
+    /** True between onResume and onPause. Listeners on the shared player outlive old screens. */
+    private boolean screenInFront = false;
+
+    /** Loops keep going only while the video plays (or buffers toward playing). */
+    private boolean keepUiTicking() {
+        return player != null
+                && (player.isPlaying() || player.getPlaybackState() == Player.STATE_BUFFERING);
+    }
+
+    /** One refresh now; the loops then stop by themselves unless the video is playing. */
+    private void kickUiTicks() {
+        if (screenInFront) {
+            startUiTicks();
+        }
+    }
+
     private void startUiTicks() {
         stopUiTicks();
         if (sliderUpdateRunnable != null) uiTickHandler.post(sliderUpdateRunnable);
@@ -1329,6 +1345,13 @@ public class VideoPlayerActivity extends AppCompatActivity {
                                     }
                                 } catch (Exception ignored) {}
                             }
+                            // The slider and waveform loops stop while paused; refresh them
+                            // on play/pause, seeks and buffering, and resume on play.
+                            if (events.containsAny(Player.EVENT_IS_PLAYING_CHANGED,
+                                    Player.EVENT_POSITION_DISCONTINUITY,
+                                    Player.EVENT_PLAYBACK_STATE_CHANGED)) {
+                                kickUiTicks();
+                            }
                         }
                         @Override
                         public void onTracksChanged(androidx.media3.common.Tracks tracks) {
@@ -1544,7 +1567,11 @@ public class VideoPlayerActivity extends AppCompatActivity {
                         } catch (Exception e) {
                             FLog.e(TAG, "Error in periodic slider update", e);
                         }
-                        h.postDelayed(this, 200);
+                        // Paused: nothing moves, so stop. Play, seek and state changes
+                        // restart it through kickUiTicks().
+                        if (keepUiTicking()) {
+                            h.postDelayed(this, 200);
+                        }
                     }
                 };
                 sliderUpdateRunnable = r;
@@ -2950,6 +2977,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        screenInFront = true;
         startUiTicks();
         // Keep screen on during playback if enabled in settings
         boolean keepAwake = SharedPreferencesManager.getInstance(
@@ -3427,6 +3455,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
         saveCurrentPlaybackPosition();
         // Stop periodic saves while paused
         resumeSaveHandler.removeCallbacks(resumeSaveRunnable);
+        screenInFront = false;
         stopUiTicks();
         // Detach view to let service own playback surface-less
         if (playerView != null) playerView.setPlayer(null);
@@ -3434,6 +3463,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        screenInFront = false;
         stopUiTicks();
         // Clear screen flags again just in case
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -3587,8 +3617,9 @@ public class VideoPlayerActivity extends AppCompatActivity {
                     public void run() {
                         try {
                             updateWaveformProgress();
-                            // Update every 100ms for smooth waveform animation
-                            if (waveformHandler != null) {
+                            // Update every 100ms for smooth waveform animation, only
+                            // while playing (kickUiTicks() restarts it).
+                            if (waveformHandler != null && keepUiTicking()) {
                                 waveformHandler.postDelayed(this, 100);
                             }
                         } catch (Exception e) {

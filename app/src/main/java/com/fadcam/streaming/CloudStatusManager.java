@@ -48,6 +48,7 @@ public class CloudStatusManager {
     // Status push / command poll intervals come from the user's Cloud Update Rate
     // setting (com.fadcam.utils.CloudUpdateRate), read on every reschedule.
     private static final long VIEWERS_POLL_INTERVAL_MS = 30000;
+    private static final long VIEWERS_POLL_WAITING_INTERVAL_MS = 10000;
     private static final long USAGE_REPORT_INTERVAL_MS = 5000;  // Report usage every 5 seconds (dev mode)
     
     // Usage tracking
@@ -257,7 +258,11 @@ public class CloudStatusManager {
             public void run() {
                 if (!isRunning) return;
                 pollCloudViewers();
-                handler.postDelayed(this, VIEWERS_POLL_INTERVAL_MS);
+                // While uploads wait for a viewer, check sooner so a new viewer gets
+                // video within about 10 s instead of up to 30 s.
+                handler.postDelayed(this, RemoteStreamManager.getInstance().isWaitingForCloudViewer()
+                        ? VIEWERS_POLL_WAITING_INTERVAL_MS
+                        : VIEWERS_POLL_INTERVAL_MS);
             }
         };
         handler.postDelayed(viewersRunnable, 2000);
