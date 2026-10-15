@@ -565,7 +565,9 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                                         Thread.currentThread().interrupt();
                                     }
                                 }
-                                duration = getVideoDuration(videoUri);
+                                // A new file may have failed the progress bar's probe while
+                                // still finishing, so it doesn't reuse a failure
+                                duration = probeDurationOnce(videoUri, !videoItem.isNew);
 
                                 // Write FFprobe result back to DB so we never re-probe this video
                                 if (duration > 0) {
@@ -654,7 +656,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                                 long savedMs = cachedSaved != null ? cachedSaved
                                         : sharedPreferencesManager.getSavedPlaybackPositionMsWithFilenameFallback(key,
                                                 getFileName(videoUri));
-                                long durationMs = finalCachedDur != null ? finalCachedDur : getVideoDuration(videoUri);
+                                long durationMs = finalCachedDur != null ? finalCachedDur : probeDurationOnce(videoUri, true);
                                 // Cache results for future bindings (synchronized because LinkedHashMap isn't
                                 // thread-safe)
                                 synchronized (durationCache) {
@@ -2627,6 +2629,33 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         }
     }
 
+    /** A probe that failed is retried after this long (a new file may still be finishing). */
+    private static final long FAILED_PROBE_RETRY_MS = 120_000L;
+    /** Probe results by URI: {durationMs, uptime of the probe}. Failures are kept too. */
+    private final ConcurrentHashMap<String, long[]> probedDurations = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Object> durationProbeLocks = new ConcurrentHashMap<>();
+
+    /**
+     * Probes a video's duration at most once per URI. A new card's duration badge
+     * and its progress bar each started their own FFprobe of the same file, and a
+     * file that can't be read was probed again on every rebind.
+     */
+    private long probeDurationOnce(Uri videoUri, boolean reuseFailure) {
+        String key = videoUri.toString();
+        Object lock = durationProbeLocks.computeIfAbsent(key, k -> new Object());
+        synchronized (lock) {
+            long[] known = probedDurations.get(key);
+            long now = android.os.SystemClock.uptimeMillis();
+            if (known != null && (known[0] > 0
+                    || (reuseFailure && now - known[1] < FAILED_PROBE_RETRY_MS))) {
+                return known[0];
+            }
+            long durationMs = getVideoDuration(videoUri);
+            probedDurations.put(key, new long[] { durationMs, now });
+            return durationMs;
+        }
+    }
+
     // Get video duration from URI (Helper) using FFprobeKit for reliability
     private long getVideoDuration(Uri videoUri) {
         if (context == null || videoUri == null)
@@ -3284,6 +3313,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         // the duration badge text, e.g. "00:26", keyed by URI — must be flushed so the
         // stale value isn't served at bind time before FFprobe can re-probe).
         loadedThumbnailCache.clear();
+        probedDurations.clear();
         FLog.d(TAG, "invalidateDurationCache: cleared durationCache + loadedThumbnailCache — FFprobe will re-probe");
     }
 
@@ -3293,6 +3323,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
     public void clearCaches() {
         loadedThumbnailCache.clear();
+        probedDurations.clear();
         // Also clear duration cache to prevent stale duration data for new videos
         synchronized (durationCache) {
             durationCache.clear();
@@ -3316,6 +3347,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     }
                     String uriString = uri.toString();
                     loadedThumbnailCache.remove(uriString);
+                    probedDurations.remove(uriString);
                     durationCache.remove(uriString);
                     savedPositionCache.remove(uriString);
                 }
