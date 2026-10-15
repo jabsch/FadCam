@@ -1698,7 +1698,7 @@ public class RecordingService extends Service {
                 // setup log removed
             }
 
-            if (sharedPreferencesManager != null && sharedPreferencesManager.isWeatherEnabled()) {
+            if (watermarkActive && sharedPreferencesManager != null && sharedPreferencesManager.isWeatherEnabled()) {
                 if (weatherService == null) {
                     weatherService = com.fadcam.network.WeatherService.getInstance(getApplicationContext());
                 }
@@ -3872,7 +3872,13 @@ public class RecordingService extends Service {
                     return dfOverlayPayload;
                 }
                 String watermarkOption = sharedPreferencesManager.getWatermarkOption();
-                String locationText = sharedPreferencesManager.isLocalisationEnabled() ? getLocationData() : "";
+                if ("no_watermark".equals(watermarkOption)) {
+                    // Without this the speed/weather lines were still appended below,
+                    // into a video set to have no watermark.
+                    return "";
+                }
+                String locationText = sharedPreferencesManager.isLocalisationEnabled()
+                        && !"badge_fadcam".equals(watermarkOption) ? getLocationData() : "";
                 String customText = sharedPreferencesManager.getWatermarkCustomText();
                 String customTextLine = (customText != null && !customText.isEmpty()) ? "\n" + customText : "";
                 String finalText;

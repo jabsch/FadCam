@@ -24,10 +24,13 @@ public final class LocationFeedGate {
      */
     public static boolean needsLocationData(SharedPreferencesManager prefs) {
         if (prefs == null) return false;
-        // Direct encode turns every watermark off, so nothing reads the feed.
-        if (com.fadcam.utils.DirectEncodeMode.isEnabled(prefs)) return false;
-        return prefs.isLocalisationEnabled()
-                || prefs.isUtmEnabled()
+        // No watermark (also what Direct encode reads as): nothing draws these
+        // fields, so the GPS ran a whole recording for nobody.
+        String option = prefs.getWatermarkOption();
+        if ("no_watermark".equals(option)) return false;
+        // The badge style shows no location line, only the extra fields below.
+        boolean showsLocationLine = !"badge_fadcam".equals(option);
+        return (showsLocationLine && (prefs.isLocalisationEnabled() || prefs.isUtmEnabled()))
                 || prefs.isSpeedEnabled()
                 || prefs.isAltitudeEnabled()
                 || prefs.isAccuracyEnabled()
