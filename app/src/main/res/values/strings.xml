@@ -1381,6 +1381,30 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="other_audio_keep_desc">Other audio is left alone. Over the speaker, the video records it; with headphones, it doesn\'t.</string>
     <string name="setting_preview_resolution_title">Preview Resolution</string>
     <string name="preview_resolution_footer">The camera size used while you are only previewing (not recording). At 4K, the camera, image processor and graphics chip handle four times the pixels of 1080p just to fill a screen that shows far fewer. Starting a recording always switches the camera to your full recording resolution, so videos are not affected. Applies the next time the preview opens. No other Pixel settings need to change.</string>
+    <string name="setting_direct_encode_title">Direct encode</string>
+    <string name="setting_direct_encode_footer">Sends the camera straight to the video encoder instead of redrawing every frame through the graphics chip first. That redraw is what puts watermarks on the video, so with this on the graphics chip only draws the on-screen preview, from a camera stream of at most 1080p, and the phone runs cooler, most of all at 4K.
+
+While it is on:
+• All watermarks are off: video, photos and screen recordings, including Digital Forensics overlays and location text
+• Front camera video is not mirrored
+• Motion Lab is off
+• The camera can't be switched during a recording
+• The app's extra exposure brightening is not added (the camera's own exposure setting still works)
+• Photos taken while recording come from the preview stream
+• If the camera drops out mid-recording, the video holds its last frame instead of going black
+
+Recordings at 120 fps or more, or at a size the camera can't send straight to the encoder, use the normal path, still without watermarks. Applies from the next recording.</string>
+    <string name="direct_encode_confirm_action">Turn on and apply</string>
+    <string name="direct_encode_confirm_subtitle">Switches off the settings listed below</string>
+    <string name="direct_encode_confirm_changes">Turning on Direct encode changes these settings:
+• Watermark: None (stays off while Direct encode is on)
+• Digital Forensics: Off
+• Front video mirroring: Off
+• Motion Lab: Off
+
+Turning Direct encode off later does not turn these back on.</string>
+    <string name="toast_direct_encode_no_camera_switch">Direct encode is on: stop the recording to switch cameras</string>
+    <string name="toast_direct_encode_no_watermark">Direct encode is on (Video settings), so watermarks stay off</string>
     <string name="preview_resolution_screen">Screen size</string>
     <string name="preview_resolution_screen_desc">Up to 1080p, same shape as your video. Much less heat while the preview is open. Photos taken while only previewing come from this size.</string>
     <string name="preview_resolution_full">Video size</string>

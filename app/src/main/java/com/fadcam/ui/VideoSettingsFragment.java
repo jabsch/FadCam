@@ -383,6 +383,61 @@ public class VideoSettingsFragment extends Fragment {
         sheet.show(getParentFragmentManager(), "pixel_optimized_picker");
     }
 
+    private void showDirectEncodeBottomSheet() {
+        final String resultKey = "picker_result_direct_encode";
+        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
+            if (b.containsKey(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE)) {
+                boolean state = b.getBoolean(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE);
+                if (state && !com.fadcam.utils.DirectEncodeMode.isEnabled(prefs)) {
+                    // Turning it on switches off watermarks and other settings: ask first.
+                    confirmDirectEncode();
+                } else {
+                    com.fadcam.utils.DirectEncodeMode.setEnabled(prefs, state);
+                    refreshAllValues();
+                }
+            }
+        });
+        com.fadcam.ui.picker.PickerBottomSheetFragment sheet = com.fadcam.ui.picker.PickerBottomSheetFragment
+                .newInstanceWithSwitch(
+                        getString(R.string.setting_direct_encode_title),
+                        new java.util.ArrayList<>(),
+                        null,
+                        resultKey,
+                        getString(R.string.setting_direct_encode_footer),
+                        getString(R.string.setting_direct_encode_title),
+                        com.fadcam.utils.DirectEncodeMode.isEnabled(prefs));
+        sheet.show(getParentFragmentManager(), "direct_encode_picker");
+    }
+
+    /** Lists the settings Direct encode switches off and applies them on confirm. */
+    private void confirmDirectEncode() {
+        // Close the switch sheet so a dismissed confirm doesn't leave its switch showing on.
+        androidx.fragment.app.Fragment switchSheet =
+                getParentFragmentManager().findFragmentByTag("direct_encode_picker");
+        if (switchSheet instanceof androidx.fragment.app.DialogFragment) {
+            ((androidx.fragment.app.DialogFragment) switchSheet).dismissAllowingStateLoss();
+        }
+        com.fadcam.ui.InputActionBottomSheetFragment sheet = com.fadcam.ui.InputActionBottomSheetFragment.newConfirm(
+                getString(R.string.setting_direct_encode_title),
+                getString(R.string.direct_encode_confirm_action),
+                getString(R.string.direct_encode_confirm_subtitle),
+                R.drawable.ic_check,
+                getString(R.string.direct_encode_confirm_changes))
+                .withNeutralConfirm();
+        sheet.setCallbacks(new com.fadcam.ui.InputActionBottomSheetFragment.Callbacks() {
+            @Override
+            public void onImportConfirmed(org.json.JSONObject json) {
+            }
+
+            @Override
+            public void onResetConfirmed() {
+                com.fadcam.utils.DirectEncodeMode.enable(prefs);
+                refreshAllValues();
+            }
+        });
+        sheet.show(getParentFragmentManager(), "direct_encode_confirm");
+    }
+
     /** Lists the settings Pixel optimized mode will change and applies them on confirm. */
     private void confirmPixelOptimizedProfile() {
         // Close the switch sheet so a dismissed confirm doesn't leave its switch showing on.
@@ -475,7 +530,7 @@ public class VideoSettingsFragment extends Fragment {
         // Pill-style tap animation for every tappable arrow row.
         // Wide full-width rows: smaller scale (1.03) so the growth stays subtle.
         int[] rowIds = {
-            R.id.row_camera_type, R.id.row_video_stabilization, R.id.row_preview_fps, R.id.row_preview_resolution, R.id.row_preview_bars,R.id.row_low_light_fps, R.id.row_heat_response, R.id.row_editor_export, R.id.row_lens,
+            R.id.row_camera_type, R.id.row_video_stabilization, R.id.row_preview_fps, R.id.row_preview_resolution, R.id.row_direct_encode, R.id.row_preview_bars,R.id.row_low_light_fps, R.id.row_heat_response, R.id.row_editor_export, R.id.row_lens,
             R.id.row_resolution, R.id.row_framerate, R.id.row_codec, R.id.row_bitrate,
             R.id.row_orientation, R.id.row_zoom_ratio, R.id.row_video_splitting,
             R.id.row_location_embed, R.id.row_dual_camera_settings
@@ -484,6 +539,7 @@ public class VideoSettingsFragment extends Fragment {
         root.findViewById(R.id.row_video_stabilization).setOnClickListener(v -> showVideoStabilizationBottomSheet());
         root.findViewById(R.id.row_preview_fps).setOnClickListener(v -> showPreviewFrameRateBottomSheet());
         root.findViewById(R.id.row_preview_resolution).setOnClickListener(v -> showPreviewResolutionBottomSheet());
+        root.findViewById(R.id.row_direct_encode).setOnClickListener(v -> showDirectEncodeBottomSheet());
         root.findViewById(R.id.row_preview_bars).setOnClickListener(v -> showPreviewLetterboxBottomSheet());
         root.findViewById(R.id.row_low_light_fps).setOnClickListener(v -> showLowLightFrameRateBottomSheet());
         root.findViewById(R.id.row_heat_response).setOnClickListener(v -> showHeatResponseBottomSheet());
@@ -538,6 +594,14 @@ public class VideoSettingsFragment extends Fragment {
         if (valuePreset != null) {
             com.fadcam.utils.RecordingPreset preset = com.fadcam.utils.RecordingPreset.current(prefs);
             valuePreset.setText(preset != null ? getString(preset.labelRes) : getString(R.string.preset_custom));
+        }
+
+        TextView valueDirectEncode = getView() != null
+                ? getView().findViewById(R.id.value_direct_encode) : null;
+        if (valueDirectEncode != null) {
+            valueDirectEncode.setText(com.fadcam.utils.DirectEncodeMode.isEnabled(prefs)
+                    ? getString(R.string.setting_enabled_msg)
+                    : getString(R.string.setting_disabled_msg));
         }
 
         TextView valuePixelOptimized = getView() != null

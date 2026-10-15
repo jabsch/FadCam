@@ -1259,6 +1259,11 @@ public class SharedPreferencesManager {
     }
 
     public String getWatermarkOption() {
+        // Direct encode (Video settings) records without the GL pass that draws
+        // watermarks, so every watermark reads as off while it is on.
+        if (com.fadcam.utils.DirectEncodeMode.isEnabled(this)) {
+            return "no_watermark";
+        }
         return sharedPreferences.getString(
             Constants.PREF_WATERMARK_OPTION,
             Constants.DEFAULT_WATERMARK_OPTION

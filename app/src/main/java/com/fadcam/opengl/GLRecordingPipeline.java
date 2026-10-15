@@ -167,6 +167,137 @@ public class GLRecordingPipeline {
 
     private int encoderWidth;
     private int encoderHeight;
+
+    // Direct encode: the camera writes the video encoder's input surface itself and
+    // GL only draws the preview, so no full-size frame is rendered per recorded frame.
+    // Set by RecordingService before prepareSurfaces().
+    private boolean directEncode = false;
+    private int directPreviewStreamWidth;
+    private int directPreviewStreamHeight;
+    private int directOrientationHint;
+    // The rest is guarded by timestampLock.
+    private boolean directTimebaseKnown = false;
+    private long directTimebaseOffsetNs = 0L;
+    private boolean directAwaitKeyFrame = true;
+    private boolean directSyncRequested = false;
+    /** {start, end, pause total before start} in System.nanoTime() for each unpaused stretch. */
+    private final java.util.ArrayList<long[]> directSegments = new java.util.ArrayList<>();
+
+    /**
+     * Records straight from the camera into the encoder. Call before prepareSurfaces().
+     *
+     * @param previewStreamWidth  camera stream size behind the preview (0 = video size)
+     * @param orientationHint     rotation written to the file, in degrees
+     */
+    public void setDirectEncode(int previewStreamWidth, int previewStreamHeight, int orientationHint) {
+        directEncode = dualCameraConfig == null;
+        directPreviewStreamWidth = previewStreamWidth;
+        directPreviewStreamHeight = previewStreamHeight;
+        directOrientationHint = orientationHint;
+    }
+
+    public boolean isDirectEncode() {
+        return directEncode;
+    }
+
+    /**
+     * Direct encode: the renderer's offscreen frame (used only for photo snapshots)
+     * takes the preview stream's size in the video's orientation, so a 4K or 8K
+     * recording doesn't allocate a full-size GPU surface that is never encoded.
+     */
+    private int[] directRendererSize() {
+        int longSide = Math.max(directPreviewStreamWidth, directPreviewStreamHeight);
+        int shortSide = Math.min(directPreviewStreamWidth, directPreviewStreamHeight);
+        if (shortSide <= 0) {
+            return new int[] {encoderWidth, encoderHeight};
+        }
+        return encoderWidth >= encoderHeight
+                ? new int[] {longSide, shortSide}
+                : new int[] {shortSide, longSide};
+    }
+
+    /**
+     * True while camera frames must keep being taken. Direct encode keeps going
+     * through a pause: the camera still writes both streams, and a stream nobody
+     * consumes would stall the camera.
+     */
+    private boolean cameraFeedActive() {
+        return isRecording || previewOnlyRendering || (directEncode && !isStopped && !released);
+    }
+
+    /** The encoder's input surface when the camera should write it directly, else null. */
+    @Nullable
+    public Surface getDirectEncoderSurface() {
+        return directEncode ? encoderInputSurface : null;
+    }
+
+    /**
+     * Direct encode: moves a camera frame's timestamp onto the recording timeline,
+     * the same one getSynchronizedVideoTimestamp() gives GL frames and audio uses.
+     * Returns false to drop the frame: from before the start, from a pause, or a
+     * non-keyframe before the first keyframe after one of those.
+     */
+    private boolean directEncodeAdmit(MediaCodec.BufferInfo info) {
+        long raw = info.presentationTimeUs * 1000L;
+        boolean keyFrame = (info.flags & MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0;
+        boolean requestSync = false;
+        long ptsUs = -1L;
+        synchronized (timestampLock) {
+            if (!directTimebaseKnown) {
+                // Camera timestamps are in uptime or boot time depending on the
+                // device and Android version; pick whichever this frame is near.
+                long mono = System.nanoTime();
+                long boot = android.os.SystemClock.elapsedRealtimeNanos();
+                directTimebaseOffsetNs = Math.abs(raw - boot) < Math.abs(raw - mono) ? mono - boot : 0L;
+                directTimebaseKnown = true;
+                FLog.i(TAG, "[DIRECT] Camera timestamps on " + (directTimebaseOffsetNs != 0L ? "boot" : "uptime")
+                        + " clock");
+            }
+            long t = raw + directTimebaseOffsetNs;
+            long[] segment = null;
+            if (recordingStartSystemTimeNanos != -1) {
+                for (int i = directSegments.size() - 1; i >= 0; i--) {
+                    long[] candidate = directSegments.get(i);
+                    if (t >= candidate[0]) {
+                        if (t < candidate[1]) {
+                            segment = candidate;
+                        }
+                        break;
+                    }
+                }
+            }
+            if (segment == null) {
+                directAwaitKeyFrame = true;
+                return false;
+            }
+            if (directAwaitKeyFrame && !keyFrame) {
+                if (!directSyncRequested) {
+                    directSyncRequested = true;
+                    requestSync = true;
+                }
+            } else {
+                ptsUs = (t - recordingStartSystemTimeNanos - segment[2]) / 1000L;
+                if (ptsUs >= 0) {
+                    directAwaitKeyFrame = false;
+                    directSyncRequested = false;
+                }
+            }
+        }
+        if (requestSync && videoEncoder != null) {
+            try {
+                android.os.Bundle params = new android.os.Bundle();
+                params.putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0);
+                videoEncoder.setParameters(params);
+            } catch (Exception e) {
+                FLog.w(TAG, "[DIRECT] Failed to request sync frame", e);
+            }
+        }
+        if (ptsUs < 0) {
+            return false;
+        }
+        info.presentationTimeUs = ptsUs;
+        return true;
+    }
     private int deviceOrientation = android.view.Surface.ROTATION_0;
     private volatile boolean frontVideoMirrorEnabled;
 
@@ -381,6 +512,9 @@ public class GLRecordingPipeline {
      * Called on start/resume because the updater intentionally stops when paused.
      */
     private void ensureWatermarkUpdaterRunning() {
+        if (directEncode) {
+            return; // nothing draws the watermark into the video
+        }
         if (updateWatermarkRunnable == null) {
             updateWatermarkRunnable = new Runnable() {
                 @Override
@@ -631,22 +765,29 @@ public class GLRecordingPipeline {
             }
 
             if (glRenderer == null) {
-                glRenderer = new GLWatermarkRenderer(context, encoderInputSurface, orientation, sensorOrientation,
-                        videoWidth, videoHeight, false);
+                glRenderer = new GLWatermarkRenderer(context, directEncode ? null : encoderInputSurface,
+                        orientation, sensorOrientation, videoWidth, videoHeight, false);
+                if (directEncode) {
+                    int[] offscreen = directRendererSize();
+                    glRenderer.setOffscreenOutput(offscreen[0], offscreen[1]);
+                    glRenderer.setCameraBufferSize(directPreviewStreamWidth, directPreviewStreamHeight);
+                }
                 glRenderer.setUserOrientationSetting(orientation);
                 glRenderer.setRecordingPipeline(this); // Set reference for timestamp synchronization
                 glRenderer.setPreviewSuspended(previewSuspended);
                 glRenderer.setPreviewFrameRateCap(previewFrameRateCap);
                 glRenderer.setPreviewLetterboxFill(com.fadcam.utils.PreviewLetterboxMode
                         .current(com.fadcam.SharedPreferencesManager.getInstance(context)).fillsBars());
-                glRenderer.setFrontVideoMirrorEnabled(frontVideoMirrorEnabled);
+                // Direct encode can't mirror the video, so the preview stays unmirrored to match.
+                glRenderer.setFrontVideoMirrorEnabled(frontVideoMirrorEnabled && !directEncode);
                 // Propagate encoder dimensions that were computed during initializeEncoder().
                 // initializeEncoder() runs BEFORE the renderer is created, so its
                 // setEncoderDimensions() call hits null and is silently skipped.
                 // We must forward them now so the renderer uses the correct
                 // (post-orientation-swap) dimensions for viewport and aspect ratio.
                 if (encoderWidth > 0 && encoderHeight > 0) {
-                    glRenderer.setEncoderDimensions(encoderWidth, encoderHeight);
+                    int[] rendererSize = directEncode ? directRendererSize() : new int[] {encoderWidth, encoderHeight};
+                    glRenderer.setEncoderDimensions(rendererSize[0], rendererSize[1]);
                 }
                 // Create EGL context and camera surface strictly on the GL render thread
                 // Ensure render thread exists
@@ -732,7 +873,7 @@ public class GLRecordingPipeline {
                 glRenderer.setOnFrameAvailableListener(new GLWatermarkRenderer.OnFrameAvailableListener() {
                     @Override
                     public void onFrameAvailable() {
-                        if ((isRecording || previewOnlyRendering) && handler != null
+                        if (cameraFeedActive() && handler != null
                                 && renderRunnableQueued.compareAndSet(false, true)) {
                             handler.post(renderRunnable);
                         }
@@ -784,6 +925,9 @@ public class GLRecordingPipeline {
                 synchronized (timestampLock) {
                     if (recordingStartSystemTimeNanos == -1) {
                         recordingStartSystemTimeNanos = System.nanoTime();
+                    }
+                    if (directEncode && directSegments.isEmpty()) {
+                        directSegments.add(new long[] {recordingStartSystemTimeNanos, Long.MAX_VALUE, 0L});
                     }
                 }
 
@@ -1023,7 +1167,8 @@ public class GLRecordingPipeline {
                 
                 if (encodedData != null && bufferInfo.size > 0 && muxerStarted && videoTrackIndex != -1) {
                     // Skip codec config data
-                    if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0) {
+                    if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0
+                            && (!directEncode || directEncodeAdmit(bufferInfo))) {
                         try {
                             encodedData.position(bufferInfo.offset);
                             encodedData.limit(bufferInfo.offset + bufferInfo.size);
@@ -1341,6 +1486,11 @@ public class GLRecordingPipeline {
         // Calculate encoder dimensions based on orientation
         encoderWidth = needsSwap ? videoHeight : videoWidth;
         encoderHeight = needsSwap ? videoWidth : videoHeight;
+        // Direct encode: the camera fills the codec in sensor orientation and the
+        // file carries a rotation instead. encoderWidth/Height stay the GL size
+        // (the preview's aspect and photo snapshots use it).
+        int codecWidth = directEncode ? Math.max(videoWidth, videoHeight) : encoderWidth;
+        int codecHeight = directEncode ? Math.min(videoWidth, videoHeight) : encoderHeight;
 
         // Industry Standard: Try encoder configurations with progressive fallbacks
         boolean encoderConfigured = false;
@@ -1349,7 +1499,7 @@ public class GLRecordingPipeline {
 
         // Strategy 1: Try user's preferred codec with minimal settings
         try {
-            MediaFormat format = MediaFormat.createVideoFormat(currentMimeType, encoderWidth, encoderHeight);
+            MediaFormat format = MediaFormat.createVideoFormat(currentMimeType, codecWidth, codecHeight);
             configureBasicEncoder(format);
 
             videoEncoder = MediaCodec.createEncoderByType(currentMimeType);
@@ -1395,7 +1545,7 @@ public class GLRecordingPipeline {
         if (!encoderConfigured && currentMimeType.equals(MediaFormat.MIMETYPE_VIDEO_HEVC)) {
             try {
                 currentMimeType = MediaFormat.MIMETYPE_VIDEO_AVC;
-                MediaFormat format = MediaFormat.createVideoFormat(currentMimeType, encoderWidth, encoderHeight);
+                MediaFormat format = MediaFormat.createVideoFormat(currentMimeType, codecWidth, codecHeight);
                 configureBasicEncoder(format);
 
                 videoEncoder = MediaCodec.createEncoderByType(currentMimeType);
@@ -1519,6 +1669,10 @@ public class GLRecordingPipeline {
             // no location metadata
         }
 
+        if (directEncode && directOrientationHint != 0) {
+            mediaMuxer.setOrientationHint(directOrientationHint);
+        }
+
         // Reset track indices
         audioTrackIndex = -1;
         videoTrackIndex = -1;
@@ -1604,7 +1758,8 @@ public class GLRecordingPipeline {
     private final class DrainRunnable implements Runnable {
         @Override
         public void run() {
-            if (isStopped || !isRecording) return;
+            // Direct encode drains through a pause too; directEncodeAdmit drops those frames.
+            if (isStopped || !(isRecording || directEncode)) return;
             // Drain audio FIRST — audio encoder has finite input buffers.
             // If the drain thread spends too much time on video (especially
             // at 4K+ max quality), audio output backs up, blocking EOS at
@@ -1620,7 +1775,7 @@ public class GLRecordingPipeline {
                 rolloverRequestedByDrain = true;
                 rolloverIoHandler.post(() -> performAsyncRolloverIO());
             }
-            if (isRecording && !isStopped && drainHandler != null) {
+            if ((isRecording || directEncode) && !isStopped && drainHandler != null) {
                 drainHandler.postDelayed(this, drainIntervalMs());
             }
         }
@@ -1714,7 +1869,7 @@ public class GLRecordingPipeline {
         @Override
         public void run() {
             try {
-                if ((!isRecording && !previewOnlyRendering) || released) {
+                if (!cameraFeedActive() || released) {
                     return;
                 }
 
@@ -1737,6 +1892,12 @@ public class GLRecordingPipeline {
                 Runnable action;
                 while ((action = rendererActions.poll()) != null) {
                     try { action.run(); } catch (Throwable t) { FLog.w(TAG, "Renderer action failed", t); }
+                }
+
+                if (directEncode) {
+                    // The camera feeds the encoder; only the preview is drawn here.
+                    if (glRenderer != null) glRenderer.renderPreviewOnlyFrame(true);
+                    return;
                 }
 
                 // Render camera frame to encoder surface (non-blocking —
@@ -1942,6 +2103,9 @@ public class GLRecordingPipeline {
                             }
                         }
                         // Codec config data - we don't write this to the muxer (or already captured above)
+                        bufferInfo.size = 0;
+                    }
+                    if (directEncode && bufferInfo.size > 0 && !directEncodeAdmit(bufferInfo)) {
                         bufferInfo.size = 0;
                     }
 
@@ -2317,7 +2481,7 @@ public class GLRecordingPipeline {
                 // eglSwapBuffers waiting for the encoder, and the encoder waits for
                 // the drain, which is this thread. This was the root cause of empty
                 // split segments (parts 2+ = 68KB) at 2GB/4GB splits.
-                if (glRenderer != null) {
+                if (glRenderer != null && !directEncode) {
                     glRenderer.requestRenderAsync();
                     FLog.d(TAG, "Requested async frame render for the new segment");
                 }
@@ -2873,6 +3037,12 @@ public class GLRecordingPipeline {
         // Clear retry/time bases
         recordingStartTimeNanos = -1;
         recordingStartSystemTimeNanos = -1;
+        synchronized (timestampLock) {
+            directSegments.clear();
+            directTimebaseKnown = false;
+            directAwaitKeyFrame = true;
+            directSyncRequested = false;
+        }
     }
 
     private void quickReleaseForPreviewOnly() {
@@ -2951,7 +3121,7 @@ public class GLRecordingPipeline {
      * Updates the watermark text in real time.
      */
     public void updateWatermark() {
-        if (glRenderer == null || watermarkInfoProvider == null)
+        if (glRenderer == null || watermarkInfoProvider == null || directEncode)
             return;
         final String text = watermarkInfoProvider.getWatermarkText();
         // Ensure the GL texture update runs on the render thread with EGL context
@@ -3050,6 +3220,9 @@ public class GLRecordingPipeline {
             // Record pause start time for duration tracking
             pauseStartTimeNanos = System.nanoTime();
             isPaused = true;
+            if (directEncode && !directSegments.isEmpty()) {
+                directSegments.get(directSegments.size() - 1)[1] = pauseStartTimeNanos;
+            }
             
             // Save last known PTS values before pause
             lastVideoPtsBeforePauseUs = lastVideoPts;
@@ -3136,6 +3309,10 @@ public class GLRecordingPipeline {
             
             isPaused = false;
             pauseStartTimeNanos = -1;
+            if (directEncode) {
+                directSegments.add(new long[] {System.nanoTime(), Long.MAX_VALUE, totalPauseDurationNanos});
+                directAwaitKeyFrame = true;
+            }
         }
 
         // Resume audio recording if enabled
@@ -3159,7 +3336,8 @@ public class GLRecordingPipeline {
         // back up, the audio encoder stops accepting input, and all new audio
         // data after resume is silently lost — the recorded file has audio
         // only up to the pause point.
-        if (drainHandler != null) {
+        // Direct encode never stopped its drain loop; a second one would race it on the codec.
+        if (drainHandler != null && !directEncode) {
             startDrainLoop();
         }
 
@@ -3181,7 +3359,7 @@ public class GLRecordingPipeline {
         updateWatermark();
 
         // Force a frame render to ensure we have a valid frame after resuming
-        if (glRenderer != null && handler != null) {
+        if (glRenderer != null && handler != null && !directEncode) {
             handler.post(() -> {
                 try {
                     glRenderer.renderFrame();
@@ -3238,7 +3416,9 @@ public class GLRecordingPipeline {
      * @param evStops Exposure compensation in EV stops (e.g., -2.0 to +2.0)
      */
     public void setExposureCompensation(float evStops) {
-        if (glRenderer != null) {
+        // Direct encode: the shader boost would only reach the preview, not the
+        // video; the camera's own exposure compensation still applies to both.
+        if (glRenderer != null && !directEncode) {
             glRenderer.setExposureCompensation(evStops);
         }
     }
@@ -3258,7 +3438,7 @@ public class GLRecordingPipeline {
         if (glRenderer != null) {
             rendererActions.offer(() -> {
                 if (glRenderer != null) {
-                    glRenderer.setFrontVideoMirrorEnabled(enabled);
+                    glRenderer.setFrontVideoMirrorEnabled(enabled && !directEncode);
                 }
             });
             if (handler != null) {
@@ -4084,7 +4264,7 @@ public class GLRecordingPipeline {
      * to handle gaps in frames gracefully.
      */
     public void renderBlackFrame() {
-        if (!isRecording || released) {
+        if (!isRecording || released || directEncode) {
             // Don't try to render if we're not recording or after release
             return;
         }
