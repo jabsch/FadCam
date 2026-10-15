@@ -16,8 +16,8 @@ public class PreviewFrameRateModeTest {
     }
 
     @Test
-    public void autoIsUncappedUntilWarm() {
-        assertEquals(0, PreviewFrameRateMode.AUTO.capFps(false));
+    public void autoCapsAt30ThenLowerWhenWarm() {
+        assertEquals(PreviewFrameRateMode.AUTO_RECORDING_FPS, PreviewFrameRateMode.AUTO.capFps(false));
         assertEquals(PreviewFrameRateMode.WARM_FPS, PreviewFrameRateMode.AUTO.capFps(true));
     }
 
