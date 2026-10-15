@@ -6987,7 +6987,12 @@ public class HomeFragment extends BaseFragment {
                     if (tvSpaceTitle != null) {
                         String oldSpaceValue = tvSpaceTitle.getText() != null ? tvSpaceTitle.getText().toString() : "";
                         if (!oldSpaceValue.equals(availableSpace)) {
-                            if (tvSpaceTitle instanceof com.fadcam.ui.utils.AnimatedTextView) {
+                            if (tvSpaceTitle instanceof com.fadcam.ui.utils.AnimatedTextView
+                                    && !slideLiveCounters()) {
+                                // Calm: it changes every few seconds while recording
+                                ((com.fadcam.ui.utils.AnimatedTextView) tvSpaceTitle).cancelAnimation();
+                                tvSpaceTitle.setText(availableSpace);
+                            } else if (tvSpaceTitle instanceof com.fadcam.ui.utils.AnimatedTextView) {
                                 ((com.fadcam.ui.utils.AnimatedTextView) tvSpaceTitle).animateSlotDown(availableSpace, 400);
                             } else {
                                 tvSpaceTitle.setText(availableSpace);
@@ -7279,6 +7284,20 @@ public class HomeFragment extends BaseFragment {
         if (resolution == null) {
             return "Unknown";
         }
+        // Runs every second while recording; two string-array loads each time
+        if (resolution.equals(lastResolutionNameSize) && lastResolutionName != null) {
+            return lastResolutionName;
+        }
+        String name = lookUpResolutionDisplayName(resolution);
+        lastResolutionNameSize = resolution;
+        lastResolutionName = name;
+        return name;
+    }
+
+    @Nullable private Size lastResolutionNameSize;
+    @Nullable private String lastResolutionName;
+
+    private String lookUpResolutionDisplayName(Size resolution) {
 
         String resKey = resolution.getWidth() + "x" + resolution.getHeight();
         String[] resolutionKeys = getResources().getStringArray(
@@ -7415,6 +7434,10 @@ public class HomeFragment extends BaseFragment {
             // Already running - don't create a second handler
             return;
         }
+        if (isHidden()) {
+            // Another tab is showing; resumeUpdateHandlers starts it when Home is shown
+            return;
+        }
 
         if (updateInfoRunnable == null) {
             updateInfoRunnable = new Runnable() {
@@ -7425,7 +7448,8 @@ public class HomeFragment extends BaseFragment {
                     boolean isFragmentAdded = isAdded();
                     boolean isRecordingActive = isRecording();
                     boolean isPausedActive = isPaused();
-                    boolean shouldUpdate = (isRecordingActive || isPausedActive) && isFragmentAdded;
+                    boolean shouldUpdate = (isRecordingActive || isPausedActive) && isFragmentAdded
+                            && !isHidden();
                     
                     if (shouldUpdate) {
                         // Always update storage info (lightweight)
@@ -10812,6 +10836,7 @@ public class HomeFragment extends BaseFragment {
                                 ambianceTwinkleAnim.setRepeatMode(ObjectAnimator.REVERSE);
                                 ambianceTwinkleAnim.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
                                 ambianceTwinkleAnim.start();
+                                requestSlowLoopFrameRate(ivAmbiance, true);
                             }).start();
                     } else {
                         // Already visible — reset scale and just start twinkle
@@ -10824,6 +10849,7 @@ public class HomeFragment extends BaseFragment {
                         ambianceTwinkleAnim.setRepeatMode(ObjectAnimator.REVERSE);
                         ambianceTwinkleAnim.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
                         ambianceTwinkleAnim.start();
+                        requestSlowLoopFrameRate(ivAmbiance, true);
                     }
                 }
             }
@@ -10915,6 +10941,7 @@ public class HomeFragment extends BaseFragment {
             ivPreviewAvatar.setScaleY(scale);
         });
         homeBreathingAnimator.start();
+        requestSlowLoopFrameRate(ivPreviewAvatar, true);
 
         // Gentle floating bob up/down
         if (homeAvatarFloatAnim != null) homeAvatarFloatAnim.cancel();
@@ -10930,6 +10957,7 @@ public class HomeFragment extends BaseFragment {
         if (homeBreathingAnimator != null) { homeBreathingAnimator.cancel(); homeBreathingAnimator = null; }
         if (homeAvatarFloatAnim != null) { homeAvatarFloatAnim.cancel(); homeAvatarFloatAnim = null; }
         if (ivPreviewAvatar != null) {
+            requestSlowLoopFrameRate(ivPreviewAvatar, false);
             ivPreviewAvatar.setAlpha(1.0f);
             ivPreviewAvatar.setScaleX(1.0f);
             ivPreviewAvatar.setScaleY(1.0f);
@@ -10949,12 +10977,32 @@ public class HomeFragment extends BaseFragment {
             a.setRepeatMode(ObjectAnimator.REVERSE);
             a.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
             a.start(); homeFloatingZAnims.add(a);
+            requestSlowLoopFrameRate(zs[i], true);
         }
     }
 
     private void stopHomeFloatingZAnims() {
         for (ObjectAnimator a : homeFloatingZAnims) a.cancel();
         homeFloatingZAnims.clear();
+        for (View z : new View[] {tvHomeZ1, tvHomeZ2, tvHomeZ3}) {
+            requestSlowLoopFrameRate(z, false);
+        }
+    }
+
+    /**
+     * The sleeping avatar's endless 1.6-3.5 s loops look the same at a low frame
+     * rate, but each animated view otherwise votes for the panel's full rate
+     * (120 Hz) on every frame, for as long as Home shows it (also while recording
+     * with the preview off). Android 15+ lets a view ask for less, so the display
+     * can drop its refresh rate. One-shot wake and sleep transitions keep the
+     * default.
+     */
+    private static void requestSlowLoopFrameRate(@Nullable View view, boolean slow) {
+        if (view == null || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            return;
+        }
+        view.setRequestedFrameRate(slow ? View.REQUESTED_FRAME_RATE_CATEGORY_LOW
+                : View.REQUESTED_FRAME_RATE_CATEGORY_DEFAULT);
     }
 
     // ── Home Avatar Color Drawable Resolution ──────────────────────────────────
@@ -14136,10 +14184,17 @@ public class HomeFragment extends BaseFragment {
         if (tvEstimateTitle != null) {
             tvEstimateTitle.setTextColor(accentColor);
         }
-        if (ivEstimateIcon != null) {
+        if (ivEstimateIcon != null
+                && (ivEstimateIcon != tintedEstimateIcon || accentColor != tintedEstimateIconColor)) {
+            // Runs every second while recording; a new filter redraws the icon each time
             ivEstimateIcon.setColorFilter(accentColor);
+            tintedEstimateIcon = ivEstimateIcon;
+            tintedEstimateIconColor = accentColor;
         }
     }
+
+    @Nullable private ImageView tintedEstimateIcon;
+    private int tintedEstimateIconColor;
 
     private void updateElapsedHeroAppearance() {
         if (cardElapsedHero == null) {
