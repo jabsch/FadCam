@@ -1366,6 +1366,12 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="preview_fps_15_desc">Visibly choppier preview, least heat. Good for mounted or dashcam use.</string>
     <string name="preview_fps_auto">Auto</string>
     <string name="preview_fps_auto_desc">While recording, up to 30 fps, then 15 fps while the phone is warm. Previewing alone runs at 30 fps.</string>
+    <string name="setting_display_refresh_title">Screen Refresh Rate</string>
+    <string name="display_refresh_footer">How often the screen redraws while JaCam is open. A 120 Hz screen uses more power than 60 Hz, most of all while the camera preview keeps it busy. Other apps are not affected. If Smooth Display is already off in Settings &gt; Display, the phone is at 60 Hz anyway and this changes nothing.</string>
+    <string name="display_refresh_system">System</string>
+    <string name="display_refresh_system_desc">Let the phone pick (up to 120 Hz with Smooth Display on). Smoothest scrolling.</string>
+    <string name="display_refresh_60">60 Hz</string>
+    <string name="display_refresh_60_desc">Hold JaCam at 60 Hz. Scrolling is a little less smooth; the screen uses less power and makes less heat.</string>
     <string name="setting_heat_response_title">Heat Response</string>
     <string name="heat_response_footer">How early JaCam eases off when the phone heats up during a recording (single or dual camera). Android reports heat in steps: light, moderate, severe, critical. When the phone is warm, JaCam drops optional work: the Auto preview frame rate goes to 15 fps, the Auto fps preset goes to 30 fps, and Auto stabilization turns off electronic stabilization. Later it halves the video bitrate, and at critical it stops and saves the recording either way. Early does each step one level sooner, so the phone stays cooler but the video is softer and less smooth for more of a hot session. Applies from the next recording.</string>
     <string name="heat_response_standard">Standard</string>

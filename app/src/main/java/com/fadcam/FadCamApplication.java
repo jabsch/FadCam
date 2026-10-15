@@ -20,6 +20,33 @@ public class FadCamApplication extends Application implements DefaultLifecycleOb
             prefs.setMotionDebugUiActive(false);
         }
         ProcessLifecycleOwner.get().getLifecycle().addObserver(this);
+        // Settings > Appearance > Screen Refresh Rate, applied to every JaCam window.
+        registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
+            @Override
+            public void onActivityResumed(@androidx.annotation.NonNull android.app.Activity activity) {
+                com.fadcam.utils.DisplayRefreshMode.apply(activity);
+            }
+
+            @Override
+            public void onActivityCreated(@androidx.annotation.NonNull android.app.Activity activity,
+                    @androidx.annotation.Nullable android.os.Bundle savedInstanceState) {}
+
+            @Override
+            public void onActivityStarted(@androidx.annotation.NonNull android.app.Activity activity) {}
+
+            @Override
+            public void onActivityPaused(@androidx.annotation.NonNull android.app.Activity activity) {}
+
+            @Override
+            public void onActivityStopped(@androidx.annotation.NonNull android.app.Activity activity) {}
+
+            @Override
+            public void onActivitySaveInstanceState(@androidx.annotation.NonNull android.app.Activity activity,
+                    @androidx.annotation.NonNull android.os.Bundle outState) {}
+
+            @Override
+            public void onActivityDestroyed(@androidx.annotation.NonNull android.app.Activity activity) {}
+        });
         com.fadcam.utils.PixelOptimizedMode.applyOnceIfNeeded(this);
         // Room DB open + invalidation observer registration is deferred off the
         // main thread: cold start must not block on SQLite open. The observer

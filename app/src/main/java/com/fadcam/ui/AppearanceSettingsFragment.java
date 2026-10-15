@@ -66,6 +66,7 @@ public class AppearanceSettingsFragment extends Fragment {
         setupEyeColorRow(view);
         setupLogoRow(view);
         setupLiveCountersRow(view);
+        setupDisplayRefreshRow(view);
         View backBtn = view.findViewById(R.id.back_button);
         if (backBtn != null) {
             backBtn.setOnClickListener(v ->
@@ -104,6 +105,40 @@ public class AppearanceSettingsFragment extends Fragment {
         com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(getString(R.string.setting_live_counters_title),
                 items, current.id, resultKey, getString(R.string.live_counter_footer))
                 .show(getParentFragmentManager(), "live_counters_picker");
+    }
+
+    /** Screen Refresh Rate: system default, or the 60 Hz display mode while JaCam is open. */
+    private void setupDisplayRefreshRow(View view) {
+        View row = view.findViewById(R.id.row_display_refresh);
+        TextView value = view.findViewById(R.id.value_display_refresh);
+        if (row == null || value == null) return;
+        value.setText(com.fadcam.utils.DisplayRefreshMode.current(sharedPreferencesManager).labelRes);
+        row.setOnClickListener(v -> showDisplayRefreshPicker(value));
+    }
+
+    private void showDisplayRefreshPicker(TextView value) {
+        com.fadcam.utils.DisplayRefreshMode current =
+                com.fadcam.utils.DisplayRefreshMode.current(sharedPreferencesManager);
+        java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
+        for (com.fadcam.utils.DisplayRefreshMode m : com.fadcam.utils.DisplayRefreshMode.values()) {
+            items.add(new com.fadcam.ui.picker.OptionItem(m.id, getString(m.labelRes), getString(m.descriptionRes)));
+        }
+        final String resultKey = "picker_result_display_refresh";
+        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
+            com.fadcam.utils.DisplayRefreshMode picked = com.fadcam.utils.DisplayRefreshMode.fromId(
+                    b.getString(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID));
+            if (picked == null || picked == current) {
+                return;
+            }
+            com.fadcam.utils.DisplayRefreshMode.save(sharedPreferencesManager, picked);
+            value.setText(picked.labelRes);
+            if (getActivity() != null) {
+                com.fadcam.utils.DisplayRefreshMode.apply(getActivity());
+            }
+        });
+        com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(getString(R.string.setting_display_refresh_title),
+                items, current.id, resultKey, getString(R.string.display_refresh_footer))
+                .show(getParentFragmentManager(), "display_refresh_picker");
     }
 
     // -------------- Refactor Start: theme row -----------
