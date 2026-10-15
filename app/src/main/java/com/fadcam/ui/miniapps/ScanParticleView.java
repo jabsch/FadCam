@@ -27,8 +27,11 @@ public class ScanParticleView extends View {
     private static final long FRAME_MS = 33L;
     /** Particle speeds are per 60 Hz frame; movement follows elapsed time. */
     private static final float BASE_FRAME_MS = 1000f / 60f;
-    /** Glow radius relative to the core: the old shadow blur (2.8x) around the core. */
-    private static final float GLOW_SCALE = 3.8f;
+    /**
+     * Glow radius relative to the core. The old shadow blur (radius 2.8x, sigma about
+     * 1.6x the core) faded out by about 5.5x and peaked near a fifth of its alpha.
+     */
+    private static final float GLOW_SCALE = 5.5f;
     private static final int GLOW_SPRITE_PX = 64;
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -64,13 +67,13 @@ public class ScanParticleView extends View {
     }
 
     private void setup() {
-        // Crimson glow fading from the core's edge outwards, alpha set per particle
+        // Faint crimson glow with a blur-like falloff, alpha set per particle
         glowSprite = Bitmap.createBitmap(GLOW_SPRITE_PX, GLOW_SPRITE_PX, Bitmap.Config.ARGB_8888);
         float r = GLOW_SPRITE_PX / 2f;
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         p.setShader(new RadialGradient(r, r, r,
-                new int[] {0xFFD32F2F, 0xFFD32F2F, 0x00D32F2F},
-                new float[] {0f, 1f / GLOW_SCALE, 1f}, Shader.TileMode.CLAMP));
+                new int[] {0x40D32F2F, 0x30D32F2F, 0x14D32F2F, 0x05D32F2F, 0x00D32F2F},
+                new float[] {0f, 1f / GLOW_SCALE, 0.4f, 0.7f, 1f}, Shader.TileMode.CLAMP));
         new Canvas(glowSprite).drawCircle(r, r, r, p);
     }
 
@@ -145,7 +148,8 @@ public class ScanParticleView extends View {
             if (py[i] > h)  { py[i] = h;  vy[i] = -Math.abs(vy[i]); }
 
             // Pulse alpha randomly
-            alpha[i] += (rng.nextFloat() - 0.45f) * 0.06f * step;
+            // Random walk: per-step size grows with the square root of elapsed frames
+            alpha[i] += (rng.nextFloat() - 0.45f) * 0.06f * (float) Math.sqrt(step);
             if (alpha[i] < 0.12f) alpha[i] = 0.12f;
             if (alpha[i] > 1.0f)  alpha[i] = 1.0f;
 

@@ -2292,7 +2292,8 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
     /** Schedule the next blink with animation callback. */
     private void scheduleNextFullscreenBlink(long delayMs) {
         fullscreenBlinkRunnable = () -> {
-            if (ivFullscreenPreviewAvatar == null || !ivFullscreenPreviewAvatar.isAttachedToWindow() || !fullscreenAvatarLastEnabled) return;
+            if (ivFullscreenPreviewAvatar == null || !ivFullscreenPreviewAvatar.isAttachedToWindow()
+                    || !fullscreenAvatarLastEnabled || avatarLoopsPaused) return;
             ivFullscreenPreviewAvatar.setImageResource(resolveFullscreenDrawable(RES_BLINK));
             android.graphics.drawable.Drawable d = ivFullscreenPreviewAvatar.getDrawable();
             if (d instanceof android.graphics.drawable.Animatable2) {
