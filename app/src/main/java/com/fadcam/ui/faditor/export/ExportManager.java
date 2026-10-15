@@ -80,6 +80,8 @@ public class ExportManager {
 
     /** When true, the export was written to a temp file that needs to be copied to SAF. */
     private boolean pendingSafCopy = false;
+    // Bumped by cancel(): a SAF copy still running for an older export stops and reports nothing
+    private volatile int exportGeneration = 0;
 
     /** The display filename used for the SAF DocumentFile. */
     @Nullable
@@ -185,17 +187,26 @@ public class ExportManager {
                     if (pendingSafCopy) {
                         final String tempPath = outputPath;
                         final String safName = safExportFileName;
+                        final int generation = exportGeneration;
                         pendingSafCopy = false;
                         safExportFileName = null;
                         new Thread(() -> {
-                            String safResult = copyTempToSaf(tempPath, safName);
+                            String safResult = copyTempToSaf(tempPath, safName, generation);
+                            if (generation != exportGeneration) {
+                                FLog.d(TAG, "SAF copy dropped: export was cancelled");
+                                return;
+                            }
                             if (safResult != null) {
                                 FLog.d(TAG, "Export copied to SAF: " + safResult);
                             } else {
                                 FLog.e(TAG, "SAF copy failed, file remains at: " + tempPath);
                             }
                             String finalPath = safResult != null ? safResult : tempPath;
-                            completionHandler.post(() -> finishExport(finalPath, result));
+                            completionHandler.post(() -> {
+                                if (generation == exportGeneration) {
+                                    finishExport(finalPath, result);
+                                }
+                            });
                         }, "FaditorSafCopy").start();
                         return;
                     }
@@ -248,9 +259,6 @@ public class ExportManager {
         }
     }
 
-    /**
-     * Cancel the current export.
-     */
     private void finishExport(@NonNull String finalPath, @NonNull ExportResult result) {
         isExporting = false;
         FLog.d(TAG, "Export completed: " + finalPath);
@@ -259,10 +267,14 @@ public class ExportManager {
         }
     }
 
+    /**
+     * Cancel the current export, including a SAF copy still running for it.
+     */
     public void cancel() {
         if (transformer != null && isExporting) {
             stopProgressPolling();
             transformer.cancel();
+            exportGeneration++;
             isExporting = false;
             FLog.d(TAG, "Export cancelled");
         }
@@ -738,10 +750,11 @@ public class ExportManager {
      *
      * @param tempFilePath path to the temporary export file
      * @param fileName     name for the SAF file, or null for the temp file's name
+     * @param generation   the export's generation; the copy stops once cancel() bumps it
      * @return the SAF display name on success, or null on failure
      */
     @Nullable
-    private String copyTempToSaf(@NonNull String tempFilePath, @Nullable String fileName) {
+    private String copyTempToSaf(@NonNull String tempFilePath, @Nullable String fileName, int generation) {
         String customUriString = prefsManager.getCustomStorageUri();
         if (customUriString == null) {
             FLog.e(TAG, "SAF copy: custom storage URI is null");
@@ -790,6 +803,13 @@ public class ExportManager {
                 byte[] buffer = new byte[1 << 20];
                 int bytesRead;
                 while ((bytesRead = in.read(buffer)) != -1) {
+                    if (generation != exportGeneration) {
+                        // Cancelled mid-copy: drop the partial copy and the temp file
+                        out.close();
+                        docFile.delete();
+                        tempFile.delete();
+                        return null;
+                    }
                     out.write(buffer, 0, bytesRead);
                 }
                 out.flush();

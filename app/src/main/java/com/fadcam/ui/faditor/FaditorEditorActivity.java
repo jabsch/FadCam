@@ -505,6 +505,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (audioTailActive || imagePlaybackActive) {
             audioTailActive = false;
             if (imagePlaybackActive) {
+                // Keep the image clip's position, as the pause button does
+                imagePlaybackStartOffsetMs = getImagePlaybackPositionMs();
                 stopImagePlayback();
             } else {
                 updatePlayPauseButton(false);
