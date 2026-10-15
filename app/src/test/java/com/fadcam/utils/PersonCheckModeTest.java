@@ -19,8 +19,16 @@ public class PersonCheckModeTest {
     public void onMovementSkipsStillScenesUntilRefresh() {
         assertTrue(PersonCheckMode.ON_MOVEMENT.shouldDetect(false, 0L));
         assertFalse(PersonCheckMode.ON_MOVEMENT.shouldDetect(true, 0L));
-        assertFalse(PersonCheckMode.ON_MOVEMENT.shouldDetect(true, PersonCheckMode.STILL_REFRESH_MS - 1));
-        assertTrue(PersonCheckMode.ON_MOVEMENT.shouldDetect(true, PersonCheckMode.STILL_REFRESH_MS));
+        assertFalse(PersonCheckMode.ON_MOVEMENT.shouldDetect(true, 1999L));
+        assertTrue(PersonCheckMode.ON_MOVEMENT.shouldDetect(true, 2000L));
+    }
+
+    @Test
+    public void onMovementSlowRestsTenSecondsOnStillScenes() {
+        assertTrue(PersonCheckMode.ON_MOVEMENT_SLOW.shouldDetect(false, 0L));
+        assertFalse(PersonCheckMode.ON_MOVEMENT_SLOW.shouldDetect(true, 2000L));
+        assertFalse(PersonCheckMode.ON_MOVEMENT_SLOW.shouldDetect(true, 9999L));
+        assertTrue(PersonCheckMode.ON_MOVEMENT_SLOW.shouldDetect(true, 10_000L));
     }
 
     @Test

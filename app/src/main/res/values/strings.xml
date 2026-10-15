@@ -1401,9 +1401,11 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="cloud_upload_watched">Only when watched</string>
     <string name="cloud_upload_watched_desc">Uploads only while a viewer has the dashboard open. A new viewer sees \"Stream offline\" for about 10 to 20 s until video arrives; refresh the page if it stays stuck. If the viewer count can\'t be read, it uploads anyway.</string>
     <string name="setting_person_check_title">Person Check</string>
-    <string name="person_check_footer">After the quick motion check, Motion Lab runs an AI detector to tell people and objects apart. The detector is the heaviest part of motion analysis: a neural network on several CPU cores for every analysed frame. When almost no pixels change between frames, the detector can rest and keep its last answer, checking again every 2 seconds as a safety net. Faint or distant movement still gets checked on every frame.</string>
+    <string name="person_check_footer">After the quick motion check, Motion Lab runs an AI detector to tell people and objects apart. The detector is the heaviest part of motion analysis: a neural network on several CPU cores for every analysed frame. When almost no pixels change between frames, the detector can rest and keep its last answer, checking again every 2 or 10 seconds (your pick) as a safety net. Faint or distant movement still gets checked on every frame.</string>
     <string name="person_check_movement">When something moves</string>
     <string name="person_check_movement_desc">Runs the AI only when something in the picture changes, plus a refresh every 2 s. Cooler while a scene sits still.</string>
+    <string name="person_check_movement_slow">When something moves, rest longer</string>
+    <string name="person_check_movement_slow_desc">Like When something moves, but a still scene is checked again only every 10 s instead of 2 s. Coolest while Motion Lab waits for hours. Any change in the picture still runs the AI at once.</string>
     <string name="person_check_every">Every frame</string>
     <string name="person_check_every_desc">Runs the AI on every analysed frame, even when nothing changes. Most CPU and heat.</string>
     <string name="setting_ai_threads_title">AI Cores</string>
