@@ -1072,6 +1072,25 @@ public class SharedPreferencesManager {
     }
 
     /**
+     * Saves the URI-keyed position and the filename fallback in one write. These keys
+     * live in the main settings file, so each separate apply() rewrote the whole file;
+     * the player saves every 5 s while playing.
+     */
+    public void setSavedPlaybackPositionMs(
+        @androidx.annotation.Nullable String uriString,
+        @androidx.annotation.Nullable String filename,
+        long posMs
+    ) {
+        boolean hasUri = uriString != null;
+        boolean hasName = filename != null && !filename.isEmpty();
+        if (!hasUri && !hasName) return;
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        if (hasUri) editor.putLong(PREF_KEY_VIDEO_POS_PREFIX + uriString, posMs);
+        if (hasName) editor.putLong(PREF_KEY_VIDEO_POS_FILENAME_PREFIX + filename, posMs);
+        editor.apply();
+    }
+
+    /**
      * Get saved playback position (ms) by filename fallback. Returns 0 if none saved.
      */
     public long getSavedPlaybackPositionMsByFilename(String filename) {

@@ -190,13 +190,8 @@ public class VideoPlayerActivity extends AppCompatActivity {
                             SharedPreferencesManager.getInstance(
                                 VideoPlayerActivity.this
                             );
-                        if (cur != null) spmLoc.setSavedPlaybackPositionMs(
-                            cur.toString(),
-                            pos
-                        );
-                        if (
-                            filename != null && !filename.isEmpty()
-                        ) spmLoc.setSavedPlaybackPositionMsByFilename(
+                        spmLoc.setSavedPlaybackPositionMs(
+                            cur != null ? cur.toString() : null,
                             filename,
                             pos
                         );
@@ -1482,8 +1477,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
                                         if (videoUri != null && spm != null) {
                                             String uriStr = videoUri.toString();
                                             String fname = getFileName(videoUri);
-                                            spm.setSavedPlaybackPositionMs(uriStr, 0);
-                                            spm.setSavedPlaybackPositionMsByFilename(fname, 0);
+                                            spm.setSavedPlaybackPositionMs(uriStr, fname, 0);
                                         }
                                     }
                                 } catch (Exception ex) {
@@ -1740,13 +1734,11 @@ public class VideoPlayerActivity extends AppCompatActivity {
                 // Save both URI-keyed and filename-keyed fallback
                 SharedPreferencesManager spmLoc =
                     SharedPreferencesManager.getInstance(this);
-                spmLoc.setSavedPlaybackPositionMs(cur.toString(), pos);
+                String fn = null;
                 try {
-                    String fn = getFileName(cur);
-                    if (
-                        fn != null && !fn.isEmpty()
-                    ) spmLoc.setSavedPlaybackPositionMsByFilename(fn, pos);
+                    fn = getFileName(cur);
                 } catch (Exception ignored) {}
+                spmLoc.setSavedPlaybackPositionMs(cur.toString(), fn, pos);
                 // Broadcast update so UI components can refresh immediately
                 try {
                     android.content.Intent i = new android.content.Intent(
