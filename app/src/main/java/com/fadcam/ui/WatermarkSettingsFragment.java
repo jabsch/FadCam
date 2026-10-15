@@ -440,6 +440,10 @@ public class WatermarkSettingsFragment extends Fragment {
             if(b.containsKey(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID)){
                 String id = b.getString(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID);
                 if(id!=null){
+                    if(!"no_watermark".equals(id) && com.fadcam.utils.DirectEncodeMode.isEnabled(prefs)){
+                        android.widget.Toast.makeText(requireContext(), R.string.toast_direct_encode_no_watermark,
+                                android.widget.Toast.LENGTH_LONG).show();
+                    }
                     prefs.sharedPreferences.edit().putString(Constants.PREF_WATERMARK_OPTION, id).apply();
                     refreshWatermarkStyleValue();
                     updateLocationRowState();

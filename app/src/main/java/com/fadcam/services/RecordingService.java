@@ -2840,6 +2840,15 @@ public class RecordingService extends Service {
             return;
         }
 
+        if (glRecordingPipeline.isDirectEncode()) {
+            // The encoder is sized and rotated for this camera's sensor.
+            FLog.w(TAG, "Cannot switch camera: Direct encode records straight from this camera");
+            broadcastOnCameraSwitchFailed("Direct encode is on", newCameraType);
+            mainHandler.post(() -> Toast.makeText(getApplicationContext(),
+                    R.string.toast_direct_encode_no_camera_switch, Toast.LENGTH_SHORT).show());
+            return;
+        }
+
         CameraType currentType = sharedPreferencesManager.getCameraSelection();
         if (currentType == newCameraType) {
             FLog.w(TAG, "Camera is already " + newCameraType + ", ignoring switch");
@@ -3855,6 +3864,9 @@ public class RecordingService extends Service {
         watermarkInfoProvider = new WatermarkInfoProvider() {
             @Override
             public String getWatermarkText() {
+                if (com.fadcam.utils.DirectEncodeMode.isEnabled(sharedPreferencesManager)) {
+                    return "";
+                }
                 String dfOverlayPayload = buildForensicsOverlayPayload();
                 if (dfOverlayPayload != null) {
                     return dfOverlayPayload;
@@ -4797,6 +4809,10 @@ public class RecordingService extends Service {
                 surfaces.add(glSurface);
             } else {
                 FLog.e(TAG, "GL pipeline camera input surface is null!");
+            }
+            Surface directEncoderSurface = glRecordingPipeline.getDirectEncoderSurface();
+            if (directEncoderSurface != null && glSurface != null) {
+                surfaces.add(directEncoderSurface);
             }
             // Do NOT add previewSurface to Camera2 session outputs
             // if (previewSurface != null) {
@@ -6732,8 +6748,18 @@ public class RecordingService extends Service {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
                 java.util.List<android.hardware.camera2.params.OutputConfiguration> outputs =
                         new java.util.ArrayList<>();
+                Surface directEncoderSurface = glRecordingPipeline != null
+                        ? glRecordingPipeline.getDirectEncoderSurface() : null;
                 for (android.view.Surface s : surfaces) {
-                    outputs.add(new android.hardware.camera2.params.OutputConfiguration(s));
+                    android.hardware.camera2.params.OutputConfiguration output =
+                            new android.hardware.camera2.params.OutputConfiguration(s);
+                    if (s == directEncoderSurface
+                            && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                        // Same clock as the audio, so the pipeline maps frames without guessing.
+                        output.setTimestampBase(
+                                android.hardware.camera2.params.OutputConfiguration.TIMESTAMP_BASE_MONOTONIC);
+                    }
+                    outputs.add(output);
                 }
                 android.hardware.camera2.params.SessionConfiguration sessionConfig =
                         new android.hardware.camera2.params.SessionConfiguration(
@@ -7639,6 +7665,80 @@ public class RecordingService extends Service {
     }
 
     /**
+     * Direct encode (Video settings): when this recording can skip the GL encoder
+     * pass, the camera writes the video encoder itself and GL only draws the
+     * preview, from a stream of at most 1080p. Recordings it can't handle use the
+     * normal path; watermarks stay off either way while the setting is on.
+     */
+    private void maybeEnableDirectEncode(CameraManager cameraManager, @Nullable String cameraId,
+            int videoWidth, int videoHeight, int videoFramerate, String orientation, int sensorOrientation) {
+        if (glRecordingPipeline == null || cameraId == null
+                || !com.fadcam.utils.DirectEncodeMode.isEnabled(sharedPreferencesManager)) {
+            return;
+        }
+        if (videoFramerate >= 120) {
+            FLog.i(TAG, "[DIRECT] Not used: " + videoFramerate + " fps needs a high-speed session");
+            return;
+        }
+        if (sharedPreferencesManager.isMotionModeEnabled()) {
+            FLog.i(TAG, "[DIRECT] Not used: Motion Lab is on");
+            return;
+        }
+        try {
+            CameraCharacteristics characteristics = characteristicsFor(cameraManager, cameraId);
+            Integer hardwareLevel = characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL);
+            if (hardwareLevel != null
+                    && hardwareLevel == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY) {
+                FLog.i(TAG, "[DIRECT] Not used: LEGACY camera can't promise a preview plus a video stream");
+                return;
+            }
+            android.hardware.camera2.params.StreamConfigurationMap map =
+                    characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            if (map == null) {
+                return;
+            }
+            int longSide = Math.max(videoWidth, videoHeight);
+            int shortSide = Math.min(videoWidth, videoHeight);
+            boolean encoderSizeListed = false;
+            Size[] encoderSizes = map.getOutputSizes(android.media.MediaCodec.class);
+            if (encoderSizes != null) {
+                for (Size size : encoderSizes) {
+                    if (size.getWidth() == longSide && size.getHeight() == shortSide) {
+                        encoderSizeListed = true;
+                        break;
+                    }
+                }
+            }
+            if (!encoderSizeListed) {
+                FLog.i(TAG, "[DIRECT] Not used: camera can't send " + longSide + "x" + shortSide + " to the encoder");
+                return;
+            }
+            int previewWidth = 0;
+            int previewHeight = 0;
+            Size[] previewSizes = map.getOutputSizes(SurfaceTexture.class);
+            if (previewSizes != null) {
+                int[][] candidates = new int[previewSizes.length][];
+                for (int i = 0; i < previewSizes.length; i++) {
+                    candidates[i] = new int[] {previewSizes[i].getWidth(), previewSizes[i].getHeight()};
+                }
+                int[] picked = com.fadcam.utils.PreviewResolutionMode.pickScreenSize(longSide, shortSide, candidates);
+                if (picked != null) {
+                    previewWidth = picked[0];
+                    previewHeight = picked[1];
+                }
+            }
+            // The camera fills the encoder in sensor orientation; the file is rotated instead.
+            int orientationHint = "portrait".equalsIgnoreCase(orientation) ? sensorOrientation : 0;
+            glRecordingPipeline.setDirectEncode(previewWidth, previewHeight, orientationHint);
+            FLog.i(TAG, "[DIRECT] On: camera -> encoder at " + longSide + "x" + shortSide + ", preview stream "
+                    + (previewWidth > 0 ? previewWidth + "x" + previewHeight : "video size")
+                    + ", rotation " + orientationHint);
+        } catch (Exception e) {
+            FLog.w(TAG, "[DIRECT] Not used: couldn't read camera sizes", e);
+        }
+    }
+
+    /**
      * Camera size for preview-only under the Preview Resolution setting, or null to
      * use the recording size. Recording builds a new pipeline and session at the full
      * size, so only the preview (and photos taken from it) see this size.
@@ -8109,6 +8209,8 @@ public class RecordingService extends Service {
             }
 
             handOffGeotag();
+            maybeEnableDirectEncode(cameraManager, cameraId, videoWidth, videoHeight, videoFramerate,
+                    orientation, sensorOrientation);
             glRecordingPipeline.prepareSurfaces();
             // Home's mute button state carries over to the next recording.
             glRecordingPipeline.setAudioMuted(sharedPreferencesManager.isAudioMuted());

@@ -24,6 +24,8 @@ public final class LocationFeedGate {
      */
     public static boolean needsLocationData(SharedPreferencesManager prefs) {
         if (prefs == null) return false;
+        // Direct encode turns every watermark off, so nothing reads the feed.
+        if (com.fadcam.utils.DirectEncodeMode.isEnabled(prefs)) return false;
         return prefs.isLocalisationEnabled()
                 || prefs.isUtmEnabled()
                 || prefs.isSpeedEnabled()

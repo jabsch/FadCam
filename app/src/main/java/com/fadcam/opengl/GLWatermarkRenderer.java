@@ -338,6 +338,34 @@ public class GLWatermarkRenderer {
     /** True while the display is off: skip the preview pass, the encoder pass still runs. */
     private volatile boolean previewSuspended = false;
 
+    // Direct encode: the camera writes the video encoder's surface itself, so this
+    // renderer only draws the preview. Its main EGL surface is an offscreen pbuffer
+    // (photo snapshots still render and read back from it), and the camera's preview
+    // stream can be smaller than the video.
+    private boolean offscreenOutput = false;
+    private int offscreenWidth;
+    private int offscreenHeight;
+    private int cameraBufferWidth;
+    private int cameraBufferHeight;
+
+    /** Renders "encoder" frames into a w x h pbuffer instead of a window surface. Call before initializeEGL. */
+    public void setOffscreenOutput(int width, int height) {
+        offscreenOutput = width > 0 && height > 0;
+        offscreenWidth = width;
+        offscreenHeight = height;
+    }
+
+    /** Size of the camera stream behind the preview; 0 uses the video size. Call before initializeEGL. */
+    public void setCameraBufferSize(int width, int height) {
+        cameraBufferWidth = width;
+        cameraBufferHeight = height;
+    }
+
+    private EGLSurface createOffscreenSurface() {
+        int[] pbufferAttribs = { EGL14.EGL_WIDTH, offscreenWidth, EGL14.EGL_HEIGHT, offscreenHeight, EGL14.EGL_NONE };
+        return EGL14.eglCreatePbufferSurface(eglDisplay, eglConfig, pbufferAttribs, 0);
+    }
+
     public void setPreviewSuspended(boolean suspended) {
         previewSuspended = suspended;
     }
@@ -484,6 +512,16 @@ public class GLWatermarkRenderer {
      * Used by preview-only mode where encoder/muxer are not active.
      */
     public void renderPreviewOnlyFrame() {
+        renderPreviewOnlyFrame(false);
+    }
+
+    /**
+     * @param honorPreviewCap draw at most at the preview frame rate cap; frames in
+     *        between are still taken from the camera so its queue keeps moving.
+     *        Direct encode uses this while recording, when the camera runs at the
+     *        full recording rate.
+     */
+    public void renderPreviewOnlyFrame(boolean honorPreviewCap) {
         synchronized (renderLock) {
             if (!initialized || released || eglDisplay == EGL14.EGL_NO_DISPLAY
                     || eglContext == EGL14.EGL_NO_CONTEXT || eglSurface == EGL14.EGL_NO_SURFACE) {
@@ -509,6 +547,9 @@ public class GLWatermarkRenderer {
             }
         } catch (Exception e) {
             FLog.w(TAG, "renderPreviewOnlyFrame: updateTexImage failed", e);
+            return;
+        }
+        if (honorPreviewCap && !previewDrawDue(System.nanoTime())) {
             return;
         }
         try {
@@ -622,7 +663,7 @@ public class GLWatermarkRenderer {
             }
 
             // Check if surface is valid and recreate if needed
-            if (eglSurface == EGL14.EGL_NO_SURFACE || outputSurface == null) {
+            if (eglSurface == EGL14.EGL_NO_SURFACE || (outputSurface == null && !offscreenOutput)) {
                 FLog.e(TAG, "EGL surface is invalid, attempting to recreate");
                 try {
                     if (eglSurface != EGL14.EGL_NO_SURFACE) {
@@ -630,7 +671,12 @@ public class GLWatermarkRenderer {
                         eglSurface = EGL14.EGL_NO_SURFACE;
                     }
 
-                    if (outputSurface != null) {
+                    if (offscreenOutput) {
+                        eglSurface = createOffscreenSurface();
+                        if (eglSurface == EGL14.EGL_NO_SURFACE) {
+                            throw new RuntimeException("Failed to create offscreen EGL surface");
+                        }
+                    } else if (outputSurface != null) {
                         int[] surfaceAttribs = { EGL14.EGL_NONE };
                         if (eglConfig != null) {
                             eglSurface = EGL14.eglCreateWindowSurface(eglDisplay, eglConfig, outputSurface,
@@ -669,7 +715,9 @@ public class GLWatermarkRenderer {
                                     eglSurface = EGL14.EGL_NO_SURFACE;
                                 }
 
-                                if (outputSurface != null) {
+                                if (offscreenOutput) {
+                                    eglSurface = createOffscreenSurface();
+                                } else if (outputSurface != null) {
                                     int[] surfaceAttribs = { EGL14.EGL_NONE };
                                     eglSurface = EGL14.eglCreateWindowSurface(eglDisplay, eglConfig, outputSurface,
                                             surfaceAttribs, 0);
@@ -1132,7 +1180,15 @@ public class GLWatermarkRenderer {
             throw new RuntimeException("eglInitialize failed");
 
         // Include EGL_RECORDABLE_ANDROID for better driver compatibility (e.g., Huawei)
-        int[] attribList = {
+        int[] attribList = offscreenOutput ? new int[] {
+                EGL14.EGL_RED_SIZE, 8,
+                EGL14.EGL_GREEN_SIZE, 8,
+                EGL14.EGL_BLUE_SIZE, 8,
+                EGL14.EGL_ALPHA_SIZE, 8,
+                EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
+                EGL14.EGL_SURFACE_TYPE, EGL14.EGL_WINDOW_BIT | EGL14.EGL_PBUFFER_BIT,
+                EGL14.EGL_NONE
+        } : new int[] {
                 EGL14.EGL_RED_SIZE, 8,
                 EGL14.EGL_GREEN_SIZE, 8,
                 EGL14.EGL_BLUE_SIZE, 8,
@@ -1155,7 +1211,9 @@ public class GLWatermarkRenderer {
             throw new RuntimeException("eglCreateContext failed");
 
         int[] surfaceAttribs = { EGL14.EGL_NONE };
-        eglSurface = EGL14.eglCreateWindowSurface(eglDisplay, eglConfig, outputSurface, surfaceAttribs, 0);
+        eglSurface = offscreenOutput
+                ? createOffscreenSurface()
+                : EGL14.eglCreateWindowSurface(eglDisplay, eglConfig, outputSurface, surfaceAttribs, 0);
         if (eglSurface == EGL14.EGL_NO_SURFACE)
             throw new RuntimeException("eglCreateWindowSurface failed");
 
@@ -1198,7 +1256,11 @@ public class GLWatermarkRenderer {
 
     private void createCameraSurfaceTexture() {
         cameraSurfaceTexture = new SurfaceTexture(oesTextureId);
-        cameraSurfaceTexture.setDefaultBufferSize(videoWidth, videoHeight);
+        if (cameraBufferWidth > 0 && cameraBufferHeight > 0) {
+            cameraSurfaceTexture.setDefaultBufferSize(cameraBufferWidth, cameraBufferHeight);
+        } else {
+            cameraSurfaceTexture.setDefaultBufferSize(videoWidth, videoHeight);
+        }
         cameraInputSurface = new Surface(cameraSurfaceTexture);
         // CRITICAL FIX: Pass GL thread's handler to ensure callbacks run on GL thread
         // Without this, callbacks run on arbitrary threads causing "no current context" errors
