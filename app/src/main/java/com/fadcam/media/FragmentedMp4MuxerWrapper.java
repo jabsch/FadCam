@@ -823,22 +823,26 @@ public class FragmentedMp4MuxerWrapper {
             // The original output channel is write-only ("w" fd), and
             // FileOutputStream.getChannel() is write-only by CONTRACT — use a
             // dedicated read channel (SAF "r" mode or RandomAccessFile).
-            try {
-                java.nio.channels.FileChannel auditChannel = reopenReadChannel();
-                if (auditChannel == null) {
-                    FLog.w(TAG, "[AVC-AUDIT] audit skipped: no readable channel");
-                } else {
-                    try {
-                        auditChannel.position(0);
-                        String audit = androidx.media3.muxer.FragmentedMp4Muxer
-                                .auditFirstVideoSample(auditChannel);
-                        FLog.i(TAG, "[AVC-AUDIT] first video sample in FILE: " + audit);
-                    } finally {
-                        closeQuietly(auditChannel);
+            // Only for the debug log: the audit parses every fragment header,
+            // a pass over the whole file at each stop and split.
+            if (com.fadcam.Log.isDebugLoggingEnabled()) {
+                try {
+                    java.nio.channels.FileChannel auditChannel = reopenReadChannel();
+                    if (auditChannel == null) {
+                        FLog.w(TAG, "[AVC-AUDIT] audit skipped: no readable channel");
+                    } else {
+                        try {
+                            auditChannel.position(0);
+                            String audit = androidx.media3.muxer.FragmentedMp4Muxer
+                                    .auditFirstVideoSample(auditChannel);
+                            FLog.i(TAG, "[AVC-AUDIT] first video sample in FILE: " + audit);
+                        } finally {
+                            closeQuietly(auditChannel);
+                        }
                     }
+                } catch (Exception auditEx) {
+                    FLog.w(TAG, "[AVC-AUDIT] audit failed: " + auditEx);
                 }
-            } catch (Exception auditEx) {
-                FLog.w(TAG, "[AVC-AUDIT] audit failed: " + auditEx);
             }
             return;
         } catch (Exception e) {

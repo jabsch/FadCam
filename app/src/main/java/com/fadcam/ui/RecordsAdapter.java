@@ -1085,17 +1085,12 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             options = options.dontAnimate();
         }
 
-        // Load with Glide and cache the result
+        // Load with Glide and cache the result. No smaller .thumbnail() pass: for a
+        // video it decodes the same full-size keyframe again, so it doubled the decode.
         Glide.with(context)
                 .asBitmap()
                 .load(videoUri)
                 .apply(options)
-                .thumbnail(
-                        Glide.with(context)
-                                .asBitmap()
-                                .load(videoUri)
-                                .apply(options)
-                                .override(96, 96))
                 .into(new com.bumptech.glide.request.target.CustomTarget<android.graphics.Bitmap>() {
                     @Override
                     public void onResourceReady(@NonNull android.graphics.Bitmap resource,
