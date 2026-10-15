@@ -525,6 +525,12 @@
     <string name="dual_cam_pip_position_helper">Choose which corner the secondary camera (PiP) overlay is placed in.</string>
     <string name="dual_cam_pip_size_title">PiP Size</string>
     <string name="dual_cam_pip_size_helper">Controls how large the PiP overlay is relative to the full output width.</string>
+    <string name="setting_pip_fps_title">PiP Camera Frame Rate</string>
+    <string name="pip_fps_footer">How often the small picture-in-picture camera captures a frame. The PiP is a small box, so a lower rate there is hard to notice, while the second camera, its image processor and the graphics chip handle about half the frames, which means less heat in dual-camera recording. The main video always keeps its full frame rate. Applies when the next dual recording starts (or when you swap cameras).</string>
+    <string name="pip_fps_same">Same as main</string>
+    <string name="pip_fps_same_desc">The PiP camera runs at its normal rate (usually 30 fps). Smoothest PiP.</string>
+    <string name="pip_fps_15">15 fps</string>
+    <string name="pip_fps_15_desc">Half the PiP frames. Motion in the small box looks a little choppier; less work for the phone.</string>
     <string name="dual_cam_primary_camera_title">Primary Camera</string>
     <string name="dual_cam_primary_camera_helper">Select which camera fills the full frame. The other camera will appear as the PiP overlay.</string>
     <string name="dual_cam_show_border_title">PiP Border</string>

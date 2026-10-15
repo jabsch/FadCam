@@ -66,6 +66,7 @@ public class DualCameraSettingsFragment extends Fragment {
     // Value TextViews
     private TextView valuePipPosition;
     private TextView valuePipSize;
+    private TextView valuePipFps;
     private TextView valuePrimaryCamera;
     private TextView valueShowBorder;
     private TextView valueRoundCorners;
@@ -118,6 +119,7 @@ public class DualCameraSettingsFragment extends Fragment {
         // Values
         valuePipPosition = root.findViewById(R.id.value_pip_position);
         valuePipSize = root.findViewById(R.id.value_pip_size);
+        valuePipFps = root.findViewById(R.id.value_pip_fps);
         valuePrimaryCamera = root.findViewById(R.id.value_primary_camera);
         valueShowBorder = root.findViewById(R.id.value_show_border);
         valueRoundCorners = root.findViewById(R.id.value_round_corners);
@@ -127,6 +129,7 @@ public class DualCameraSettingsFragment extends Fragment {
     private void bindRowHandlers(View root) {
         root.findViewById(R.id.row_pip_position).setOnClickListener(v -> showPipPositionPicker());
         root.findViewById(R.id.row_pip_size).setOnClickListener(v -> showPipSizePicker());
+        root.findViewById(R.id.row_pip_fps).setOnClickListener(v -> showPipFrameRatePicker());
         root.findViewById(R.id.row_primary_camera).setOnClickListener(v -> showPrimaryCameraPicker());
         root.findViewById(R.id.row_show_border).setOnClickListener(v -> showBorderToggle());
         root.findViewById(R.id.row_round_corners).setOnClickListener(v -> showRoundCornersToggle());
@@ -275,6 +278,9 @@ public class DualCameraSettingsFragment extends Fragment {
         if (valuePipSize != null) {
             valuePipSize.setText(formatPipSize(config.getPipSize()));
         }
+        if (valuePipFps != null) {
+            valuePipFps.setText(com.fadcam.utils.PipFrameRate.current(prefs).labelRes);
+        }
         if (valuePrimaryCamera != null) {
             valuePrimaryCamera.setText(formatEnum(config.getPrimaryCamera().name()));
         }
@@ -360,6 +366,28 @@ public class DualCameraSettingsFragment extends Fragment {
                 getString(R.string.dual_cam_pip_size_title), items, currentId, resultKey,
                 getString(R.string.dual_cam_pip_size_helper));
         sheet.show(getParentFragmentManager(), "pip_size_picker");
+    }
+
+    // ── PiP Camera Frame Rate Picker ───────────────────────────────────
+
+    private void showPipFrameRatePicker() {
+        com.fadcam.utils.PipFrameRate current = com.fadcam.utils.PipFrameRate.current(prefs);
+        ArrayList<OptionItem> items = new ArrayList<>();
+        for (com.fadcam.utils.PipFrameRate m : com.fadcam.utils.PipFrameRate.values()) {
+            items.add(new OptionItem(m.id, getString(m.labelRes), getString(m.descriptionRes)));
+        }
+        final String resultKey = "picker_result_pip_fps";
+        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
+            com.fadcam.utils.PipFrameRate picked = com.fadcam.utils.PipFrameRate.fromId(
+                    b.getString(PickerBottomSheetFragment.BUNDLE_SELECTED_ID));
+            if (picked != null && picked != current) {
+                com.fadcam.utils.PipFrameRate.save(prefs, picked);
+                refreshAllValues();
+            }
+        });
+        PickerBottomSheetFragment.newInstance(getString(R.string.setting_pip_fps_title), items,
+                current.id, resultKey, getString(R.string.pip_fps_footer))
+                .show(getParentFragmentManager(), "pip_fps_picker");
     }
 
     // ── Primary Camera Picker ──────────────────────────────────────────
