@@ -65,6 +65,7 @@ public class PlaybackService extends Service {
             }
         } catch (Exception ignored) {}
         stopProgressUpdates();
+        cancelAutoStop(); // the backup alarm would otherwise still wake the phone later
         com.fadcam.Utils.stopForegroundCompat(this, true);
         stopSelf();
     };
@@ -87,6 +88,9 @@ public class PlaybackService extends Service {
                 } catch (Exception ignored) {}
             }
             stopProgressUpdates();
+            // Stopping by hand left the sleep-timer alarm set: it woke the phone
+            // later and restarted this service only to stop it again.
+            cancelAutoStop();
             com.fadcam.Utils.stopForegroundCompat(this, true);
             stopSelf();
             return START_NOT_STICKY;
@@ -472,6 +476,7 @@ public class PlaybackService extends Service {
     @Override
     public void onDestroy() {
         stopProgressUpdates();
+        cancelAutoStop();
         // Make sure playback is stopped when service is destroyed
         if (player != null) {
             try {
