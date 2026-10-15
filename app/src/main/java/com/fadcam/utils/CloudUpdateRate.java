@@ -73,7 +73,8 @@ public enum CloudUpdateRate {
 
     public static CloudUpdateRate current(SharedPreferencesManager prefs) {
         CloudUpdateRate saved = fromId(prefs.sharedPreferences.getString(PREF_MODE, null));
-        return saved != null ? saved : BALANCED;
+        // Adaptive by default: it matches Balanced while someone watches.
+        return saved != null ? saved : ADAPTIVE;
     }
 
     public static void save(SharedPreferencesManager prefs, CloudUpdateRate rate) {
