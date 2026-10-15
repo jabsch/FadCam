@@ -1389,6 +1389,12 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="heat_response_standard">Standard</string>
     <string name="heat_response_standard_desc">Warm steps at moderate heat, bitrate halved at severe. Best quality for as long as the phone allows.</string>
     <string name="heat_response_early">Early</string>
+    <string name="setting_editor_export_title">Editor Export Format</string>
+    <string name="editor_export_footer">The video format of exports from the Faditor editor. JaCam records in HEVC (H.265) by default, so Compatible H.264 decodes and re-encodes every frame of every export, even a plain trim, which keeps the processor and video encoder busy and the phone warm for the whole export. Keep original exports in the format the clip was recorded in. A plain trim can then copy the video as-is and re-encode only a moment at the cut, so it finishes much faster and cooler. Edits like speed, rotation, crop or audio changes still re-encode, but in the original format. Applies from the next export. No other Pixel settings need to change.</string>
+    <string name="editor_export_compatible">Compatible H.264</string>
+    <string name="editor_export_compatible_desc">Always H.264. Plays on almost anything, including older phones, PCs and TVs. Every export is fully re-encoded, the slowest and warmest.</string>
+    <string name="editor_export_original">Keep original</string>
+    <string name="editor_export_original_desc">Same format as the recording (usually HEVC). Trims are much faster and cooler. HEVC files may not play on some older devices or browsers.</string>
     <string name="heat_response_early_desc">Warm steps at light heat, bitrate halved at moderate. Coolest phone; softer, less smooth video while it is warm.</string>
     <string name="setting_low_light_fps_title">Low-Light Frame Rate</string>
     <string name="low_light_fps_footer">Whether the camera may lower its frame rate in dim light, down to half your frame rate (15 fps when recording at 30). Each frame can then use a longer exposure, so night video is brighter and less noisy, and the camera, graphics chip and encoder handle fewer frames while it is dark, which means less heat. Motion looks choppier in the dark; in good light nothing changes. Applies when the camera next starts (a new recording or preview). No effect when exposure is set manually, or when the camera has no matching range.</string>

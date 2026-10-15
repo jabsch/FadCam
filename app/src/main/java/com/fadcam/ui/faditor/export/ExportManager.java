@@ -145,8 +145,13 @@ public class ExportManager {
         try {
             // Build the Transformer
             Transformer.Builder builder = new Transformer.Builder(context)
-                    .setVideoMimeType(MimeTypes.VIDEO_H264)
                     .setAudioMimeType(MimeTypes.AUDIO_AAC);
+            // Video > Editor Export Format: Keep original leaves the codec unset, so a
+            // trim can copy the source video instead of re-encoding all of it.
+            if (com.fadcam.utils.EditorExportFormat.current(prefsManager)
+                    == com.fadcam.utils.EditorExportFormat.COMPATIBLE) {
+                builder.setVideoMimeType(MimeTypes.VIDEO_H264);
+            }
 
             // For simple trim (single clip, no effects, normal speed, audio intact,
             // and no audio clips on the audio track) use near-lossless
