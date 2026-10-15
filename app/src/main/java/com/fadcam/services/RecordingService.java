@@ -1428,6 +1428,10 @@ public class RecordingService extends Service {
         }
         Runnable work = () -> {
             try {
+                // A recording may have started while this waited behind the camera thread
+                if (recordingState != RecordingState.NONE) {
+                    return;
+                }
                 int result = finalizeFileChannelFor(uriString);
                 if (result >= 0) {
                     com.fadcam.data.VideoIndexRepository.getInstance(
@@ -2344,11 +2348,7 @@ public class RecordingService extends Service {
         if (durationLimitController != null && durationLimitController.stopSession()) {
             FLog.d(TAG, "Cancelled maximum recording duration for current session");
         }
-        // The session file is about to be finalized asynchronously on the stop
-        // thread — guard it from the self-healing scan until finalization is
-        // done (see IN_FLIGHT_FINALIZATIONS).
         final String inFlightUri = getCurrentRecordingMediaUri();
-        addInFlightFinalization(inFlightUri);
         if (isStopping) {
             FLog.w(TAG, "stopRecording: Already in stopping process, ignoring duplicate call");
             return;
@@ -2392,6 +2392,12 @@ public class RecordingService extends Service {
             isStopping = false; // Reset stopping flag if we're already stopped
             return;
         }
+        // The session file is about to be finalized asynchronously on the stop
+        // thread — guard it from the self-healing scan until finalization is
+        // done (see IN_FLIGHT_FINALIZATIONS). Added only past the early returns:
+        // with nothing recording, the segment fields name an older file that no
+        // finalization would ever release, so the scan skipped it until restart.
+        addInFlightFinalization(inFlightUri);
 
         if (motionLabEnabledForSession) {
             FLog.i(TAG, "MotionLab summary: frames=" + motionFramesAnalyzed
