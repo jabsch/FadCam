@@ -1374,6 +1374,14 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="person_check_movement_desc">Runs the AI only when something in the picture changes, plus a refresh every 2 s. Cooler while a scene sits still.</string>
     <string name="person_check_every">Every frame</string>
     <string name="person_check_every_desc">Runs the AI on every analysed frame, even when nothing changes. Most CPU and heat.</string>
+    <string name="setting_ai_threads_title">AI Cores</string>
+    <string name="ai_threads_footer">How many CPU cores the AI person and object detector may use at once. More cores give an answer sooner but run the phone\'s fast cores harder, which is where most of the detector\'s heat comes from. Motion detection itself is not affected. A change takes effect the next time a Motion Lab recording starts.</string>
+    <string name="ai_threads_cool">1 core</string>
+    <string name="ai_threads_cool_desc">Coolest. Each AI check takes longest, so a person can take a moment longer to confirm.</string>
+    <string name="ai_threads_balanced">2 cores</string>
+    <string name="ai_threads_balanced_desc">Default. Much less heat than 4 cores, with only a short extra delay to confirm a person.</string>
+    <string name="ai_threads_fast">4 cores</string>
+    <string name="ai_threads_fast_desc">Fastest AI checks, as in earlier versions. Uses the most CPU and makes the most heat.</string>
     <string name="setting_live_counters_title">Counter Motion</string>
     <string name="live_counter_footer">While recording, Home\'s elapsed time, time left and the timer on the record button change every second. Sliding them makes the screen redraw at its full refresh rate for part of every second, on top of the camera preview. Calm swaps the numbers instantly while recording and keeps the slide the rest of the time.</string>
     <string name="live_counter_calm">Calm while recording</string>

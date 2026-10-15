@@ -131,6 +131,8 @@ public class MotionLabSettingsFragment extends Fragment {
         view.findViewById(R.id.row_motion_analysis_fps).setOnClickListener(v -> showAnalysisFpsPicker());
         view.findViewById(R.id.row_motion_person_check).setOnClickListener(v -> showPersonCheckPicker());
         refreshPersonCheckValue(view);
+        view.findViewById(R.id.row_motion_ai_threads).setOnClickListener(v -> showAiThreadsPicker());
+        refreshAiThreadsValue(view);
         view.findViewById(R.id.row_motion_standby).setOnClickListener(v -> showStandbyPicker());
         refreshStandbyValue(view);
         view.findViewById(R.id.row_motion_debounce).setOnClickListener(v -> showDebounceInput());
@@ -195,6 +197,37 @@ public class MotionLabSettingsFragment extends Fragment {
         TextView value = root != null ? root.findViewById(R.id.value_motion_person_check) : null;
         if (value != null) {
             value.setText(com.fadcam.utils.PersonCheckMode.current(
+                    SharedPreferencesManager.getInstance(requireContext())).labelRes);
+        }
+    }
+
+    /** Opens the AI Cores picker; the service applies it when the next Motion Lab session starts. */
+    private void showAiThreadsPicker() {
+        SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(requireContext());
+        com.fadcam.utils.AiDetectorThreads current = com.fadcam.utils.AiDetectorThreads.current(prefs);
+        java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
+        for (com.fadcam.utils.AiDetectorThreads t : com.fadcam.utils.AiDetectorThreads.values()) {
+            items.add(new com.fadcam.ui.picker.OptionItem(t.id, getString(t.labelRes), getString(t.descriptionRes)));
+        }
+        final String resultKey = "picker_result_ai_threads";
+        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
+            com.fadcam.utils.AiDetectorThreads picked = com.fadcam.utils.AiDetectorThreads.fromId(
+                    b.getString(PickerBottomSheetFragment.BUNDLE_SELECTED_ID));
+            if (picked == null || picked == current) {
+                return;
+            }
+            com.fadcam.utils.AiDetectorThreads.save(prefs, picked);
+            refreshAiThreadsValue(getView());
+        });
+        PickerBottomSheetFragment.newInstance(getString(R.string.setting_ai_threads_title),
+                items, current.id, resultKey, getString(R.string.ai_threads_footer))
+                .show(getParentFragmentManager(), "ai_threads_picker");
+    }
+
+    private void refreshAiThreadsValue(@Nullable View root) {
+        TextView value = root != null ? root.findViewById(R.id.value_motion_ai_threads) : null;
+        if (value != null) {
+            value.setText(com.fadcam.utils.AiDetectorThreads.current(
                     SharedPreferencesManager.getInstance(requireContext())).labelRes);
         }
     }
