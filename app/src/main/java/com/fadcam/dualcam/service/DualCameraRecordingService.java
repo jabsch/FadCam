@@ -150,12 +150,70 @@ public class DualCameraRecordingService extends Service {
 
                         @Override
                         public void onWarm(boolean lowerFrameRate) {
+                            applyPreviewFrameRateCap();
                         }
 
                         @Override
                         public void onCooled(boolean raiseFrameRate) {
+                            applyPreviewFrameRateCap();
                         }
                     });
+
+    /**
+     * Pauses the preview pass while the display is off. Dual recording drew the
+     * full-screen camera, the PiP and the watermark to the preview on every
+     * frame even with the screen off; single-camera recording already skipped it.
+     */
+    @Nullable
+    private android.content.BroadcastReceiver screenStateReceiver;
+
+    private void registerScreenStateReceiver() {
+        if (screenStateReceiver != null) return;
+        screenStateReceiver = new android.content.BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                applyScreenStateToPipeline();
+            }
+        };
+        android.content.IntentFilter filter = new android.content.IntentFilter(Intent.ACTION_SCREEN_OFF);
+        filter.addAction(Intent.ACTION_SCREEN_ON);
+        androidx.core.content.ContextCompat.registerReceiver(this, screenStateReceiver, filter,
+                androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
+        applyScreenStateToPipeline();
+    }
+
+    private void unregisterScreenStateReceiver() {
+        if (screenStateReceiver == null) return;
+        try {
+            unregisterReceiver(screenStateReceiver);
+        } catch (IllegalArgumentException ignored) {
+        }
+        screenStateReceiver = null;
+        GLRecordingPipeline pipeline = recordingPipeline;
+        if (pipeline != null) {
+            pipeline.setPreviewSuspended(false);
+        }
+    }
+
+    private void applyScreenStateToPipeline() {
+        GLRecordingPipeline pipeline = recordingPipeline;
+        if (pipeline == null) return;
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        pipeline.setPreviewSuspended(pm != null && !pm.isInteractive());
+    }
+
+    /**
+     * Applies Settings > Video > Preview Frame Rate, which dual recording ignored
+     * (its preview redrew both cameras at the full camera rate). Read when the
+     * recording starts and at each thermal step.
+     */
+    private void applyPreviewFrameRateCap() {
+        GLRecordingPipeline pipeline = recordingPipeline;
+        if (pipeline == null || prefs == null) return;
+        int cap = com.fadcam.utils.PreviewFrameRateMode.current(prefs).capFps(thermalGuard.isWarm());
+        pipeline.setPreviewFrameRateCap(cap);
+        FLog.i(TAG, "Preview frame-rate cap: " + (cap > 0 ? cap + " fps" : "none"));
+    }
 
     // ── State ──────────────────────────────────────────────────────────
 
@@ -441,6 +499,7 @@ public class DualCameraRecordingService extends Service {
      */
     private void handleStopDualRecording() {
         thermalGuard.stop();
+        unregisterScreenStateReceiver();
         if (durationLimitController != null && durationLimitController.stopSession()) {
             FLog.d(TAG, "Cancelled maximum recording duration for current dual session");
         }
@@ -1690,6 +1749,8 @@ public class DualCameraRecordingService extends Service {
             state = DualCameraState.RECORDING;
             recordingStartTime = SystemClock.elapsedRealtime();
             thermalGuard.start(getApplicationContext(), false);
+            applyPreviewFrameRateCap();
+            registerScreenStateReceiver();
             prefs.setRecordingInProgress(true);
             // Tactile confirmation that dual recording started (service-side,
             // gated by the Haptic feedback setting).
@@ -1823,6 +1884,7 @@ public class DualCameraRecordingService extends Service {
             durationLimitController.stopSession();
         }
         thermalGuard.stop();
+        unregisterScreenStateReceiver();
         // Stop fallback snapshot loop
         fallbackMode = false;
         isCapturingSnapshot = false;
