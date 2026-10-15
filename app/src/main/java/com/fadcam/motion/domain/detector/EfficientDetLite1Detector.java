@@ -169,7 +169,12 @@ public class EfficientDetLite1Detector {
         return detect(packet);
     }
 
-    public List<DetectionResult> detect(FramePacket packet) {
+    // Reused between runs: each run otherwise allocated about 0.6 MB that was never
+    // recycled. Only touched inside the synchronized detect.
+    private int[] scratchPixels;
+    private Bitmap scratchBitmap;
+
+    public synchronized List<DetectionResult> detect(FramePacket packet) {
         List<DetectionResult> out = new ArrayList<>();
         if (detector == null || packet == null || packet.width <= 0 || packet.height <= 0) {
             return out;
@@ -316,30 +321,6 @@ public class EfficientDetLite1Detector {
         return "OBJECT";
     }
 
-    private Bitmap yuv420ToBitmap(FramePacket packet) {
-        int width = packet.width;
-        int height = packet.height;
-        int[] pixels = new int[width * height];
-        int index = 0;
-        for (int y = 0; y < height; y++) {
-            int yRowStart = y * packet.yRowStride;
-            int uvRowStart = (y / 2) * packet.uvRowStride;
-            for (int x = 0; x < width; x++) {
-                int yIndex = yRowStart + (x * packet.yPixelStride);
-                int uvIndex = uvRowStart + ((x / 2) * packet.uvPixelStride);
-                int yValue = (yIndex >= 0 && yIndex < packet.y.length) ? (packet.y[yIndex] & 0xFF) : 0;
-                int uValue = (uvIndex >= 0 && uvIndex < packet.u.length) ? (packet.u[uvIndex] & 0xFF) : 128;
-                int vValue = (uvIndex >= 0 && uvIndex < packet.v.length) ? (packet.v[uvIndex] & 0xFF) : 128;
-
-                int r = clampByte(yValue + (int) (1.402f * (vValue - 128)));
-                int g = clampByte(yValue - (int) (0.344136f * (uValue - 128)) - (int) (0.714136f * (vValue - 128)));
-                int b = clampByte(yValue + (int) (1.772f * (uValue - 128)));
-                pixels[index++] = 0xFF000000 | (r << 16) | (g << 8) | b;
-            }
-        }
-        return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888);
-    }
-
     /**
      * Convert YUV420 to a downscaled ARGB bitmap, avoiding full-resolution allocation.
      * EfficientDet-Lite1 works at 320–640 px; 384 px preserves quality while cutting
@@ -353,7 +334,10 @@ public class EfficientDetLite1Detector {
                 (float) maxDimension / srcH));
         int dstW = Math.max(1, Math.round(srcW * scale));
         int dstH = Math.max(1, Math.round(srcH * scale));
-        int[] pixels = new int[dstW * dstH];
+        if (scratchPixels == null || scratchPixels.length != dstW * dstH) {
+            scratchPixels = new int[dstW * dstH];
+        }
+        int[] pixels = scratchPixels;
         int index = 0;
         for (int yDst = 0; yDst < dstH; yDst++) {
             int ySrc = (yDst * srcH) / dstH;
@@ -373,7 +357,14 @@ public class EfficientDetLite1Detector {
                 pixels[index++] = 0xFF000000 | (r << 16) | (g << 8) | b;
             }
         }
-        return Bitmap.createBitmap(pixels, dstW, dstH, Bitmap.Config.ARGB_8888);
+        if (scratchBitmap == null || scratchBitmap.getWidth() != dstW || scratchBitmap.getHeight() != dstH) {
+            if (scratchBitmap != null) {
+                scratchBitmap.recycle();
+            }
+            scratchBitmap = Bitmap.createBitmap(dstW, dstH, Bitmap.Config.ARGB_8888);
+        }
+        scratchBitmap.setPixels(pixels, 0, dstW, 0, 0, dstW, dstH);
+        return scratchBitmap;
     }
 
     private int clampByte(int value) {

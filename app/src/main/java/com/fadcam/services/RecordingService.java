@@ -3081,8 +3081,8 @@ public class RecordingService extends Service {
         try {
             int analysisFps = sharedPreferencesManager != null ? sharedPreferencesManager.getMotionAnalysisFps() : 3;
             if (motionOpenCvActive && !motionSafeMode) {
-                // Keep detector responsive while limiting CPU spikes.
-                analysisFps = Math.max(3, Math.min(6, analysisFps));
+                // Cap CPU spikes. A lower rate the user picked in Motion Lab stands.
+                analysisFps = Math.min(6, analysisFps);
             }
             if (motionSafeMode) {
                 analysisFps = Math.min(2, analysisFps);
@@ -3131,8 +3131,12 @@ public class RecordingService extends Service {
                         }
                         lastMotionAnalysisTimestampMs = now;
                         float rawMotionScore = motionDetector.detectScore(image);
+                        // The copy (about 0.5 MB) is only read by the AI person check and
+                        // the debug/forensics JPEG; a still scene usually needs neither.
                         com.fadcam.motion.domain.detector.EfficientDetLite1Detector.FramePacket framePacket =
-                                com.fadcam.motion.domain.detector.EfficientDetLite1Detector.FramePacket.copyFrom(image);
+                                motionFrameCopyNeeded(rawMotionScore, now)
+                                        ? com.fadcam.motion.domain.detector.EfficientDetLite1Detector.FramePacket.copyFrom(image)
+                                        : null;
                         image.close();
                         image = null;
                         processMotionFrame(rawMotionScore, framePacket, now);
@@ -3169,6 +3173,17 @@ public class RecordingService extends Service {
      * AI to confirm. A suppressed whole-frame change (shake, light switch) is
      * never still.
      */
+    /** Whether anything will read this frame's pixels after the motion score. */
+    private boolean motionFrameCopyNeeded(float rawMotionScore, long nowMs) {
+        if (efficientDetDetector != null && personCheckDue(rawMotionScore, nowMs)) {
+            return true;
+        }
+        return sharedPreferencesManager != null
+                && (sharedPreferencesManager.isMotionDebugUiActive()
+                        || (sharedPreferencesManager.isDigitalForensicsEnabled()
+                                && sharedPreferencesManager.isDfEvidenceCollectionEnabled()));
+    }
+
     private boolean personCheckDue(float rawMotionScore, long nowMs) {
         boolean sceneStill = false;
         if (rawMotionScore <= 0f

@@ -23,6 +23,7 @@ public class FrameDiffMotionDetector implements MotionDetector, MotionDebugInfoP
     private static final float GLOBAL_MOTION_STRONG_AREA_THRESHOLD = 0.45f;
     private static final float GLOBAL_ADAPT_LEARNING_RATE = 0.22f;
     private byte[] previous;
+    private byte[] spare;
     private float[] background;
 
     private volatile float lastChangedAreaRatio = 0f;
@@ -87,7 +88,10 @@ public class FrameDiffMotionDetector implements MotionDetector, MotionDebugInfoP
         int gridW = Math.min(SAMPLE_GRID_W, Math.max(8, width));
         int gridH = Math.min(SAMPLE_GRID_H, Math.max(8, height));
         int sampleCount = gridW * gridH;
-        byte[] current = new byte[sampleCount];
+        // Two buffers swapped each frame instead of a new array per frame.
+        byte[] current = spare != null && spare.length == sampleCount && spare != previous
+                ? spare
+                : new byte[sampleCount];
 
         int index = 0;
         for (int gy = 0; gy < gridH; gy++) {
@@ -176,6 +180,9 @@ public class FrameDiffMotionDetector implements MotionDetector, MotionDebugInfoP
                 background[i] = (background[i] * (1f - BACKGROUND_LEARNING_RATE))
                     + (cur * BACKGROUND_LEARNING_RATE);
             }
+        }
+        if (previous != current) {
+            spare = previous;
         }
         previous = current;
 

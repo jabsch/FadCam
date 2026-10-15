@@ -89,8 +89,10 @@ public class NetworkMonitor {
         
         mainHandler.postDelayed(() -> {
             performSpeedTest();
-            // Test every 2 minutes
-            scheduleNextTest(120000);
+            // Every 10 minutes: each test wakes the mobile radio, which then stays in
+            // its high-power state for several seconds. The Network Health sheet runs
+            // testNow() when it opens, so what it shows is still fresh.
+            scheduleNextTest(600_000L);
         }, delayMs);
     }
     
