@@ -106,6 +106,8 @@ public class GLWatermarkRenderer {
 
     // Exposure compensation value (EV stops, e.g., -2.0 to +2.0)
     private float currentExposureCompensation = 0.0f;
+    /** 2^EV - 1 for the shaders, so they don't run pow() per pixel. */
+    private volatile float currentExposureGainDelta = 0.0f;
 
     // ── PiP (Picture-in-Picture) fields ────────────────────────────────
     // These are only initialized when initializePiP() is called (dual camera mode).
@@ -1756,12 +1758,11 @@ public class GLWatermarkRenderer {
                 "precision mediump float;\n" +
                 "varying vec2 vTextureCoord;\n" +
                 "uniform samplerExternalOES uTexture;\n" +
-                "uniform float uExposureCompensation;\n" +
+                "uniform float uExposureGainDelta;\n" +
                 "void main() {\n" +
                 "    vec4 color = texture2D(uTexture, vTextureCoord);\n" +
-                "    // Apply exposure compensation as power of 2 (EV stops)\n" +
-                "    float exposureFactor = pow(2.0, uExposureCompensation);\n" +
-                "    color.rgb *= exposureFactor;\n" +
+                "    // Exposure compensation: gain 2^EV, precomputed as 2^EV - 1\n" +
+                "    color.rgb *= 1.0 + uExposureGainDelta;\n" +
                 "    gl_FragColor = color;\n" +
                 "}\n";
 
@@ -1771,7 +1772,7 @@ public class GLWatermarkRenderer {
         oesTextureHandle = GLES20.glGetUniformLocation(oesProgram, "uTexture");
         oesMvpMatrixHandle = GLES20.glGetUniformLocation(oesProgram, "uMVPMatrix");
         oesTexMatrixHandle = GLES20.glGetUniformLocation(oesProgram, "uTexMatrix");
-        oesExposureHandle = GLES20.glGetUniformLocation(oesProgram, "uExposureCompensation");
+        oesExposureHandle = GLES20.glGetUniformLocation(oesProgram, "uExposureGainDelta");
     }
 
     private void drawOESTexture(float[] mvpMatrix, float[] texMatrix) {
@@ -1791,7 +1792,7 @@ public class GLWatermarkRenderer {
                     int exposureLoc = program != null ? program.getExposureCompensationLocation() : -1;
                     if (exposureLoc >= 0) {
                         GLES20.glUseProgram(program.getProgramHandle());
-                        GLES20.glUniform1f(exposureLoc, currentExposureCompensation);
+                        GLES20.glUniform1f(exposureLoc, currentExposureGainDelta);
                     }
                     try {
                         mFullFrameBlit.drawFrame(oesTextureId, texMatrix);
@@ -1840,7 +1841,7 @@ public class GLWatermarkRenderer {
             GLES20.glUniform1i(oesTextureHandle, 0);
 
             // Set exposure compensation uniform
-            GLES20.glUniform1f(oesExposureHandle, currentExposureCompensation);
+            GLES20.glUniform1f(oesExposureHandle, currentExposureGainDelta);
 
             // Draw
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
@@ -1898,7 +1899,7 @@ public class GLWatermarkRenderer {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
             GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId);
             GLES20.glUniform1i(oesTextureHandle, 0);
-            GLES20.glUniform1f(oesExposureHandle, currentExposureCompensation);
+            GLES20.glUniform1f(oesExposureHandle, currentExposureGainDelta);
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
             GLES20.glDisableVertexAttribArray(oesPositionHandle);
             GLES20.glDisableVertexAttribArray(oesTexCoordHandle);
@@ -2696,6 +2697,7 @@ public class GLWatermarkRenderer {
     public void setExposureCompensation(float evStops) {
         // Clamp to reasonable range to prevent shader overflow
         currentExposureCompensation = Math.max(-4.0f, Math.min(4.0f, evStops));
+        currentExposureGainDelta = (float) Math.pow(2.0, currentExposureCompensation) - 1.0f;
     }
 
     public void setFrontVideoMirrorEnabled(boolean enabled) {

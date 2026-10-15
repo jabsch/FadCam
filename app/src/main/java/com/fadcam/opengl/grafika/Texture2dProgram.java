@@ -56,10 +56,12 @@ public class Texture2dProgram {
             "precision mediump float;\n" +
             "varying vec2 vTextureCoord;\n" +
             "uniform samplerExternalOES sTexture;\n" +
-            "uniform float uExposureCompensation;\n" +
+            // 2^EV - 1, worked out on the CPU: pow() here ran for every pixel of
+            // every frame. Zero (the GL default) means no change.
+            "uniform float uExposureGainDelta;\n" +
             "void main() {\n" +
             "    vec4 color = texture2D(sTexture, vTextureCoord);\n" +
-            "    color.rgb *= pow(2.0, uExposureCompensation);\n" +
+            "    color.rgb *= 1.0 + uExposureGainDelta;\n" +
             "    gl_FragColor = color;\n" +
             "}\n";
 
@@ -109,7 +111,7 @@ public class Texture2dProgram {
         GlUtil.checkLocation(muTexMatrixLoc, "uTexMatrix");
         
         // Get exposure compensation uniform location (only for TEXTURE_EXT shaders)
-        muExposureCompensationLoc = GLES20.glGetUniformLocation(mProgramHandle, "uExposureCompensation");
+        muExposureCompensationLoc = GLES20.glGetUniformLocation(mProgramHandle, "uExposureGainDelta");
         if (muExposureCompensationLoc >= 0) {
             FLog.d(TAG, "Found exposure compensation uniform at location: " + muExposureCompensationLoc);
         }
