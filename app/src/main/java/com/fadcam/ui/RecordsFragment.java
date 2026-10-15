@@ -2244,6 +2244,7 @@ public class RecordsFragment extends BaseFragment implements
             FLog.d(TAG, "onHiddenChanged: Fragment shown, checking for data refresh");
             
             // Check pending refresh (e.g., Faditor export)
+            boolean hadPendingRefresh = sPendingRefresh;
             if (sPendingRefresh) {
                 sPendingRefresh = false;
                 FLog.i(TAG, "onHiddenChanged: Pending refresh flag set, invalidating index");
@@ -2277,7 +2278,7 @@ public class RecordsFragment extends BaseFragment implements
                 && android.os.SystemClock.uptimeMillis() - lastDeltaScanUptimeMs
                     < RECORDS_RESCAN_MIN_INTERVAL_MS;
             if (!isLoading && recordsAdapter != null && recordsAdapter.getItemCount() > 0) {
-                if (!recordsChangedWhileHidden && scannedRecently) {
+                if (!recordsChangedWhileHidden && !hadPendingRefresh && scannedRecently) {
                     FLog.d(TAG, "onHiddenChanged: no file changes since the last scan; keeping list");
                 } else {
                     FLog.d(TAG, "onHiddenChanged: running delta scan for new items");

@@ -115,6 +115,8 @@ public class CloudStatusManager {
     private static final int MAX_COMMAND_FETCH_ATTEMPTS = 3;
     private Runnable commandRunnable;
     private Runnable viewersRunnable;
+    /** Whether the last command poll also checked viewers (see viewersRideCommandPoll). */
+    private boolean viewersRodeCommandPoll;
     // ❌ REMOVED: usageRunnable (moved to relay server)
     private int statusPushCount = 0;
     
@@ -270,6 +272,7 @@ public class CloudStatusManager {
         handler.post(statusRunnable);
         
         // Reset failure counters on fresh start
+        viewersRodeCommandPoll = false;
         consecutiveFailures = 0;
         currentBackoffMs = 0L;
         lastSuccessfulPushTime = System.currentTimeMillis();
@@ -285,9 +288,16 @@ public class CloudStatusManager {
                 
                 try {
                     pollCommands();
-                    if (viewersRideCommandPoll()) {
+                    boolean ride = viewersRideCommandPoll();
+                    if (ride) {
                         pollCloudViewers();
+                    } else if (viewersRodeCommandPoll && viewersRunnable != null) {
+                        // Waiting for a viewer started, or the rate changed: the viewer
+                        // timer may be asleep for up to 30 s, so run it now.
+                        handler.removeCallbacks(viewersRunnable);
+                        handler.post(viewersRunnable);
                     }
+                    viewersRodeCommandPoll = ride;
                 } catch (Exception e) {
                     FLog.e(TAG, "☁️ Exception in pollCommands (will retry): " + e.getMessage());
                 }
