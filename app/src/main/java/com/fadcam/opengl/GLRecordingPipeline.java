@@ -4035,22 +4035,27 @@ public class GLRecordingPipeline {
             return;
         }
 
-        // Only use the existing renderer, don't try to recreate it
-        if (glRenderer != null && encoderInputSurface != null && encoderInputSurface.isValid()) {
-            try {
-                FLog.d(TAG, "Rendering black frame to maintain recording pipeline");
-                glRenderer.renderBlackFrame();
-                try {
-                    drainEncoder();
-                } catch (Exception e) {
-                    FLog.d(TAG, "Error draining encoder after black frame - continuing");
-                }
-            } catch (Exception e) {
-                FLog.d(TAG, "Could not render black frame - this is expected during camera disconnection");
-            }
-        } else {
-            FLog.d(TAG, "Cannot render black frame - renderer or surface is null/invalid");
+        // Render on the GL thread: it already holds the EGL context, so a
+        // render from the caller's thread fails with EGL_BAD_ACCESS (or, if it
+        // wins, keeps the context and the GL thread drops frames after the
+        // camera comes back). GLDrainThread drains the encoder; draining here
+        // too would write to the muxer from two threads.
+        final Handler renderHandler = handler;
+        if (renderHandler == null) {
+            return;
         }
+        renderHandler.post(() -> {
+            if (!isRecording || released) {
+                return;
+            }
+            if (glRenderer != null && encoderInputSurface != null && encoderInputSurface.isValid()) {
+                try {
+                    glRenderer.renderBlackFrame();
+                } catch (Exception e) {
+                    FLog.d(TAG, "Could not render black frame - this is expected during camera disconnection");
+                }
+            }
+        });
     }
 
     /**

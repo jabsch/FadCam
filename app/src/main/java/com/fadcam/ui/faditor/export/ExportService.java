@@ -151,6 +151,9 @@ public class ExportService extends Service {
 
     // ── Export execution ─────────────────────────────────────────────
 
+    /** Last percent shown in the notification and broadcast to the UI. */
+    private int lastNotifiedPercent = -1;
+
     private void startExportInternal() {
         FaditorProject project = pendingProject;
         pendingProject = null; // consume
@@ -168,6 +171,7 @@ public class ExportService extends Service {
 
         isExporting = true;
         exportStartTimeMs = System.currentTimeMillis();
+        lastNotifiedPercent = -1;
 
         // Show initial foreground notification
         startForeground(NOTIFICATION_ID, buildProgressNotification(0, true));
@@ -193,10 +197,16 @@ public class ExportService extends Service {
             @Override
             public void onExportProgress(float progress) {
                 int percent = (int) (progress * 100);
-                updateNotification(percent);
                 if (serviceListener != null) {
                     serviceListener.onExportProgress(progress);
                 }
+                // Progress is polled every 300 ms; rebuild the notification and
+                // broadcast only when the shown percent changes.
+                if (percent == lastNotifiedPercent) {
+                    return;
+                }
+                lastNotifiedPercent = percent;
+                updateNotification(percent);
                 // Broadcast to UI
                 Intent broadcast = new Intent(ACTION_EXPORT_PROGRESS);
                 broadcast.putExtra(EXTRA_PROGRESS, progress);

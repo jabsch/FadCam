@@ -2930,6 +2930,16 @@ public class GLWatermarkRenderer {
                             encoderHeight > 0 ? encoderHeight : videoHeight);
                     GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
                     GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+                    // Stamp on the same clock as camera frames. Without it the
+                    // surface uses absolute system time, far ahead of the
+                    // recording's relative timestamps.
+                    if (recordingPipeline != null) {
+                        long ptsUs = recordingPipeline.getSynchronizedVideoTimestamp(0L);
+                        if (ptsUs < 0) {
+                            return; // paused
+                        }
+                        EGLExt.eglPresentationTimeANDROID(eglDisplay, eglSurface, ptsUs * 1000L);
+                    }
                     EGL14.eglSwapBuffers(eglDisplay, eglSurface);
                     return;
                 } else {
