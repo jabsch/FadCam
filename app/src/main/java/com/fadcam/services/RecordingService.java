@@ -218,6 +218,8 @@ public class RecordingService extends Service {
     private volatile com.fadcam.motion.domain.detector.MotionDetector motionDetector =
             new com.fadcam.motion.domain.detector.FrameDiffMotionDetector();
     private volatile com.fadcam.motion.domain.detector.EfficientDetLite1Detector efficientDetDetector;
+    /** Set in onDestroy so a warmup still building the detector closes it instead of publishing it. */
+    private volatile boolean serviceDestroyed;
     private com.fadcam.motion.domain.policy.MotionPolicy motionPolicy =
             new com.fadcam.motion.domain.policy.MotionPolicy();
     private com.fadcam.motion.domain.state.MotionStateMachine motionStateMachine;
@@ -429,10 +431,18 @@ public class RecordingService extends Service {
                         com.fadcam.motion.domain.detector.EfficientDetLite1Detector detector =
                                 new com.fadcam.motion.domain.detector.EfficientDetLite1Detector(
                                         getApplicationContext(), aiThreads);
-                        if (detector.isAvailable()) {
+                        if (serviceDestroyed) {
+                            // onDestroy already closed the field; don't leak this one
+                            detector.close();
+                        } else if (detector.isAvailable()) {
                             efficientDetDetector = detector;
                             if (previous != null) {
                                 previous.close();
+                            }
+                            if (serviceDestroyed) {
+                                // onDestroy ran between the check and the publish
+                                efficientDetDetector = null;
+                                detector.close();
                             }
                             FLog.i(TAG, "EfficientDet detector available: true, threads=" + aiThreads);
                         } else {
@@ -2288,6 +2298,7 @@ public class RecordingService extends Service {
 
         // The TFLite interpreter (and its worker threads) otherwise outlives the
         // service until the process dies. close() is synchronized with detect().
+        serviceDestroyed = true;
         com.fadcam.motion.domain.detector.EfficientDetLite1Detector detector = efficientDetDetector;
         efficientDetDetector = null;
         if (detector != null) {
@@ -4338,7 +4349,7 @@ public class RecordingService extends Service {
 
                 // First pause any ongoing work with black frames
                 final boolean wasRenderingBlackFrames = isRenderingBlackFrames;
-                final int generation = reconnectGeneration;
+                final int generation = reconnectGeneration.get();
 
                 // Use a longer delay between stopping black frames and starting camera session
                 // to ensure all GL resources are properly cleaned up
@@ -4433,6 +4444,9 @@ public class RecordingService extends Service {
                 }, 300);
             } else if (isResumingAfterReconnect()) {
                 FLog.w(TAG, "Camera disconnected while resuming after reconnection, waiting again");
+                // Now, not in 300 ms: a resume step running in between would
+                // otherwise open a session on the dead camera or mark it live.
+                reconnectGeneration.incrementAndGet();
                 mainHandler.postDelayed(() -> handleCameraLostDuringResume(), 300);
             } else if (recordingState != RecordingState.NONE && recordingState != RecordingState.WAITING_FOR_CAMERA) {
                 // For other states like PAUSED, just stop recording
@@ -4490,6 +4504,7 @@ public class RecordingService extends Service {
                 }, 300);
             } else if (isResumingAfterReconnect()) {
                 FLog.w(TAG, "Camera error " + error + " while resuming after reconnection, waiting again");
+                reconnectGeneration.incrementAndGet();
                 mainHandler.postDelayed(() -> handleCameraLostDuringResume(), 300);
             }
             // For other errors or states, stop recording
@@ -4604,7 +4619,7 @@ public class RecordingService extends Service {
      * This is called after any black frame rendering has been properly stopped.
      */
     private void resumeCameraAfterReconnection(int generation) {
-        if (generation != reconnectGeneration || !isResumingAfterReconnect()) {
+        if (generation != reconnectGeneration.get() || !isResumingAfterReconnect()) {
             FLog.d(TAG, "Skipping stale camera resume (camera lost again or recording ended)");
             return;
         }
@@ -4616,7 +4631,7 @@ public class RecordingService extends Service {
 
             // Wait a moment for the session to be fully configured
             mainHandler.postDelayed(() -> {
-                if (generation != reconnectGeneration || !isResumingAfterReconnect()) {
+                if (generation != reconnectGeneration.get() || !isResumingAfterReconnect()) {
                     FLog.d(TAG, "Camera lost again or recording ended before resume finished");
                     return;
                 }
@@ -8027,7 +8042,8 @@ public class RecordingService extends Service {
     // interruption
     private volatile boolean pendingCameraReconnect = false;
     /** Bumped on every camera loss so queued resume steps can tell they are stale. */
-    private volatile int reconnectGeneration = 0;
+    private final java.util.concurrent.atomic.AtomicInteger reconnectGeneration =
+            new java.util.concurrent.atomic.AtomicInteger();
     /**
      * Fallback retry interval. The camera service tells us when the camera is
      * free again (see {@link #reconnectAvailabilityCallback}); blind retries
@@ -8211,7 +8227,7 @@ public class RecordingService extends Service {
 
     private void enterCameraWaitMode() {
         // Invalidates resume steps still queued from an earlier reconnection
-        reconnectGeneration++;
+        reconnectGeneration.incrementAndGet();
 
         // Save the current camera ID for reconnection
         String cameraToReconnect = null;

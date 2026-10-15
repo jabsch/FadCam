@@ -750,6 +750,7 @@ public class CloudStatusManager {
         
         if (userUuid == null || deviceId == null || streamToken == null) {
             FLog.w(TAG, "☁️ Cannot fetch command " + cmdId + " - auth not ready");
+            handledCommandIds.remove(cmdId);
             return;
         }
         
@@ -758,6 +759,7 @@ public class CloudStatusManager {
         
         executor.execute(() -> {
             HttpURLConnection conn = null;
+            boolean executed = false;
             try {
                 conn = (HttpURLConnection) java.net.URI.create(urlStr).toURL().openConnection();
                 conn.setRequestMethod("GET");
@@ -777,6 +779,7 @@ public class CloudStatusManager {
                     is.close();
                     
                     JSONObject command = new JSONObject(body);
+                    executed = true;
                     executeCommand(cmdId, command);
                 }
             } catch (Exception e) {
@@ -784,6 +787,10 @@ public class CloudStatusManager {
             } finally {
                 if (conn != null) {
                     conn.disconnect();
+                }
+                if (!executed) {
+                    // Not run (timeout, non-200, bad body): the next poll retries it
+                    handledCommandIds.remove(cmdId);
                 }
             }
         });
