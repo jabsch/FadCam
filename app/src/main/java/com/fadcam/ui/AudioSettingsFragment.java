@@ -85,6 +85,33 @@ public class AudioSettingsFragment extends Fragment {
     rowRawAudio = root.findViewById(R.id.row_raw_audio);
     rowAudioChannels = root.findViewById(R.id.row_audio_channels);
     valueAudioChannels = root.findViewById(R.id.value_audio_channels);
+    rowOtherAudio = root.findViewById(R.id.row_other_audio);
+    valueOtherAudio = root.findViewById(R.id.value_other_audio);
+    }
+
+    private View rowOtherAudio;
+    private TextView valueOtherAudio;
+
+    /** Opens the "Other audio while recording" picker; applies from the next recording. */
+    private void showOtherAudioBottomSheet(){
+        com.fadcam.utils.OtherAudioMode current = com.fadcam.utils.OtherAudioMode.current(prefs);
+        ArrayList<com.fadcam.ui.picker.OptionItem> items = new ArrayList<>();
+        for (com.fadcam.utils.OtherAudioMode m : com.fadcam.utils.OtherAudioMode.values()) {
+            items.add(new com.fadcam.ui.picker.OptionItem(m.id, getString(m.labelRes), getString(m.descriptionRes)));
+        }
+        final String resultKey = "picker_result_other_audio";
+        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k,b)->{
+            com.fadcam.utils.OtherAudioMode picked = com.fadcam.utils.OtherAudioMode.fromId(
+                    b.getString(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID));
+            if (picked == null || picked == current) {
+                return;
+            }
+            com.fadcam.utils.OtherAudioMode.save(prefs, picked);
+            refreshAllValues();
+        });
+        com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(getString(R.string.setting_other_audio_title),
+                items, current.id, resultKey, getString(R.string.other_audio_footer))
+                .show(getParentFragmentManager(), "other_audio_picker");
     }
 
     private View rowAudioChannels;
@@ -120,6 +147,7 @@ public class AudioSettingsFragment extends Fragment {
     rowInputSource.setOnClickListener(v -> showMicSelectionBottomSheet());
     root.findViewById(R.id.row_raw_audio).setOnClickListener(v -> showRawAudioBottomSheet());
     rowAudioChannels.setOnClickListener(v -> showAudioChannelsBottomSheet());
+    rowOtherAudio.setOnClickListener(v -> showOtherAudioBottomSheet());
         rowAdvanced.setOnClickListener(v -> showAudioAdvancedBottomSheet());
     }
 
@@ -136,6 +164,9 @@ public class AudioSettingsFragment extends Fragment {
 
         if(valueAudioChannels!=null){
             valueAudioChannels.setText(com.fadcam.utils.AudioChannelMode.current(prefs).labelRes);
+        }
+        if(valueOtherAudio!=null){
+            valueOtherAudio.setText(com.fadcam.utils.OtherAudioMode.current(prefs).labelRes);
         }
 
         // Advanced summary (bitrate + sampling)
@@ -456,6 +487,15 @@ public class AudioSettingsFragment extends Fragment {
                 rowAudioChannels.setOnClickListener(v-> showAudioChannelsBottomSheet());
             } else {
                 rowAudioChannels.setOnClickListener(null);
+            }
+        }
+        if(rowOtherAudio!=null){
+            rowOtherAudio.setAlpha(recordAudioEnabled?1f:disabledAlpha);
+            rowOtherAudio.setEnabled(recordAudioEnabled);
+            if(recordAudioEnabled){
+                rowOtherAudio.setOnClickListener(v-> showOtherAudioBottomSheet());
+            } else {
+                rowOtherAudio.setOnClickListener(null);
             }
         }
         if(rowRawAudio!=null){

@@ -357,9 +357,13 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         RecordViewHolder holder = (RecordViewHolder) viewHolder;
         // --- 0. Handle Skeleton Mode ---
         if (isSkeletonMode) {
+            holder.boundDegraded = true;
             bindSkeletonItem(holder, position);
             return;
         }
+        // Mid-scroll or deferred binds load small thumbnails and skip metadata;
+        // the scroll-stop refresh redoes only those cards
+        holder.boundDegraded = isScrolling || deferHeavyMetadataWork;
 
         // binding real data -----------
         // Only clear skeleton effects if this ViewHolder was previously used for skeleton.
@@ -1264,6 +1268,21 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     }
                 }
                 return;
+            }
+
+            if (!holder.boundDegraded) {
+                boolean onlyRefresh = true;
+                for (Object payload : payloads) {
+                    if (!"refreshThumbnail".equals(payload)) {
+                        onlyRefresh = false;
+                        break;
+                    }
+                }
+                if (onlyRefresh) {
+                    // Bound while idle: full thumbnail and metadata are already there.
+                    // A full rebind redid every visible card on each scroll stop.
+                    return;
+                }
             }
 
             if (payloads.contains("SERIAL_UPDATE")) {
@@ -2801,6 +2820,8 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         String currentUri;
         /** Thumbnail load in flight for this card, cancelled on recycle or rebind. */
         com.bumptech.glide.request.target.CustomTarget<android.graphics.Bitmap> thumbnailTarget;
+        /** Last full bind ran mid-scroll, deferred or as a skeleton. */
+        boolean boundDegraded = true;
         ImageView imageViewThumbnail;
         FrameLayout thumbnailContainer;
         TextView textViewRecord;

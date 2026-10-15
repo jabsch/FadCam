@@ -3692,37 +3692,44 @@ public class GLRecordingPipeline {
                     FLog.i(TAG, "AudioManager mode set to MODE_NORMAL for camcorder recording (was: " + originalAudioMode + "), speakerphone enabled");
                 }
                 
-                // Request audio focus with USAGE_MEDIA for camcorder recording
-                audioFocusListener = focusChange -> {
-                    if (focusChange == android.media.AudioManager.AUDIOFOCUS_LOSS || focusChange == android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
-                        FLog.w(TAG, "⚠️ AUDIO FOCUS LOST: " + focusChange);
-                    } else if (focusChange == android.media.AudioManager.AUDIOFOCUS_GAIN) {
-                        FLog.i(TAG, "Audio focus regained");
-                    }
-                };
-
-                // Use modern AudioFocusRequest for Android O+ with MEDIA usage for camcorder
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    android.media.AudioAttributes audioAttrs = new android.media.AudioAttributes.Builder()
-                            .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MOVIE)
-                            .build();
-
-                    android.media.AudioFocusRequest focusRequest = new android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
-                            .setAudioAttributes(audioAttrs)
-                            .setAcceptsDelayedFocusGain(false)
-                            .setWillPauseWhenDucked(false)
-                            .setOnAudioFocusChangeListener(audioFocusListener)
-                            .build();
-
-                    int result = audioManager.requestAudioFocus(focusRequest);
-                    FLog.w(TAG, "🎤 AudioFocusRequest result: " + (result == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED ? "GRANTED" : "DENIED"));
+                // Request audio focus with USAGE_MEDIA for camcorder recording. The
+                // focus type is what other apps' audio does: pause, duck or nothing.
+                int focusGain = com.fadcam.utils.OtherAudioMode
+                        .current(com.fadcam.SharedPreferencesManager.getInstance(context)).focusGain;
+                if (focusGain == 0) {
+                    FLog.i(TAG, "Audio focus not requested; other audio keeps playing");
                 } else {
-                    int result = audioManager.requestAudioFocus(
-                            audioFocusListener,
-                            android.media.AudioManager.STREAM_MUSIC,
-                            android.media.AudioManager.AUDIOFOCUS_GAIN);
-                    FLog.w(TAG, "🎤 AudioFocus (legacy) result: " + (result == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED ? "GRANTED" : "DENIED"));
+                    audioFocusListener = focusChange -> {
+                        if (focusChange == android.media.AudioManager.AUDIOFOCUS_LOSS || focusChange == android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                            FLog.w(TAG, "⚠️ AUDIO FOCUS LOST: " + focusChange);
+                        } else if (focusChange == android.media.AudioManager.AUDIOFOCUS_GAIN) {
+                            FLog.i(TAG, "Audio focus regained");
+                        }
+                    };
+
+                    // Use modern AudioFocusRequest for Android O+ with MEDIA usage for camcorder
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        android.media.AudioAttributes audioAttrs = new android.media.AudioAttributes.Builder()
+                                .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MOVIE)
+                                .build();
+
+                        android.media.AudioFocusRequest focusRequest = new android.media.AudioFocusRequest.Builder(focusGain)
+                                .setAudioAttributes(audioAttrs)
+                                .setAcceptsDelayedFocusGain(false)
+                                .setWillPauseWhenDucked(false)
+                                .setOnAudioFocusChangeListener(audioFocusListener)
+                                .build();
+
+                        int result = audioManager.requestAudioFocus(focusRequest);
+                        FLog.w(TAG, "🎤 AudioFocusRequest result: " + (result == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED ? "GRANTED" : "DENIED"));
+                    } else {
+                        int result = audioManager.requestAudioFocus(
+                                audioFocusListener,
+                                android.media.AudioManager.STREAM_MUSIC,
+                                focusGain);
+                        FLog.w(TAG, "🎤 AudioFocus (legacy) result: " + (result == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED ? "GRANTED" : "DENIED"));
+                    }
                 }
             }
         } catch (Exception e) {
