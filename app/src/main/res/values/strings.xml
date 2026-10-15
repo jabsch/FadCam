@@ -1359,7 +1359,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="preview_fps_15">15 fps</string>
     <string name="preview_fps_15_desc">Visibly choppier preview, least heat. Good for mounted or dashcam use.</string>
     <string name="preview_fps_auto">Auto</string>
-    <string name="preview_fps_auto_desc">While recording, full until the phone gets warm, then 15 fps until it cools down. Previewing alone runs at 30 fps.</string>
+    <string name="preview_fps_auto_desc">While recording, up to 30 fps, then 15 fps while the phone is warm. Previewing alone runs at 30 fps.</string>
     <string name="setting_low_light_fps_title">Low-Light Frame Rate</string>
     <string name="low_light_fps_footer">Whether the camera may lower its frame rate in dim light, down to half your frame rate (15 fps when recording at 30). Each frame can then use a longer exposure, so night video is brighter and less noisy, and the camera, graphics chip and encoder handle fewer frames while it is dark, which means less heat. Motion looks choppier in the dark; in good light nothing changes. Applies when the camera next starts (a new recording or preview). No effect when exposure is set manually, or when the camera has no matching range.</string>
     <string name="low_light_fps_steady">Steady</string>
@@ -1413,7 +1413,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="preview_bars_fill">Camera fill</string>
     <string name="preview_bars_fill_desc">Dimmed, zoomed camera behind the preview. Looks seamless, most GPU work.</string>
     <string name="preview_bars_black">Black</string>
-    <string name="preview_bars_black_desc">Plain black edges. Skips two of the three full-screen draws per preview frame.</string>
+    <string name="preview_bars_black_desc">Plain black edges (default). Skips two of the three full-screen draws per preview frame.</string>
     <string name="stabilization_off">Off</string>
     <string name="stabilization_off_desc">No stabilization. Full field of view; best on a tripod or mount.</string>
     <string name="stabilization_optical">Optical only</string>

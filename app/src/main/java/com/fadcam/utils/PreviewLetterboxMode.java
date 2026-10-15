@@ -9,7 +9,7 @@ import com.fadcam.SharedPreferencesManager;
  * What fills the empty edges when the on-screen preview's shape doesn't match
  * the video's. {@link #CAMERA_FILL} draws a dimmed, zoomed copy of the camera
  * behind the preview, which costs two extra full-screen GPU passes on every
- * preview frame; {@link #BLACK} leaves the edges black.
+ * preview frame; {@link #BLACK} (the default) leaves the edges black.
  */
 public enum PreviewLetterboxMode {
     CAMERA_FILL("fill", R.string.preview_bars_fill, R.string.preview_bars_fill_desc),
@@ -43,7 +43,7 @@ public enum PreviewLetterboxMode {
 
     public static PreviewLetterboxMode current(SharedPreferencesManager prefs) {
         PreviewLetterboxMode saved = fromId(prefs.sharedPreferences.getString(PREF_MODE, null));
-        return saved != null ? saved : CAMERA_FILL;
+        return saved != null ? saved : BLACK;
     }
 
     public static void save(SharedPreferencesManager prefs, PreviewLetterboxMode mode) {
