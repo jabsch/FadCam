@@ -1219,6 +1219,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
             com.fadcam.playback.PlayerHolder holder =
                 com.fadcam.playback.PlayerHolder.getInstance();
             player = holder.getOrCreate(this);
+            holder.claimScreenOwner(this);
             playerView.setPlayer(player);
             // Apply controller auto-hide timeout from prefs (0 = never hide) and register runtime listener
             try {
@@ -2997,6 +2998,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
             com.fadcam.playback.PlayerHolder holder =
                 com.fadcam.playback.PlayerHolder.getInstance();
             ExoPlayer p = holder.getOrCreate(this);
+            holder.claimScreenOwner(this);
             playerView.setPlayer(p);
         }
         // Optional: Resume playback if it was paused but ready (useful if app was
@@ -3481,15 +3483,18 @@ public class VideoPlayerActivity extends AppCompatActivity {
 
         super.onDestroy();
         // *** Release the player ***
-        // Do not release the shared player here; service may be using it
+        // Do not release the shared player here; service may be using it.
+        // If a newer player screen already took the shared player (this onDestroy
+        // can run seconds after Back), leave its video alone.
+        boolean ownsPlayer = com.fadcam.playback.PlayerHolder.getInstance().releaseScreenOwner(this);
         try {
-            if (player != null) player.pause();
+            if (ownsPlayer && player != null) player.pause();
         } catch (Exception ignored) {}
         // Leaving the player for good: free the decoders and buffers. The shared
         // player otherwise stays prepared for as long as JaCam's process lives (the
         // recording service keeps it alive), with its playback thread still ticking.
         // Playback is already stopped above and through PlaybackService below.
-        if (isFinishing() && player != null) {
+        if (ownsPlayer && isFinishing() && player != null) {
             try {
                 player.stop();
                 player.clearMediaItems();
@@ -3498,12 +3503,15 @@ public class VideoPlayerActivity extends AppCompatActivity {
         player = null;
         // Stop background playback service when activity is destroyed (if pref
         // disabled)
+        // (Its stop also pauses and rewinds the shared player, so only the owner sends it.)
         try {
-            android.content.Intent stop = new android.content.Intent(
-                this,
-                com.fadcam.services.PlaybackService.class
-            ).setAction(com.fadcam.services.PlaybackService.ACTION_STOP);
-            startService(stop);
+            if (ownsPlayer) {
+                android.content.Intent stop = new android.content.Intent(
+                    this,
+                    com.fadcam.services.PlaybackService.class
+                ).setAction(com.fadcam.services.PlaybackService.ACTION_STOP);
+                startService(stop);
+            }
         } catch (Exception ignored) {}
         // Unregister SharedPreferences listener if it was registered
         try {

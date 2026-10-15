@@ -1169,26 +1169,7 @@ public class DualCameraRecordingService extends Service {
                                 builder.set(CaptureRequest.CONTROL_AF_TRIGGER,
                                         CaptureRequest.CONTROL_AF_TRIGGER_START);
                                 session.capture(builder.build(),
-                                        new CameraCaptureSession.CaptureCallback() {
-                                            private int framesReceived = 0;
-
-                                            @Override
-                                            public void onCaptureCompleted(
-                                                    @NonNull CameraCaptureSession s,
-                                                    @NonNull CaptureRequest request,
-                                                    @NonNull android.hardware.camera2.TotalCaptureResult result) {
-                                                framesReceived++;
-                                                if (framesReceived >= 1) {
-                                                    // Got our frame — close and schedule next
-                                                    FLog.d(TAG, "Fallback: PiP snapshot captured");
-                                                    snapshotFailStreak = 0;
-                                                    session.close();
-                                                    camera.close();
-                                                    isCapturingSnapshot = false;
-                                                    scheduleNextSnapshot();
-                                                }
-                                            }
-                                        }, backgroundHandler);
+                                        snapshotCaptureCallback(session, camera), backgroundHandler);
 
                             } catch (CameraAccessException e) {
                                 FLog.w(TAG, "Fallback: capture request failed", e);
@@ -1218,19 +1199,7 @@ public class DualCameraRecordingService extends Service {
                             public void onConfigured(@NonNull CameraCaptureSession session) {
                                 try {
                                     session.capture(builder.build(),
-                                            new android.hardware.camera2.CameraCaptureSession.CaptureCallback() {
-                                                @Override
-                                                public void onCaptureCompleted(
-                                                        @NonNull CameraCaptureSession s,
-                                                        @NonNull CaptureRequest request,
-                                                        @NonNull android.hardware.camera2.TotalCaptureResult result) {
-                                                    snapshotFailStreak = 0;
-                                                    session.close();
-                                                    camera.close();
-                                                    isCapturingSnapshot = false;
-                                                    scheduleNextSnapshot();
-                                                }
-                                            }, backgroundHandler);
+                                            snapshotCaptureCallback(session, camera), backgroundHandler);
                                 } catch (CameraAccessException e) {
                                     FLog.w(TAG, "Fallback: capture request failed", e);
                                     session.close();
@@ -1260,6 +1229,55 @@ public class DualCameraRecordingService extends Service {
     }
 
     /** Schedules the next PiP snapshot in fallback mode. */
+    /**
+     * One-shot PiP snapshot callback. A failed or aborted capture used to leave
+     * the secondary camera open and isCapturingSnapshot stuck, which ended the
+     * snapshot loop for the rest of the recording; now every outcome closes the
+     * camera and schedules the next try (with backoff on failure).
+     */
+    private CameraCaptureSession.CaptureCallback snapshotCaptureCallback(
+            @NonNull CameraCaptureSession session, @NonNull CameraDevice camera) {
+        return new CameraCaptureSession.CaptureCallback() {
+            private boolean done;
+
+            private void finish(boolean success) {
+                if (done) {
+                    return;
+                }
+                done = true;
+                if (success) {
+                    FLog.d(TAG, "Fallback: PiP snapshot captured");
+                    snapshotFailStreak = 0;
+                } else {
+                    FLog.w(TAG, "Fallback: PiP snapshot capture failed");
+                }
+                session.close();
+                camera.close();
+                isCapturingSnapshot = false;
+                scheduleNextSnapshot();
+            }
+
+            @Override
+            public void onCaptureCompleted(@NonNull CameraCaptureSession s,
+                    @NonNull CaptureRequest request,
+                    @NonNull android.hardware.camera2.TotalCaptureResult result) {
+                finish(true);
+            }
+
+            @Override
+            public void onCaptureFailed(@NonNull CameraCaptureSession s,
+                    @NonNull CaptureRequest request,
+                    @NonNull android.hardware.camera2.CaptureFailure failure) {
+                finish(false);
+            }
+
+            @Override
+            public void onCaptureSequenceAborted(@NonNull CameraCaptureSession s, int sequenceId) {
+                finish(false);
+            }
+        };
+    }
+
     private void scheduleNextSnapshot() {
         if (!isStopping && fallbackMode && state != DualCameraState.DISABLED) {
             long delay = FALLBACK_SNAPSHOT_INTERVAL_MS << Math.min(Math.max(snapshotFailStreak, 0), 4);

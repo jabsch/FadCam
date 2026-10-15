@@ -317,6 +317,22 @@ public final class PlayerHolder {
 
     public synchronized Uri getCurrentUri() { return currentUri; }
 
+    // The player screen showing the shared player right now. A closing screen
+    // only stops the player while it still owns it: its onDestroy can run
+    // seconds late, after the next player screen has loaded its own video.
+    private Object screenOwner;
+
+    public synchronized void claimScreenOwner(Object owner) { screenOwner = owner; }
+
+    /** True (and ownership cleared) if {@code owner} is still the showing screen. */
+    public synchronized boolean releaseScreenOwner(Object owner) {
+        if (screenOwner != owner) {
+            return false;
+        }
+        screenOwner = null;
+        return true;
+    }
+
     /**
      * Performs a seek operation optimized for fragmented MP4 files.
      * Uses ClippingMediaSource with known duration for reliable seeking.
