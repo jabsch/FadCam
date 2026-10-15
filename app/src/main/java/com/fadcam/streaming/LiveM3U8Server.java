@@ -80,7 +80,6 @@ import fi.iki.elonen.NanoHTTPD;
     public Response serve(IHTTPSession session) {
         String uri = session.getUri();
         Method method = session.getMethod();
-        String userAgent = session.getHeaders().get("user-agent");
         String clientIP = session.getRemoteIpAddress();
         
         // OPTIMIZATION: Commented out HTTP request logging (called 10-30x per second during streaming)
@@ -95,7 +94,8 @@ import fi.iki.elonen.NanoHTTPD;
                            !uri.startsWith("/css/") && !uri.startsWith("/js/") && !uri.startsWith("/assets/");
         
         // Log API requests (important ones that indicate client activity)
-        if (isApiCall && (uri.equals("/") || uri.equals("/status") || uri.startsWith("/auth") || uri.startsWith("/api/"))) {
+        // (/status is left out: the dashboard polls it every 2 s.)
+        if (isApiCall && (uri.equals("/") || uri.startsWith("/auth") || uri.startsWith("/api/"))) {
             FLog.i(TAG, "📥 [API] " + method + " " + uri + " from " + clientIP);
         }
         
@@ -129,7 +129,6 @@ import fi.iki.elonen.NanoHTTPD;
             } else if (uri.startsWith("/seg-") && uri.endsWith(".m4s")) {
                 response = serveFragment(uri, clientIP);
             } else if ("/status".equals(uri)) {
-                FLog.d(TAG, "🌐 [/status] Dashboard request from " + clientIP + " User-Agent: " + userAgent);
                 response = serveStatus();
             } else if ("/auth/check".equals(uri)) {
                 response = handleAuthCheck(session);
@@ -309,13 +308,7 @@ import fi.iki.elonen.NanoHTTPD;
                 m3u8.append("/seg-").append(fragment.sequenceNumber).append(".m4s\n");
             }
             
-            FLog.i(TAG, "📋 Generated M3U8 playlist:");
-            FLog.i(TAG, "   Total fragments: " + fragments.size());
-            FLog.i(TAG, "   Stable fragments: " + stable.size());
-            FLog.i(TAG, "   Live edge fragments: " + liveEdge.size());
-            FLog.i(TAG, "   Sequence range: " + liveEdge.get(0).sequenceNumber + " to " + liveEdge.get(liveEdge.size()-1).sequenceNumber);
-            FLog.d(TAG, "M3U8 Content:\n" + m3u8.toString());
-            
+            // No per-request logging: players fetch the playlist every couple of seconds.
             Response response = newFixedLengthResponse(
                 Response.Status.OK,
                 "application/vnd.apple.mpegurl",

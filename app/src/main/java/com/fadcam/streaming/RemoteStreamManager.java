@@ -150,11 +150,12 @@ public class RemoteStreamManager {
         // Initialization log removed - too generic, logged once at getInstance
     }
     
-    // OPTIMIZATION: Cache status JSON for 1 second to reduce CPU load
+    // OPTIMIZATION: Cache status JSON to reduce CPU load. The dashboard polls
+    // every 2 s, so a 1 s cache never hit and every poll rebuilt the JSON.
     private String cachedStatusJson = null;
     private long lastStatusJsonTime = 0;
-    private static final long STATUS_CACHE_MS = 1000; // 1 second cache
-    
+    private static final long STATUS_CACHE_MS = 1900;
+
     public static synchronized RemoteStreamManager getInstance() {
         if (instance == null) {
             instance = new RemoteStreamManager();
@@ -782,15 +783,13 @@ public class RemoteStreamManager {
         // OPTIMIZATION: Check cache first (1 second TTL)
         long currentTime = System.currentTimeMillis();
         if (cachedStatusJson != null && (currentTime - lastStatusJsonTime) < STATUS_CACHE_MS) {
-            FLog.d(TAG, "📊 [getStatusJson] Serving from cache (age: " + (currentTime - lastStatusJsonTime) + "ms)");
             return cachedStatusJson;
         }
-        
+
         long startTime = System.currentTimeMillis();
         bufferLock.readLock().lock();
         try {
-            FLog.d(TAG, "📊 [getStatusJson] Cache miss, generating fresh JSON...");
-            
+
             // CRITICAL: Check if context is null (happens when app is backgrounded/destroyed)
             if (context == null) {
                 FLog.w(TAG, "⚠️ [getStatusJson] Context is null (app backgrounded). Returning safe state...");
@@ -1472,17 +1471,40 @@ public class RemoteStreamManager {
         return cloudViewerCountUpdatedAt;
     }
     
+    private volatile android.content.Intent cachedBatteryIntent;
+    private volatile long cachedBatteryIntentAtMs;
+    private static final long BATTERY_CACHE_MS = 5000;
+
+    /**
+     * Sticky battery broadcast, reused for 5 s. Each status rebuild read it
+     * three times (percent, details, charging), each a binder call.
+     */
+    @androidx.annotation.Nullable
+    private android.content.Intent batteryStatusIntent(android.content.Context context) {
+        long now = android.os.SystemClock.elapsedRealtime();
+        android.content.Intent cached = cachedBatteryIntent;
+        if (cached != null && now - cachedBatteryIntentAtMs < BATTERY_CACHE_MS) {
+            return cached;
+        }
+        android.content.Intent fresh = context.registerReceiver(null,
+            new android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED));
+        if (fresh != null) {
+            cachedBatteryIntent = fresh;
+            cachedBatteryIntentAtMs = now;
+        }
+        return fresh;
+    }
+
     /**
      * Get battery percentage.
      */
     public int getBatteryPercentage(android.content.Context context) {
         if (context == null) return -1;
-        
-        android.content.Intent batteryIntent = context.registerReceiver(null, 
-            new android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED));
-        
+
+        android.content.Intent batteryIntent = batteryStatusIntent(context);
+
         if (batteryIntent == null) return -1;
-        
+
         int level = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
         int scale = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1);
         
@@ -1498,9 +1520,8 @@ public class RemoteStreamManager {
         if (context == null) return false;
         
         try {
-            android.content.IntentFilter ifilter = new android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED);
-            android.content.Intent batteryStatus = context.registerReceiver(null, ifilter);
-            
+            android.content.Intent batteryStatus = batteryStatusIntent(context);
+
             if (batteryStatus == null) return false;
             
             int status = batteryStatus.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1);
