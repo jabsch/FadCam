@@ -1368,6 +1368,12 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="cloud_rate_balanced_desc">Status every 4 s, commands every 3 s. Commands take a moment longer; about half the requests.</string>
     <string name="cloud_rate_saver">Saver</string>
     <string name="cloud_rate_saver_desc">Status every 8 s, commands every 6 s. Slowest response, least radio use.</string>
+    <string name="setting_cloud_upload_title">Cloud Video Upload</string>
+    <string name="cloud_upload_footer">In cloud remote mode, JaCam encrypts each recorded piece of video and uploads it to the relay every couple of seconds, even when nobody has your dashboard open. That keeps the radio and processor busy for the whole recording. With Only when watched, uploads pause while the relay reports no viewers and resume once someone opens the dashboard. Recording on the phone is never affected.</string>
+    <string name="cloud_upload_always">Always</string>
+    <string name="cloud_upload_always_desc">Uploads all the time, so the stream is ready the moment the dashboard opens. Most radio use and heat.</string>
+    <string name="cloud_upload_watched">Only when watched</string>
+    <string name="cloud_upload_watched_desc">Uploads only while a viewer has the dashboard open. A new viewer sees \"Stream offline\" for about 10 to 20 s until video arrives; refresh the page if it stays stuck. If the viewer count can\'t be read, it uploads anyway.</string>
     <string name="setting_person_check_title">Person Check</string>
     <string name="person_check_footer">After the quick motion check, Motion Lab runs an AI detector to tell people and objects apart. The detector is the heaviest part of motion analysis: a neural network on several CPU cores for every analysed frame. When almost no pixels change between frames, the detector can rest and keep its last answer, checking again every 2 seconds as a safety net. Faint or distant movement still gets checked on every frame.</string>
     <string name="person_check_movement">When something moves</string>

@@ -344,6 +344,11 @@ public class RemoteFragment extends BaseFragment {
             cloudRateRow.setOnClickListener(v -> showCloudUpdateRatePicker());
             refreshCloudUpdateRateValue(view);
         }
+        View cloudUploadRow = view.findViewById(R.id.cloud_upload_mode_row);
+        if (cloudUploadRow != null) {
+            cloudUploadRow.setOnClickListener(v -> showCloudUploadModePicker());
+            refreshCloudUploadModeValue(view);
+        }
         
         // View endpoints row click listener
         viewEndpointsRow.setOnClickListener(v -> showEndpointsPicker());
@@ -958,6 +963,37 @@ public class RemoteFragment extends BaseFragment {
         TextView value = root != null ? root.findViewById(R.id.cloud_update_rate_value) : null;
         if (value != null) {
             value.setText(com.fadcam.utils.CloudUpdateRate.current(
+                    com.fadcam.SharedPreferencesManager.getInstance(requireContext())).labelRes);
+        }
+    }
+
+    /** Cloud Video Upload picker; RemoteStreamManager reads the setting for every fragment, so it applies live. */
+    private void showCloudUploadModePicker() {
+        com.fadcam.SharedPreferencesManager prefs = com.fadcam.SharedPreferencesManager.getInstance(requireContext());
+        com.fadcam.utils.CloudUploadMode current = com.fadcam.utils.CloudUploadMode.current(prefs);
+        java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
+        for (com.fadcam.utils.CloudUploadMode m : com.fadcam.utils.CloudUploadMode.values()) {
+            items.add(new com.fadcam.ui.picker.OptionItem(m.id, getString(m.labelRes), getString(m.descriptionRes)));
+        }
+        final String resultKey = "picker_result_cloud_upload";
+        getParentFragmentManager().setFragmentResultListener(resultKey, getViewLifecycleOwner(), (k, b) -> {
+            com.fadcam.utils.CloudUploadMode picked = com.fadcam.utils.CloudUploadMode.fromId(
+                    b.getString(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID));
+            if (picked == null || picked == current) {
+                return;
+            }
+            com.fadcam.utils.CloudUploadMode.save(prefs, picked);
+            refreshCloudUploadModeValue(getView());
+        });
+        com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(getString(R.string.setting_cloud_upload_title),
+                items, current.id, resultKey, getString(R.string.cloud_upload_footer))
+                .show(getParentFragmentManager(), "cloud_upload_picker");
+    }
+
+    private void refreshCloudUploadModeValue(@Nullable View root) {
+        TextView value = root != null ? root.findViewById(R.id.cloud_upload_mode_value) : null;
+        if (value != null) {
+            value.setText(com.fadcam.utils.CloudUploadMode.current(
                     com.fadcam.SharedPreferencesManager.getInstance(requireContext())).labelRes);
         }
     }
