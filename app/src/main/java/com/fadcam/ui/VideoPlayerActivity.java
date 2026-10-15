@@ -16,6 +16,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackParameters;
+import androidx.annotation.Nullable;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.ui.PlayerView;
@@ -98,10 +99,42 @@ public class VideoPlayerActivity extends AppCompatActivity {
     /** True between onResume and onPause. Listeners on the shared player outlive old screens. */
     private boolean screenInFront = false;
 
-    /** Loops keep going only while the video plays (or buffers toward playing). */
+    /**
+     * Listeners this screen added to the shared player. Removed in onDestroy:
+     * the player outlives the screen, and each closed screen otherwise kept
+     * reacting to every later event (and stayed in memory).
+     */
+    @Nullable private Player.Listener seekPositionListener;
+    @Nullable private Player.Listener playStateListener;
+
+    /** The slider and waveform live in the controller; hidden, they need no ticks. */
+    private boolean controllerShown = true;
+
+    /** Loops keep going only while the video plays (or buffers toward playing) with the controls shown. */
     private boolean keepUiTicking() {
-        return player != null
+        return controllerShown && player != null
                 && (player.isPlaying() || player.getPlaybackState() == Player.STATE_BUFFERING);
+    }
+
+    /**
+     * Keep screen awake applies while a video plays, as its help text says. It was
+     * held from onResume on, so a paused video kept the panel lit until you left.
+     */
+    private void updateKeepScreenOn() {
+        boolean keepAwake = false;
+        try {
+            int state = player != null ? player.getPlaybackState() : Player.STATE_IDLE;
+            keepAwake = screenInFront
+                    && player != null
+                    && player.getPlayWhenReady()
+                    && (state == Player.STATE_READY || state == Player.STATE_BUFFERING)
+                    && SharedPreferencesManager.getInstance(this).isPlayerKeepScreenOn();
+        } catch (Exception ignored) {}
+        if (keepAwake) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        } else {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
     }
 
     /** One refresh now; the loops then stop by themselves unless the video is playing. */
@@ -124,6 +157,8 @@ public class VideoPlayerActivity extends AppCompatActivity {
     );
     private final Runnable resumeSaveRunnable = new Runnable() {
         private long lastSavedPos = -1;
+        @Nullable private Uri lastSaveNameUri;
+        @Nullable private String lastSaveName;
 
         @Override
         public void run() {
@@ -141,9 +176,16 @@ public class VideoPlayerActivity extends AppCompatActivity {
                             com.fadcam.playback.PlayerHolder.getInstance();
                         Uri cur = holder.getCurrentUri();
                         String filename = null;
-                        try {
-                            filename = getFileName(cur);
-                        } catch (Exception ignored) {}
+                        if (cur != null && cur.equals(lastSaveNameUri)) {
+                            filename = lastSaveName;
+                        } else {
+                            // A content URI's name is a storage-provider query; once per video
+                            try {
+                                filename = getFileName(cur);
+                            } catch (Exception ignored) {}
+                            lastSaveNameUri = cur;
+                            lastSaveName = filename;
+                        }
                         SharedPreferencesManager spmLoc =
                             SharedPreferencesManager.getInstance(
                                 VideoPlayerActivity.this
@@ -1318,8 +1360,11 @@ public class VideoPlayerActivity extends AppCompatActivity {
             }
             // Listen for seeks so we can save immediately and notify adapters
             try {
+                if (seekPositionListener != null) {
+                    player.removeListener(seekPositionListener);
+                }
                 player.addListener(
-                    new Player.Listener() {
+                    seekPositionListener = new Player.Listener() {
                         public void onSeekProcessed() {
                             // Save and broadcast immediately when user finishes a seek
                             FLog.d(TAG, "onSeekProcessed() - saving current playback position");
@@ -1759,6 +1804,14 @@ public class VideoPlayerActivity extends AppCompatActivity {
                 playerView.setControllerVisibilityListener(new PlayerView.ControllerVisibilityListener() {
                     @Override
                     public void onVisibilityChanged(int visibility) {
+                        boolean shown = visibility == View.VISIBLE;
+                        if (shown != controllerShown) {
+                            controllerShown = shown;
+                            if (shown) {
+                                // The ticks stopped while hidden; catch the slider up
+                                kickUiTicks();
+                            }
+                        }
                         try {
                             if (isTimebarScrubbing) {
                                 FLog.w("VideoPlayerActivity", "ControllerVisibilityListener: visibility changed to " + 
@@ -2883,15 +2936,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
                             this
                         ).setPlayerKeepScreenOn(state);
                         // Apply immediately
-                        if (state) {
-                            getWindow().addFlags(
-                                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                            );
-                        } else {
-                            getWindow().clearFlags(
-                                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                            );
-                        }
+                        updateKeepScreenOn();
                     }
                 }
             );
@@ -2981,18 +3026,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
         screenInFront = true;
         startUiTicks();
         // Keep screen on during playback if enabled in settings
-        boolean keepAwake = SharedPreferencesManager.getInstance(
-            this
-        ).isPlayerKeepScreenOn();
-        if (keepAwake) {
-            getWindow().addFlags(
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-            );
-        } else {
-            getWindow().clearFlags(
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-            );
-        }
+        updateKeepScreenOn();
         // Re-attach shared player to the view when coming to foreground
         if (playerView != null) {
             com.fadcam.playback.PlayerHolder holder =
@@ -3500,6 +3534,14 @@ public class VideoPlayerActivity extends AppCompatActivity {
                 player.clearMediaItems();
             } catch (Exception ignored) {}
         }
+        if (player != null) {
+            try {
+                if (seekPositionListener != null) player.removeListener(seekPositionListener);
+                if (playStateListener != null) player.removeListener(playStateListener);
+            } catch (Exception ignored) {}
+        }
+        seekPositionListener = null;
+        playStateListener = null;
         player = null;
         // Stop background playback service when activity is destroyed (if pref
         // disabled)
@@ -3560,11 +3602,24 @@ public class VideoPlayerActivity extends AppCompatActivity {
 
             // Set up player state listener for waveform updates only
             if (player != null) {
+                if (playStateListener != null) {
+                    player.removeListener(playStateListener);
+                }
                 player.addListener(
-                    new Player.Listener() {
+                    playStateListener = new Player.Listener() {
                         @Override
                         public void onIsPlayingChanged(boolean isPlaying) {
                             updateWaveformProgress();
+                            if (screenInFront) {
+                                updateKeepScreenOn();
+                            }
+                        }
+
+                        @Override
+                        public void onPlaybackStateChanged(int playbackState) {
+                            if (screenInFront) {
+                                updateKeepScreenOn();
+                            }
                         }
                     }
                 );
