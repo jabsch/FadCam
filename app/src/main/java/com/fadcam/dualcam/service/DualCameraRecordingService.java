@@ -1471,6 +1471,26 @@ public class DualCameraRecordingService extends Service {
         return map != null ? map.getOutputSizes(android.graphics.SurfaceTexture.class) : null;
     }
 
+    /** PiP Camera Frame Rate setting: caps the secondary camera's AE range. */
+    private void applyPipFrameRate(@NonNull CaptureRequest.Builder builder, @NonNull String cameraId) {
+        com.fadcam.utils.PipFrameRate mode = com.fadcam.utils.PipFrameRate.current(prefs);
+        if (mode.fps <= 0 || cameraManager == null) {
+            return;
+        }
+        try {
+            android.util.Range<Integer> range = com.fadcam.utils.PipFrameRate.pickRange(
+                    cameraManager.getCameraCharacteristics(cameraId)
+                            .get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES),
+                    mode.fps);
+            if (range != null) {
+                builder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range);
+                FLog.i(TAG, "PiP camera fps range " + range);
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "Could not set the PiP camera frame rate", e);
+        }
+    }
+
     /**
      * Creates a Camera2 capture session that targets the given surface.
      */
@@ -1490,6 +1510,9 @@ public class DualCameraRecordingService extends Service {
                     CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
             builder.set(CaptureRequest.CONTROL_AE_MODE,
                     CaptureRequest.CONTROL_AE_MODE_ON);
+            if (!isPrimary) {
+                applyPipFrameRate(builder, camera.getId());
+            }
 
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
             android.hardware.camera2.params.SessionConfiguration sessionConfig =
