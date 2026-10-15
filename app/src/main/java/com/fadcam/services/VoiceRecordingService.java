@@ -114,6 +114,12 @@ public class VoiceRecordingService extends Service {
             if (bluetoothMic) {
                 startBluetoothSco();
             }
+            // Media server death or a full disk: without this the service kept its
+            // notification and "recording" state, so the next toggle sent stop
+            mr.setOnErrorListener((r, what, extra) -> {
+                FLog.e(TAG, "Voice recorder error what=" + what + " extra=" + extra);
+                stopAndSave();
+            });
             mr.prepare();
             mr.start();
         } catch (Exception e) {
@@ -162,6 +168,7 @@ public class VoiceRecordingService extends Service {
         am.startBluetoothSco();
         am.setBluetoothScoOn(true);
         am.setMode(AudioManager.MODE_IN_COMMUNICATION);
+        com.fadcam.utils.OwnCommunicationMode.set(true);
         scoAudioManager = am;
     }
 
@@ -177,6 +184,8 @@ public class VoiceRecordingService extends Service {
             am.setMode(originalAudioMode);
         } catch (Exception e) {
             FLog.w(TAG, "Could not release Bluetooth SCO", e);
+        } finally {
+            com.fadcam.utils.OwnCommunicationMode.set(false);
         }
     }
 

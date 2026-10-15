@@ -105,7 +105,16 @@ public class HardwareButtonAccessibilityService extends AccessibilityService {
 
     private boolean isInCall() {
         AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-        return audio != null && audio.getMode() != AudioManager.MODE_NORMAL;
+        if (audio == null) {
+            return false;
+        }
+        int mode = audio.getMode();
+        // Communication mode that JaCam set for a Bluetooth mic recording is not a call
+        if (mode == AudioManager.MODE_IN_COMMUNICATION
+                && com.fadcam.utils.OwnCommunicationMode.isHeld()) {
+            return false;
+        }
+        return mode != AudioManager.MODE_NORMAL;
     }
 
     @Override
