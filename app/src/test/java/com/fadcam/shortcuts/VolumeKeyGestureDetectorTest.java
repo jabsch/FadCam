@@ -17,6 +17,7 @@ public class VolumeKeyGestureDetectorTest {
     private static final int DOWN = 25; // KeyEvent.KEYCODE_VOLUME_DOWN
     private static final long HOLD_MS = 400;
     private static final long DOUBLE_MS = 300;
+    private static final long REPEAT_MS = 50;
 
     private final Map<String, String> bindings = new HashMap<>();
     private final List<String> log = new ArrayList<>();
@@ -34,7 +35,7 @@ public class VolumeKeyGestureDetectorTest {
             @Override public void adjustVolume(int keyCode) { log.add("vol " + keyCode); }
             @Override public void schedule(Runnable task, long delayMs) { timers.put(task, now + delayMs); }
             @Override public void cancel(Runnable task) { timers.remove(task); }
-        }, HOLD_MS, DOUBLE_MS);
+        }, HOLD_MS, DOUBLE_MS, REPEAT_MS);
     }
 
     private void bind(int key, Gesture g, String id) { bindings.put(key + ":" + g, id); }
@@ -141,11 +142,41 @@ public class VolumeKeyGestureDetectorTest {
     public void holdingKeyWithOnlyDoubleBoundStepsVolume() {
         bind(UP, Gesture.DOUBLE_TAP, "photo");
         detector.onKeyDown(UP, 0);
-        advance(500);
-        detector.onKeyDown(UP, 1);
-        detector.onKeyDown(UP, 2);
-        detector.onKeyUp(UP);
+        advance(HOLD_MS - 1);
+        assertTrue(log.isEmpty());
+        advance(1);
+        assertEquals(List.of("vol " + UP), log);
+        advance(REPEAT_MS);
+        advance(REPEAT_MS);
+        assertTrue(detector.onKeyUp(UP));
         advance(1000);
-        assertEquals(List.of("vol " + UP, "vol " + UP), log);
+        assertEquals(List.of("vol " + UP, "vol " + UP, "vol " + UP), log);
+    }
+
+    @Test
+    public void systemKeyRepeatsDoNotDoubleTheHoldSteps() {
+        bind(DOWN, Gesture.DOUBLE_TAP, "torch");
+        detector.onKeyDown(DOWN, 0);
+        assertTrue(detector.onKeyDown(DOWN, 1));
+        assertTrue(detector.onKeyDown(DOWN, 2));
+        advance(HOLD_MS);
+        detector.onKeyUp(DOWN);
+        advance(1000);
+        assertEquals(List.of("vol " + DOWN), log);
+    }
+
+    @Test
+    public void holdThenDoubleTapStillWorks() {
+        bind(DOWN, Gesture.DOUBLE_TAP, "torch");
+        detector.onKeyDown(DOWN, 0);
+        advance(HOLD_MS);
+        advance(REPEAT_MS);
+        detector.onKeyUp(DOWN);
+        advance(1000);
+        tap(DOWN);
+        advance(100);
+        tap(DOWN);
+        advance(1000);
+        assertEquals(List.of("vol " + DOWN, "vol " + DOWN, "run torch"), log);
     }
 }

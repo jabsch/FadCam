@@ -17,8 +17,9 @@ import com.fadcam.shortcuts.VolumeKeyGestureDetector;
 /**
  * Runs JaCam shortcuts from hardware buttons, including with the screen off or
  * another app open. Holding or double-tapping a bound volume key runs its
- * shortcut; a single short press still changes the volume. Unbound keys are
- * never touched, and nothing is intercepted during calls.
+ * shortcut; a single short press still changes the volume, and holding a key
+ * whose hold is unbound keeps changing it. Unbound keys are never touched, and
+ * nothing is intercepted during calls.
  */
 public class HardwareButtonAccessibilityService extends AccessibilityService {
     private static final String TAG = "HwButtonService";
@@ -55,7 +56,8 @@ public class HardwareButtonAccessibilityService extends AccessibilityService {
             public void cancel(Runnable task) {
                 handler.removeCallbacks(task);
             }
-        }, ViewConfiguration.getLongPressTimeout(), ViewConfiguration.getDoubleTapTimeout());
+        }, ViewConfiguration.getLongPressTimeout(), ViewConfiguration.getDoubleTapTimeout(),
+                ViewConfiguration.getKeyRepeatDelay());
     }
 
     @Override
