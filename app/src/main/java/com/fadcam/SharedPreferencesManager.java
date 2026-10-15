@@ -754,7 +754,9 @@ public class SharedPreferencesManager {
         String specificKey = (cameraType == CameraType.FRONT)
             ? Constants.PREF_ZOOM_RATIO_FRONT
             : Constants.PREF_ZOOM_RATIO_BACK;
-        sharedPreferences.edit().putFloat(specificKey, zoomRatio).commit();
+        // apply(): a pinch saves on every move event, and commit() wrote the whole
+        // prefs file on the main thread each time. apply() coalesces them.
+        sharedPreferences.edit().putFloat(specificKey, zoomRatio).apply();
     }
 
     /** Returns the saved pan-X offset (-1.0…+1.0) for the given camera. Default: 0.0 (centre). */
@@ -1527,7 +1529,7 @@ public class SharedPreferencesManager {
         sharedPreferences
             .edit()
             .putInt(Constants.PREF_EXPOSURE_COMPENSATION, evIndex)
-            .commit();
+            .apply();
     }
 
     public boolean isAeLockedSaved() {
@@ -1538,7 +1540,7 @@ public class SharedPreferencesManager {
         sharedPreferences
             .edit()
             .putBoolean(Constants.PREF_AE_LOCK, locked)
-            .commit();
+            .apply();
     }
 
     public int getSavedAfMode() {
@@ -1552,7 +1554,7 @@ public class SharedPreferencesManager {
         sharedPreferences
             .edit()
             .putInt(Constants.PREF_AF_MODE, afMode)
-            .commit();
+            .apply();
     }
 
     // ----- Exposure compensation range (populated when camera opens) -----
