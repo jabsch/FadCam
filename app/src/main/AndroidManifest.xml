@@ -340,6 +340,8 @@
         <service android:name=".ui.faditor.export.ExportService" android:exported="false" android:foregroundServiceType="dataSync" />
 
         <!-- Media button receiver to satisfy MediaSessionCompat requirement for a unique receiver -->
+        <!-- Playback sleep timer alarm (PlaybackService); undeclared, the alarm was dropped. -->
+        <receiver android:name=".services.AutoStopReceiver" android:exported="false" />
         <receiver android:name=".services.MediaButtonReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
