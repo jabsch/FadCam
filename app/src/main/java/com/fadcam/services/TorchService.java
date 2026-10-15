@@ -260,26 +260,30 @@ public class TorchService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         FLog.d(TAG, "onStartCommand called. Intent: " + intent);
+        if (intent == null) {
+            // Restart after the process was killed. The camera service already
+            // turned the torch off with the process; restarting only put up a
+            // "toggling" foreground notification that nothing took down.
+            stopSelf();
+            return START_NOT_STICKY;
+        }
 
         // Android 8+ requires startForeground() within 5 seconds of startForegroundService().
         // Call it immediately here — manageServiceNotification() will update it later on the
         // background thread once the actual torch state is known.
         startForegroundNow();
 
-        if (intent != null) {
-            String action = intent.getAction();
-            FLog.d(TAG, "onStartCommand received action: " + action);
-            if (Constants.INTENT_ACTION_TOGGLE_TORCH.equals(action)) {
-                FLog.d(TAG, "Received INTENT_ACTION_TOGGLE_TORCH, sending message to background handler.");
-                backgroundHandler.sendEmptyMessage(1);
-            } else {
-                FLog.d(TAG, "Unknown or missing action in TorchService: " + action);
-            }
+        String action = intent.getAction();
+        FLog.d(TAG, "onStartCommand received action: " + action);
+        if (Constants.INTENT_ACTION_TOGGLE_TORCH.equals(action)) {
+            FLog.d(TAG, "Received INTENT_ACTION_TOGGLE_TORCH, sending message to background handler.");
+            backgroundHandler.sendEmptyMessage(1);
         } else {
-            FLog.d(TAG, "onStartCommand received null intent");
+            FLog.d(TAG, "Unknown or missing action in TorchService: " + action);
         }
-        // Ensure service stays alive
-        return START_STICKY;
+        // Not sticky: if the process dies the torch goes off with it, so there is
+        // nothing to restore.
+        return START_NOT_STICKY;
     }
 
     /**

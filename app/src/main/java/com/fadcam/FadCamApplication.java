@@ -78,6 +78,13 @@ public class FadCamApplication extends Application implements DefaultLifecycleOb
     public void onStart(@androidx.annotation.NonNull LifecycleOwner owner) {
         // Don't send it for TextEditorActivity, TransparentPermissionActivity, etc.
         // which are transparent/standalone and shouldn't wake up the main app
+
+        // Like onStop: the action only resumes work of a running service (a live
+        // preview or recording). Starting a fresh one just to deliver it left an
+        // idle sticky RecordingService behind every time the app was opened.
+        if (!com.fadcam.utils.ServiceUtils.isServiceRunning(this, com.fadcam.services.RecordingService.class)) {
+            return;
+        }
         
         // Get the currently focused activity
         ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
