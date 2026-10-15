@@ -552,6 +552,14 @@ public class RemoteStreamManager {
                 != com.fadcam.utils.CloudUploadMode.WHEN_WATCHED) {
             return true;
         }
+        return isCloudViewerLikelyPresent();
+    }
+
+    /**
+     * True when the relay reports a viewer, or when the count is missing or stale
+     * (fails open, so a failed poll never leaves a viewer without video or status).
+     */
+    public boolean isCloudViewerLikelyPresent() {
         if (!cloudViewerTelemetryAvailable
                 || System.currentTimeMillis() - cloudViewerCountUpdatedAt > CLOUD_VIEWER_COUNT_MAX_AGE_MS) {
             return true;

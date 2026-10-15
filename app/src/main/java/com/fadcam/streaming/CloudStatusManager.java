@@ -49,6 +49,8 @@ public class CloudStatusManager {
     // setting (com.fadcam.utils.CloudUpdateRate), read on every reschedule.
     private static final long VIEWERS_POLL_INTERVAL_MS = 30000;
     private static final long VIEWERS_POLL_WAITING_INTERVAL_MS = 10000;
+    /** Main thread only. Starts true, like the fail-open viewer check. */
+    private boolean lastKnownWatched = true;
     private static final long USAGE_REPORT_INTERVAL_MS = 5000;  // Report usage every 5 seconds (dev mode)
     
     // Usage tracking
@@ -203,6 +205,7 @@ public class CloudStatusManager {
         
         isRunning = true;
         statusPushCount = 0;
+        lastKnownWatched = true;
         
         // Start status push loop
         statusRunnable = new Runnable() {
@@ -248,7 +251,7 @@ public class CloudStatusManager {
                 }
                 
                 // Always reschedule regardless of errors
-                handler.postDelayed(this, updateRate().commandIntervalMs);
+                handler.postDelayed(this, updateRate().commandIntervalMs(isWatched()));
             }
         };
         handler.postDelayed(commandRunnable, 500); // Start 500ms after status push
@@ -258,9 +261,11 @@ public class CloudStatusManager {
             public void run() {
                 if (!isRunning) return;
                 pollCloudViewers();
-                // While uploads wait for a viewer, check sooner so a new viewer gets
-                // video within about 10 s instead of up to 30 s.
-                handler.postDelayed(this, RemoteStreamManager.getInstance().isWaitingForCloudViewer()
+                // While uploads or updates wait for a viewer, check sooner so a new
+                // viewer gets video and live status within about 10 s instead of 30 s.
+                boolean waiting = RemoteStreamManager.getInstance().isWaitingForCloudViewer()
+                        || (updateRate().slowsWhenUnwatched() && !isWatched());
+                handler.postDelayed(this, waiting
                         ? VIEWERS_POLL_WAITING_INTERVAL_MS
                         : VIEWERS_POLL_INTERVAL_MS);
             }
@@ -343,6 +348,7 @@ public class CloudStatusManager {
                     json.getInt("device_viewers"),
                     json.getLong("bytes_served")
                 );
+                handler.post(CloudStatusManager.this::onViewerStateMaybeChanged);
             } catch (Exception e) {
                 RemoteStreamManager.getInstance().markCloudViewerTelemetryUnavailable();
                 FLog.w(TAG, "Cloud viewer stats unavailable: " + e.getMessage());
@@ -483,7 +489,7 @@ public class CloudStatusManager {
         }
         
         // Exponential backoff from the configured interval up to 8 s
-        long base = Math.max(currentBackoffMs, updateRate().statusIntervalMs);
+        long base = Math.max(currentBackoffMs, updateRate().statusIntervalMs(isWatched()));
         if (consecutiveFailures >= 3 && base < MAX_BACKOFF_MS) {
             currentBackoffMs = Math.min(base * 2, MAX_BACKOFF_MS);
             FLog.d(TAG, "☁️ Increasing push interval to " + currentBackoffMs + "ms due to failures");
@@ -494,7 +500,33 @@ public class CloudStatusManager {
      * Get current push delay (with exponential backoff if failing)
      */
     private long getCurrentPushDelay() {
-        return Math.max(currentBackoffMs, updateRate().statusIntervalMs);
+        return Math.max(currentBackoffMs, updateRate().statusIntervalMs(isWatched()));
+    }
+
+    /** Whether the dashboard is open; true when the relay's count is unknown or stale. */
+    private boolean isWatched() {
+        return RemoteStreamManager.getInstance().isCloudViewerLikelyPresent();
+    }
+
+    /**
+     * With the Adaptive rate, a viewer showing up ends the slow idle intervals at
+     * once instead of after the next (up to 60 s) status push.
+     */
+    private void onViewerStateMaybeChanged() {
+        boolean watched = isWatched();
+        boolean wasWatched = lastKnownWatched;
+        lastKnownWatched = watched;
+        if (!isRunning || !watched || wasWatched || !updateRate().slowsWhenUnwatched()) {
+            return;
+        }
+        if (statusRunnable != null) {
+            handler.removeCallbacks(statusRunnable);
+            handler.post(statusRunnable);
+        }
+        if (commandRunnable != null) {
+            handler.removeCallbacks(commandRunnable);
+            handler.postDelayed(commandRunnable, 500);
+        }
     }
 
     private com.fadcam.utils.CloudUpdateRate updateRate() {

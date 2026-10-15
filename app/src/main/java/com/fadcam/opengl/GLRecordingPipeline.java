@@ -3737,7 +3737,7 @@ public class GLRecordingPipeline {
                     if (isPaused) {
                         // During pause, don't read audio: sleep until resume or stop
                         // wakes us (the timeout is only a safety net).
-                        if (!awaitAudioWake(true, 1000L)) {
+                        if (!awaitAudioWake(true, 30_000L)) {
                             break;
                         }
                         continue;

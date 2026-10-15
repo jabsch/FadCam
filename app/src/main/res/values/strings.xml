@@ -1368,6 +1368,8 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="cloud_rate_balanced_desc">Status every 4 s, commands every 3 s. Commands take a moment longer; about half the requests.</string>
     <string name="cloud_rate_saver">Saver</string>
     <string name="cloud_rate_saver_desc">Status every 8 s, commands every 6 s. Slowest response, least radio use.</string>
+    <string name="cloud_rate_adaptive">Adaptive</string>
+    <string name="cloud_rate_adaptive_desc">Balanced while your dashboard is open. With nobody watching, status every 60 s and commands every 20 s, so the radio can rest. Opening the dashboard switches back within about 10 s; a command sent in those first seconds can take up to 20 s.</string>
     <string name="setting_cloud_upload_title">Cloud Video Upload</string>
     <string name="cloud_upload_footer">In cloud remote mode, JaCam encrypts each recorded piece of video and uploads it to the relay every couple of seconds, even when nobody has your dashboard open. That keeps the radio and processor busy for the whole recording. With Only when watched, uploads pause while the relay reports no viewers and resume once someone opens the dashboard. Recording on the phone is never affected.</string>
     <string name="cloud_upload_always">Always</string>
