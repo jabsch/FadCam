@@ -681,6 +681,9 @@ public class DualCameraRecordingService extends Service {
         CameraDevice tmp = primaryCameraDevice;
         primaryCameraDevice = secondaryCameraDevice;
         secondaryCameraDevice = tmp;
+        // Snapshot fallback opens this id if the PiP camera is lost later
+        resolvedSecondaryId = (newPrimary == DualCameraConfig.PrimaryCamera.BACK)
+                ? frontCameraId : backCameraId;
 
         // Recreate sessions: each camera targets the SAME surface as before
         // (primaryCameraDevice → cameraInputSurface, secondaryCameraDevice → pipCameraInputSurface)
@@ -1022,6 +1025,9 @@ public class DualCameraRecordingService extends Service {
                 public void onDisconnected(@NonNull CameraDevice camera) {
                     FLog.w(TAG, "Primary camera disconnected: " + camera.getId());
                     camera.close();
+                    if (lostCameraWasPip(camera)) {
+                        return; // Swapped into the PiP: snapshots took over
+                    }
                     primaryCameraDevice = null;
                     transitionToError("Primary camera disconnected");
                 }
@@ -1030,6 +1036,9 @@ public class DualCameraRecordingService extends Service {
                 public void onError(@NonNull CameraDevice camera, int error) {
                     FLog.e(TAG, "Primary camera error: " + error);
                     camera.close();
+                    if (lostCameraWasPip(camera)) {
+                        return;
+                    }
                     primaryCameraDevice = null;
                     transitionToError("Primary camera error (code " + error + ")");
                 }
@@ -1075,6 +1084,12 @@ public class DualCameraRecordingService extends Service {
                 public void onDisconnected(@NonNull CameraDevice camera) {
                     FLog.w(TAG, "Secondary camera disconnected: " + camera.getId());
                     camera.close();
+                    if (camera == primaryCameraDevice) {
+                        // Swapped to full screen: the recording can't go on without it
+                        primaryCameraDevice = null;
+                        transitionToError("Main camera disconnected");
+                        return;
+                    }
                     secondaryCameraDevice = null;
                     // A call or face unlock taking the front camera lands here, not
                     // in onError: keep recording with snapshots instead of ending it.
@@ -1089,6 +1104,11 @@ public class DualCameraRecordingService extends Service {
                     FLog.w(TAG, "Secondary camera error: " + error
                             + " — falling back to periodic snapshot mode");
                     camera.close();
+                    if (camera == primaryCameraDevice) {
+                        primaryCameraDevice = null;
+                        transitionToError("Main camera error (code " + error + ")");
+                        return;
+                    }
                     secondaryCameraDevice = null;
 
                     if (continueWithSnapshotPip()) {
@@ -1116,6 +1136,19 @@ public class DualCameraRecordingService extends Service {
      * sessions counted past 2 so the new one never started. Returns false when no
      * pipeline exists yet, so the caller's open-time handling applies.
      */
+    /**
+     * Each camera's callbacks stay tied to the camera it was opened as, but a swap
+     * moves the devices between full screen and PiP. When the lost camera is the
+     * current PiP, hands it to the snapshot fallback and returns true.
+     */
+    private boolean lostCameraWasPip(@NonNull CameraDevice camera) {
+        if (camera != secondaryCameraDevice) {
+            return false;
+        }
+        secondaryCameraDevice = null;
+        return continueWithSnapshotPip();
+    }
+
     private boolean continueWithSnapshotPip() {
         if (recordingPipeline == null) {
             return false;
