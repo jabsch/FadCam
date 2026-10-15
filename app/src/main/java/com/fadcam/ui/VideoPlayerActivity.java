@@ -1550,6 +1550,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
                 }
             } catch (Exception ignored) {}
             // Start periodic saves
+            resumeSaveHandler.removeCallbacks(resumeSaveRunnable);
             resumeSaveHandler.postDelayed(resumeSaveRunnable, 5000);
             // Fetch cached duration for fragmented MP4s where player doesn't report duration
             fetchCachedDuration(videoUri);
@@ -3017,6 +3018,9 @@ public class VideoPlayerActivity extends AppCompatActivity {
         super.onResume();
         screenInFront = true;
         startUiTicks();
+        // onPause stops the periodic position save; without this it never came back
+        resumeSaveHandler.removeCallbacks(resumeSaveRunnable);
+        resumeSaveHandler.postDelayed(resumeSaveRunnable, 5000);
         // Keep screen on during playback if enabled in settings
         updateKeepScreenOn();
         // Re-attach shared player to the view when coming to foreground
