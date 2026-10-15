@@ -152,6 +152,9 @@ public class EditorTimelineView extends View {
     // Thumbnails cache (key: content-based cacheKey, value: list of thumbnails)
     private final Map<String, List<Bitmap>> thumbnailsCache = new HashMap<>();
     private final Set<String> thumbnailsLoading = new HashSet<>();
+    /** When a segment's thumbnail extraction last came back empty. */
+    private final Map<String, Long> thumbnailsFailedAt = new HashMap<>();
+    private static final long THUMBNAIL_RETRY_MS = 10_000L;
     private static final int MAX_THUMBNAILS_PER_SEGMENT = 30;
     private final ExecutorService thumbnailExecutor = Executors.newFixedThreadPool(2);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -586,8 +589,6 @@ public class EditorTimelineView extends View {
         // Use last valid index for playback if currently deselected
         int playbackIndex = selectedIndex >= 0 ? selectedIndex : lastPlaybackIndex;
         
-        FLog.d(TAG, "setPlayheadFraction: fraction=" + sourceFraction + " selectedIndex=" + selectedIndex + " playbackIndex=" + playbackIndex);
-        
         if (playbackIndex >= 0 && playbackIndex < segments.size()) {
             SegmentData sd = segments.get(playbackIndex);
             long selectedSegmentStartMs = getSegmentStartTime(playbackIndex);
@@ -600,8 +601,6 @@ public class EditorTimelineView extends View {
             
             // Remember this index for playback continuation
             lastPlaybackIndex = playbackIndex;
-            
-            FLog.d(TAG, "setPlayheadFraction: playheadPositionMs=" + playheadPositionMs);
             
             // Auto-scroll to keep playhead centered (always, not just when not dragging)
             centerPlayhead();
@@ -621,7 +620,6 @@ public class EditorTimelineView extends View {
         float centerX = getWidth() / 2f;
         float playheadX = timeToX(playheadPositionMs);
         scrollOffsetPx = playheadX - centerX;
-        FLog.d(TAG, "centerPlayhead: centerX=" + centerX + " playheadX=" + playheadX + " scrollOffset=" + scrollOffsetPx);
         clampScroll();
     }
 
@@ -1108,6 +1106,11 @@ public class EditorTimelineView extends View {
         // Already loaded or currently loading
         if (thumbnailsCache.containsKey(key) && !thumbnailsCache.get(key).isEmpty()) return;
         if (thumbnailsLoading.contains(key)) return;
+        // A failed extraction waits before retrying: layout runs on every zoom and
+        // drag event, and each pass re-queued every decode of an unreadable file.
+        Long failedAt = thumbnailsFailedAt.get(key);
+        if (failedAt != null
+                && android.os.SystemClock.elapsedRealtime() - failedAt < THUMBNAIL_RETRY_MS) return;
 
         thumbnailsLoading.add(key);
 
@@ -1138,8 +1141,11 @@ public class EditorTimelineView extends View {
             mainHandler.post(() -> {
                 thumbnailsLoading.remove(key);
                 if (!thumbs.isEmpty()) {
+                    thumbnailsFailedAt.remove(key);
                     thumbnailsCache.put(key, thumbs);
                     invalidate();
+                } else {
+                    thumbnailsFailedAt.put(key, android.os.SystemClock.elapsedRealtime());
                 }
             });
         });
@@ -1190,12 +1196,33 @@ public class EditorTimelineView extends View {
         try {
             retriever.setDataSource(getContext(), uri);
             long rangeMs = Math.max(1, outMs - inMs);
+            // Decode straight to tile size: a full frame is ~33 MB at 4K. The box is
+            // square, so its side sets the long edge; the short edge then lands on
+            // thumbSize for the center crop.
+            int scaledSide = 0;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+                float aspect = 16f / 9f;
+                try {
+                    int w = Integer.parseInt(retriever.extractMetadata(
+                            MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));
+                    int h = Integer.parseInt(retriever.extractMetadata(
+                            MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT));
+                    if (w > 0 && h > 0) {
+                        aspect = Math.max(w, h) / (float) Math.min(w, h);
+                    }
+                } catch (Exception ignored) {
+                }
+                scaledSide = (int) Math.ceil(thumbSize * aspect);
+            }
 
             for (int i = 0; i < count; i++) {
                 long timeMs = inMs + (rangeMs * i) / count;
                 long timeUs = timeMs * 1000L;
-                Bitmap frame = retriever.getFrameAtTime(timeUs,
-                        MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                Bitmap frame = scaledSide > 0
+                        ? retriever.getScaledFrameAtTime(timeUs,
+                                MediaMetadataRetriever.OPTION_CLOSEST_SYNC, scaledSide, scaledSide)
+                        : retriever.getFrameAtTime(timeUs,
+                                MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
                 if (frame != null) {
                     Bitmap cropped = centerCropSquare(frame, thumbSize);
                     if (cropped != frame) frame.recycle();
@@ -2246,8 +2273,6 @@ public class EditorTimelineView extends View {
             scaleAccumulator *= detector.getScaleFactor();
             zoomLevel = initialZoom * scaleAccumulator;
             zoomLevel = Math.max(MIN_ZOOM, Math.min(zoomLevel, MAX_ZOOM));
-            
-            FLog.d(TAG, "ScaleListener.onScale: scaleFactor=" + detector.getScaleFactor() + " zoomLevel=" + zoomLevel);
             
             updateDpPerSecond();
             computeRects();
