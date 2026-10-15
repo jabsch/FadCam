@@ -6792,11 +6792,19 @@ public class RecordingService extends Service {
                 android.util.Range<Integer>[] ranges = characteristics
                         .get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
                 if (ranges != null && ranges.length > 0) {
-                    // Prefer exact constant range first
-                    for (android.util.Range<Integer> r : ranges) {
-                        if (r.getLower() == targetFrameRate && r.getUpper() == targetFrameRate) {
-                            chosen = r;
-                            break;
+                    // Low-light frame rate setting: let AE drop to half the target in the dark.
+                    if (sharedPreferencesManager != null
+                            && com.fadcam.utils.LowLightFrameRate.current(sharedPreferencesManager)
+                                    == com.fadcam.utils.LowLightFrameRate.DROP) {
+                        chosen = com.fadcam.utils.LowLightFrameRate.pickDropRange(ranges, targetFrameRate);
+                    }
+                    // Otherwise prefer the exact constant range
+                    if (chosen == null) {
+                        for (android.util.Range<Integer> r : ranges) {
+                            if (r.getLower() == targetFrameRate && r.getUpper() == targetFrameRate) {
+                                chosen = r;
+                                break;
+                            }
                         }
                     }
                     // Then any range that contains the target
