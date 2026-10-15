@@ -939,11 +939,34 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         }
     }
 
+    private static final class ProgressAnimation {
+        final android.animation.ValueAnimator animator;
+        final int toWidth;
+
+        ProgressAnimation(android.animation.ValueAnimator animator, int toWidth) {
+            this.animator = animator;
+            this.toWidth = toWidth;
+        }
+    }
+
+    /** Progress-fill animation per card view, so a rebind can cancel the old one. */
+    private final java.util.WeakHashMap<View, ProgressAnimation> progressAnimations =
+            new java.util.WeakHashMap<>();
+
     // Animate width change for the progress fill for a smooth visual update
     private void animateProgressWidth(View view, int toWidth) {
         if (view == null)
             return;
         try {
+            ProgressAnimation running = progressAnimations.get(view);
+            if (running != null && running.animator.isRunning()) {
+                if (running.toWidth == toWidth) {
+                    return;
+                }
+                // Still animating to the width of the video this card showed before
+                running.animator.cancel();
+            }
+            progressAnimations.remove(view);
             int from = view.getLayoutParams().width;
             if (from < 0)
                 from = 0;
@@ -952,6 +975,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 return;
             }
             android.animation.ValueAnimator va = android.animation.ValueAnimator.ofInt(from, toWidth);
+            progressAnimations.put(view, new ProgressAnimation(va, toWidth));
             va.setDuration(200);
             va.addUpdateListener(animation -> {
                 int val = (int) animation.getAnimatedValue();
@@ -1111,19 +1135,31 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     @Override
                     public void onResourceReady(@NonNull android.graphics.Bitmap resource,
                             @androidx.annotation.Nullable com.bumptech.glide.request.transition.Transition<? super android.graphics.Bitmap> transition) {
-                        if (holder.thumbnailTarget == this) {
-                            holder.thumbnailTarget = null;
-                        }
+                        // The target stays on the holder after the load ends: Glide keeps
+                        // only weak references to it, so dropping it let a GC release a
+                        // bitmap still on screen to the pool, where a later decode could
+                        // overwrite it with another video's frame. The next rebind or
+                        // recycle clears it and shows the placeholder first.
                         if (uriString.equals(holder.currentUri)) {
                             holder.imageViewThumbnail.setImageBitmap(resource);
                             holder.imageViewThumbnail.setScaleType(ImageView.ScaleType.CENTER_CROP);
                         }
 
-                        // Cache the thumbnail for future use
+                        // Cache the thumbnail for future use. A copy, since a rebind can
+                        // hand this bitmap back to Glide's pool while it is compressed.
+                        final android.graphics.Bitmap toCache;
+                        try {
+                            toCache = resource.copy(resource.getConfig() != null
+                                    ? resource.getConfig() : android.graphics.Bitmap.Config.ARGB_8888, false);
+                        } catch (Exception | OutOfMemoryError e) {
+                            FLog.w(TAG, "Could not copy thumbnail for caching");
+                            return;
+                        }
+                        if (toCache == null) return;
                         executorService.execute(() -> {
                             try {
                                 java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-                                resource.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, baos);
+                                toCache.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, baos);
                                 byte[] thumbnailData = baos.toByteArray();
 
                                 // Cache in memory and disk
@@ -1133,6 +1169,8 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
                             } catch (Exception e) {
                                 FLog.w(TAG, "Error caching thumbnail", e);
+                            } finally {
+                                toCache.recycle();
                             }
                         });
                     }
