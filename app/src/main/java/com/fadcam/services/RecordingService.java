@@ -2129,6 +2129,14 @@ public class RecordingService extends Service {
                 return source;
             }
             float scale = Math.max(targetW / (float) srcW, targetH / (float) srcH);
+            if (scale > 1f) {
+                // A smaller preview frame (Preview Resolution): keep the same crop at
+                // the frame's own size. Scaling it up added no detail, only a
+                // 30+ MB bitmap at 4K.
+                targetW = Math.max(1, Math.round(targetW / scale));
+                targetH = Math.max(1, Math.round(targetH / scale));
+                scale = 1f;
+            }
             int scaledW = Math.max(1, Math.round(srcW * scale));
             int scaledH = Math.max(1, Math.round(srcH * scale));
             Bitmap scaled = (scaledW == srcW && scaledH == srcH)
@@ -2901,7 +2909,12 @@ public class RecordingService extends Service {
                 cameraDevice = null;
             }
             isCameraOpen = false;
-            if (glRecordingPipeline != null && previewSurface != null && previewSurface.isValid()) {
+            if (glRecordingPipeline != null && previewOnlyPipelineResized) {
+                // Its size came from the old camera's sizes and frame rate; the new one
+                // may list other sizes or need its full size (high-speed frame rates)
+                releasePreviewOnlyGlPipeline();
+                ensurePreviewOnlyGlPipeline();
+            } else if (glRecordingPipeline != null && previewSurface != null && previewSurface.isValid()) {
                 glRecordingPipeline.setPreviewSurfaceImmediate(previewSurface);
             }
             openCamera();
@@ -7145,6 +7158,9 @@ public class RecordingService extends Service {
         }
     }
 
+    /** The preview-only pipeline runs below the recording size (Preview Resolution). */
+    private boolean previewOnlyPipelineResized = false;
+
     private void ensurePreviewOnlyGlPipeline() {
         // Every preview-only start path (direct, deferred until the surface
         // arrives, foreground recovery) goes through here. Idempotent.
@@ -7165,6 +7181,7 @@ public class RecordingService extends Service {
             int videoHeight = resolution.getHeight();
             CameraType cameraType = sharedPreferencesManager.getCameraSelection();
             int videoFramerate = sharedPreferencesManager.getSpecificVideoFrameRate(cameraType);
+            previewOnlyPipelineResized = false;
             String orientation = sharedPreferencesManager.getVideoOrientation();
             VideoCodec selectedCodec = sharedPreferencesManager.getVideoCodec();
 
@@ -7177,6 +7194,7 @@ public class RecordingService extends Service {
                     Integer so = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
                     if (so != null) sensorOrientation = so;
                     Size previewSize = previewOnlyCaptureSize(characteristics, videoWidth, videoHeight, videoFramerate);
+                    previewOnlyPipelineResized = previewSize != null;
                     if (previewSize != null) {
                         FLog.d(TAG, "Preview-only: camera at " + previewSize + " instead of " + videoWidth + "x" + videoHeight);
                         videoWidth = previewSize.getWidth();
