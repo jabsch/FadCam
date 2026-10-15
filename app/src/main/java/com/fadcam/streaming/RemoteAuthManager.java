@@ -203,9 +203,11 @@ public class RemoteAuthManager {
      * Get all active sessions
      */
     public Map<String, SessionToken> getActiveSessions() {
-        // Remove expired sessions
-        activeSessions.entrySet().removeIf(entry -> entry.getValue().isExpired());
-        saveSessionsToStorage();
+        // Remove expired sessions. Saved only when one went: this runs on every
+        // dashboard status poll, and saving re-serialized all sessions each time.
+        if (activeSessions.entrySet().removeIf(entry -> entry.getValue().isExpired())) {
+            saveSessionsToStorage();
+        }
         return new ConcurrentHashMap<>(activeSessions);
     }
     
