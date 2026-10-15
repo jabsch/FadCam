@@ -18,6 +18,8 @@ public class NoiseMonitor {
     private static final int SAMPLE_RATE = 44100;
     private static final int CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO;
     private static final int AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
+    /** Samples per blocking read: 250 ms of mono audio. */
+    private static final int READ_SAMPLES = SAMPLE_RATE / 4;
 
     private AudioRecord audioRecord = null;
     /** Whether a noise level is wanted (watermark noise on and monitor started). */
@@ -124,7 +126,8 @@ public class NoiseMonitor {
                 return false;
             }
 
-            bufferSize = Math.max(bufferSize, SAMPLE_RATE / 10);
+            // Room for two reads (bytes: 16-bit mono) so a blocking read never overruns.
+            bufferSize = Math.max(bufferSize, READ_SAMPLES * 2 * 2);
 
             audioRecord = new AudioRecord(
                     MediaRecorder.AudioSource.MIC,
@@ -146,7 +149,10 @@ public class NoiseMonitor {
             final AudioRecord record = audioRecord;
             final int localBufferSize = bufferSize;
             recordingThread = new Thread(() -> {
-                short[] buffer = new short[localBufferSize];
+                // One blocking read per 250 ms of audio: 4 wakeups a second instead
+                // of 10, and every sample counts (read + sleep skipped audio). The
+                // watermark shows the level once a second.
+                short[] buffer = new short[READ_SAMPLES];
                 while (ownCaptureRunning) {
                     int read = record.read(buffer, 0, buffer.length);
                     if (read > 0) {
@@ -155,11 +161,8 @@ public class NoiseMonitor {
                             sum += Math.abs(buffer[i]);
                         }
                         currentDb = toDb(sum / read);
-                    }
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        break;
+                    } else if (read < 0) {
+                        break; // recorder stopped or failed
                     }
                 }
             }, "NoiseMonitorThread");

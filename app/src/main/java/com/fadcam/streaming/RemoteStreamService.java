@@ -281,7 +281,7 @@ public class RemoteStreamService extends Service {
         notificationUpdateRunnable = new Runnable() {
             @Override
             public void run() {
-                updateNotification();
+                updateNotification(true);
                 notificationHandler.postDelayed(this, 30000); // Update every 30 seconds (was 5s, too frequent)
             }
         };
@@ -477,6 +477,14 @@ public class RemoteStreamService extends Service {
      * Shows cloud dashboard URL if in cloud mode, local dashboard URL if in local mode.
      */
     private void updateNotification() {
+        updateNotification(false);
+    }
+
+    /**
+     * @param onlyIfChanged skip the notify when the text is unchanged (the periodic
+     *     refresh), so SystemUI doesn't redraw an identical notification.
+     */
+    private void updateNotification(boolean onlyIfChanged) {
         // Check if cloud mode is enabled
         android.content.SharedPreferences cloudPrefs = getSharedPreferences("FadCamCloudPrefs", Context.MODE_PRIVATE);
         int streamingMode = cloudPrefs.getInt("streaming_mode", 0); // 0 = local, 1 = cloud
@@ -513,12 +521,19 @@ public class RemoteStreamService extends Service {
             }
         }
         
+        if (onlyIfChanged && contentText.equals(lastNotificationText)) {
+            return;
+        }
         Notification notification = buildNotification(contentText, dashboardUrl);
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (notificationManager != null) {
             notificationManager.notify(NOTIFICATION_ID, notification);
+            lastNotificationText = contentText;
         }
     }
+
+    /** Text of the last notification posted by {@link #updateNotification(boolean)}. */
+    private String lastNotificationText;
     
     /**
      * Create notification channel for Android O+.
