@@ -11039,11 +11039,7 @@ public class HomeFragment extends BaseFragment {
      * default.
      */
     private static void requestSlowLoopFrameRate(@Nullable View view, boolean slow) {
-        if (view == null || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            return;
-        }
-        view.setRequestedFrameRate(slow ? View.REQUESTED_FRAME_RATE_CATEGORY_LOW
-                : View.REQUESTED_FRAME_RATE_CATEGORY_DEFAULT);
+        com.fadcam.utils.LoopFrameRate.request(view, slow);
     }
 
     // ── Home Avatar Color Drawable Resolution ──────────────────────────────────

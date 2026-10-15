@@ -1,5 +1,6 @@
 package com.fadcam.ui;
 
+import com.fadcam.utils.LoopFrameRate;
 import com.fadcam.Log;
 import com.fadcam.FLog;
 import android.animation.Animator;
@@ -179,6 +180,8 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
 
     // Avatar animation state
     private boolean fullscreenAvatarLastEnabled = false;
+    /** True from onStop to onStart: the avatar loops are stopped and must not start. */
+    private boolean avatarLoopsPaused = false;
     private boolean fullscreenAvatarWakingUp = false;        // Guard against updatePreviewHintVisibility resetting during wake
     private boolean isPreviewOpenAnimating = false;           // Guard against started broadcast overwriting wake anim
     private boolean isPreviewCloseAnimating = false;          // Guard iris-close transition from firing twice
@@ -366,8 +369,15 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        resumeFullscreenAvatarLoops();
+    }
+
+    @Override
     protected void onStop() {
         super.onStop();
+        pauseFullscreenAvatarLoops();
         // Home button or screen off from here: HomeFragment skipped its own stop
         // because it launched us, so the camera kept streaming into a preview
         // nobody could see. The preference is left on, so onResume's
@@ -2026,10 +2036,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
             ivFullscreenPreviewAvatar.setAlpha(1.0f);
             
             // Cancel twinkle + animate moon out, spin sun in
-            if (fullscreenAmbianceTwinkleAnim != null) { 
-                fullscreenAmbianceTwinkleAnim.cancel(); 
-                fullscreenAmbianceTwinkleAnim = null; 
-            }
+            stopFullscreenTwinkle();
             
             if (ivFullscreenSleepAmbiance != null) {
                 ivFullscreenSleepAmbiance.animate().cancel();
@@ -2147,13 +2154,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
                         .setInterpolator(new android.view.animation.DecelerateInterpolator(1.2f))
                         .withEndAction(() -> {
                             if (ivFullscreenSleepAmbiance != null && ivFullscreenSleepAmbiance.getAlpha() >= 0.1f) {
-                                if (fullscreenAmbianceTwinkleAnim != null) fullscreenAmbianceTwinkleAnim.cancel();
-                                fullscreenAmbianceTwinkleAnim = ObjectAnimator.ofFloat(ivFullscreenSleepAmbiance, "alpha", 0.55f, 1.0f);
-                                fullscreenAmbianceTwinkleAnim.setDuration(3500);
-                                fullscreenAmbianceTwinkleAnim.setRepeatCount(ObjectAnimator.INFINITE);
-                                fullscreenAmbianceTwinkleAnim.setRepeatMode(ObjectAnimator.REVERSE);
-                                fullscreenAmbianceTwinkleAnim.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
-                                fullscreenAmbianceTwinkleAnim.start();
+                                startFullscreenTwinkle();
                             }
                         })
                         .start();
@@ -2161,13 +2162,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
                     // Already visible — reset scale and just start twinkle
                     ivFullscreenSleepAmbiance.setScaleX(1f);
                     ivFullscreenSleepAmbiance.setScaleY(1f);
-                    if (fullscreenAmbianceTwinkleAnim != null) fullscreenAmbianceTwinkleAnim.cancel();
-                    fullscreenAmbianceTwinkleAnim = ObjectAnimator.ofFloat(ivFullscreenSleepAmbiance, "alpha", 0.55f, 1.0f);
-                    fullscreenAmbianceTwinkleAnim.setDuration(3500);
-                    fullscreenAmbianceTwinkleAnim.setRepeatCount(ObjectAnimator.INFINITE);
-                    fullscreenAmbianceTwinkleAnim.setRepeatMode(ObjectAnimator.REVERSE);
-                    fullscreenAmbianceTwinkleAnim.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
-                    fullscreenAmbianceTwinkleAnim.start();
+                    startFullscreenTwinkle();
                 }
             }
 
@@ -2255,6 +2250,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
     /** Start floating animations for zzz letters. */
     private void startFullscreenFloatingZAnims() {
         stopFullscreenFloatingZAnims();
+        if (avatarLoopsPaused) return;
         View[] zs = {tvFullscreenZzz1, tvFullscreenZzz2, tvFullscreenZzz3};
         long[] durations = {1600, 1900, 2200};
         float[] amps = {5f, 6f, 7f};
@@ -2269,6 +2265,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
             anim.setRepeatMode(ObjectAnimator.REVERSE);
             anim.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
             anim.start();
+            LoopFrameRate.request(z, true);
             if (idx == 0) fullscreenFloatingZAnim1 = anim;
             else if (idx == 1) fullscreenFloatingZAnim2 = anim;
             else if (idx == 2) fullscreenFloatingZAnim3 = anim;
@@ -2280,11 +2277,15 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
         if (fullscreenFloatingZAnim1 != null) { fullscreenFloatingZAnim1.cancel(); fullscreenFloatingZAnim1 = null; }
         if (fullscreenFloatingZAnim2 != null) { fullscreenFloatingZAnim2.cancel(); fullscreenFloatingZAnim2 = null; }
         if (fullscreenFloatingZAnim3 != null) { fullscreenFloatingZAnim3.cancel(); fullscreenFloatingZAnim3 = null; }
+        for (View z : new View[]{tvFullscreenZzz1, tvFullscreenZzz2, tvFullscreenZzz3}) {
+            LoopFrameRate.request(z, false);
+        }
     }
 
     /** Start blinking loop for awake avatar. */
     private void startFullscreenBlinkLoop() {
         stopFullscreenBlinkLoop();
+        if (avatarLoopsPaused) return;
         scheduleNextFullscreenBlink(2500 + fullscreenBlinkRandom.nextInt(2000));
     }
 
@@ -2331,7 +2332,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
     /** Start breathing animation for sleeping avatar. */
     private void startFullscreenBreathing() {
         if (fullscreenBreathingAnimator != null) fullscreenBreathingAnimator.cancel();
-        if (ivFullscreenPreviewAvatar == null) return;
+        if (ivFullscreenPreviewAvatar == null || avatarLoopsPaused) return;
 
         // Alpha + scale pulse: gentle "inhale/exhale" feel
         fullscreenBreathingAnimator = ValueAnimator.ofFloat(0.0f, 1.0f);
@@ -2358,6 +2359,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
         fullscreenAvatarFloatAnim.setRepeatMode(ObjectAnimator.REVERSE);
         fullscreenAvatarFloatAnim.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
         fullscreenAvatarFloatAnim.start();
+        LoopFrameRate.request(ivFullscreenPreviewAvatar, true);
     }
 
     /** Stop breathing animation. */
@@ -2369,6 +2371,59 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
             ivFullscreenPreviewAvatar.setScaleX(1.0f);
             ivFullscreenPreviewAvatar.setScaleY(1.0f);
             ivFullscreenPreviewAvatar.setTranslationY(0f);
+            LoopFrameRate.request(ivFullscreenPreviewAvatar, false);
+        }
+    }
+
+    /** Endless moon twinkle of the sleeping avatar. */
+    private void startFullscreenTwinkle() {
+        stopFullscreenTwinkle();
+        if (ivFullscreenSleepAmbiance == null || avatarLoopsPaused) return;
+        fullscreenAmbianceTwinkleAnim = ObjectAnimator.ofFloat(ivFullscreenSleepAmbiance, "alpha", 0.55f, 1.0f);
+        fullscreenAmbianceTwinkleAnim.setDuration(3500);
+        fullscreenAmbianceTwinkleAnim.setRepeatCount(ObjectAnimator.INFINITE);
+        fullscreenAmbianceTwinkleAnim.setRepeatMode(ObjectAnimator.REVERSE);
+        fullscreenAmbianceTwinkleAnim.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
+        fullscreenAmbianceTwinkleAnim.start();
+        LoopFrameRate.request(ivFullscreenSleepAmbiance, true);
+    }
+
+    private void stopFullscreenTwinkle() {
+        if (fullscreenAmbianceTwinkleAnim != null) {
+            fullscreenAmbianceTwinkleAnim.cancel();
+            fullscreenAmbianceTwinkleAnim = null;
+        }
+        LoopFrameRate.request(ivFullscreenSleepAmbiance, false);
+    }
+
+    /**
+     * Stops the avatar's endless loops while the screen is not visible. They ran on
+     * every frame after leaving (and after finish(), until the process died), each
+     * visit adding another set.
+     */
+    private void pauseFullscreenAvatarLoops() {
+        avatarLoopsPaused = true;
+        stopFullscreenBlinkLoop();
+        stopFullscreenFloatingZAnims();
+        stopFullscreenBreathing();
+        stopFullscreenTwinkle();
+    }
+
+    /** Restarts the loops the current avatar state uses. */
+    private void resumeFullscreenAvatarLoops() {
+        if (!avatarLoopsPaused) return;
+        avatarLoopsPaused = false;
+        if (ivFullscreenPreviewAvatar == null) return;
+        if (fullscreenAvatarLastEnabled) {
+            startFullscreenBlinkLoop();
+            return;
+        }
+        startFullscreenBreathing();
+        if (zzzFullscreenBadgeGroup != null && zzzFullscreenBadgeGroup.getVisibility() == View.VISIBLE) {
+            startFullscreenFloatingZAnims();
+        }
+        if (ivFullscreenSleepAmbiance != null && ivFullscreenSleepAmbiance.getAlpha() >= 0.1f) {
+            startFullscreenTwinkle();
         }
     }
 

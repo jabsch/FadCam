@@ -1,5 +1,6 @@
 package com.fadcam.ui;
 
+import com.fadcam.utils.LoopFrameRate;
 import com.fadcam.Log;
 import com.fadcam.FLog;
 import android.animation.ObjectAnimator;
@@ -504,12 +505,16 @@ public class AvatarToggleView extends FrameLayout {
             a.setInterpolator(new AccelerateDecelerateInterpolator());
             a.start();
             floatingZAnimators.add(a);
+            LoopFrameRate.request(v, true);
         }
     }
 
     private void stopFloatingZ() {
         for (ObjectAnimator a : floatingZAnimators) a.cancel();
         floatingZAnimators.clear();
+        for (int i = 0; zzzGroup != null && i < zzzGroup.getChildCount(); i++) {
+            LoopFrameRate.request(zzzGroup.getChildAt(i), false);
+        }
     }
 
     // ─── Blink loop ──────────────────────────────────────────────────────────
@@ -583,6 +588,7 @@ public class AvatarToggleView extends FrameLayout {
             }
         });
         breathingAnimator.start();
+        LoopFrameRate.request(ivAvatar, true);
     }
 
     private void stopBreathing() {
@@ -590,7 +596,10 @@ public class AvatarToggleView extends FrameLayout {
             breathingAnimator.cancel();
             breathingAnimator = null;
         }
-        if (ivAvatar != null) ivAvatar.setAlpha(1f);
+        if (ivAvatar != null) {
+            ivAvatar.setAlpha(1f);
+            LoopFrameRate.request(ivAvatar, false);
+        }
     }
 
     // ─── Status label (ON / OFF) ─────────────────────────────────────────────
