@@ -32,7 +32,9 @@ public class Log {
     private static android.os.HandlerThread logThread;
     private static android.os.Handler logHandler;
     private static volatile boolean workerRunning = false;
-    private static final int FLUSH_INTERVAL_MS = 250; // periodic flush cadence
+    private static final int FLUSH_INTERVAL_MS = 250; // batching delay after the first queued line
+    /** True while a flush is posted. Flushes run only when lines are queued, so an idle log never wakes the CPU. */
+    private static final java.util.concurrent.atomic.AtomicBoolean flushScheduled = new java.util.concurrent.atomic.AtomicBoolean(false);
     private static final int FLUSH_MAX_BATCH = 400;   // max lines per flush
     private static final java.util.concurrent.atomic.AtomicInteger approxLines = new java.util.concurrent.atomic.AtomicInteger(0);
     private static final java.util.concurrent.atomic.AtomicBoolean trimming = new java.util.concurrent.atomic.AtomicBoolean(false);
@@ -262,6 +264,14 @@ public class Log {
                 droppedSinceLastNote++;
             }
         }
+        scheduleFlush();
+    }
+
+    private static void scheduleFlush() {
+        android.os.Handler handler = logHandler;
+        if (handler != null && flushScheduled.compareAndSet(false, true)) {
+            handler.postDelayed(flushTask, FLUSH_INTERVAL_MS);
+        }
     }
 
     /** Returns the current log Uri if available, creating it if needed. */
@@ -456,16 +466,15 @@ public class Log {
         logThread.start();
         logHandler = new android.os.Handler(logThread.getLooper());
         workerRunning = true;
-        // Kick off periodic flusher
-        logHandler.post(flushTask);
+        flushScheduled.set(false);
     }
 
     private static final Runnable flushTask = new Runnable() {
         @Override public void run() {
+            flushScheduled.set(false);
             try {
                 if (!isDebugEnabled || context == null || fileUri == null) {
-                    // Re-check later; cheap idle
-                    reschedule(FLUSH_INTERVAL_MS);
+                    // The next queued line schedules another flush.
                     return;
                 }
                 java.util.ArrayList<String> batch = new java.util.ArrayList<>(FLUSH_MAX_BATCH + 2);
@@ -505,12 +514,11 @@ public class Log {
                     }
                 }
             } finally {
-                reschedule(FLUSH_INTERVAL_MS);
+                // More than one batch was queued: keep draining.
+                if (!PENDING.isEmpty()) {
+                    scheduleFlush();
+                }
             }
-        }
-
-        private void reschedule(int delayMs) {
-            if (logHandler != null) logHandler.postDelayed(this, delayMs);
         }
     };
 
@@ -595,6 +603,7 @@ public class Log {
             logHandler = null;
             logThread = null;
             workerRunning = false;
+            flushScheduled.set(false);
         }
     }
 

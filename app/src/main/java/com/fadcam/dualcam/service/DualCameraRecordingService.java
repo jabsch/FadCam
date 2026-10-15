@@ -990,7 +990,9 @@ public class DualCameraRecordingService extends Service {
         // Schedule periodic secondary camera snapshots ONLY if not in black frame test mode
         if (!useBlackFrameFallback) {
             // Delay the first snapshot to let the pipeline stabilise.
-            backgroundHandler.postDelayed(this::captureSecondarySnapshot, 2000);
+            snapshotFailStreak = 0;
+            backgroundHandler.removeCallbacks(snapshotRunnable);
+            backgroundHandler.postDelayed(snapshotRunnable, 2000);
         } else {
             FLog.d(TAG, "Black frame test mode: skipping periodic snapshots (secondary will remain black)");
         }
@@ -1004,6 +1006,15 @@ public class DualCameraRecordingService extends Service {
     /** Flag to prevent overlapping snapshot attempts. */
     private volatile boolean isCapturingSnapshot = false;
 
+    /** One instance, so a pending snapshot can be cancelled and never runs twice. */
+    private final Runnable snapshotRunnable = this::captureSecondarySnapshot;
+
+    /**
+     * Snapshots in a row that didn't deliver a frame. Each one doubles the wait before
+     * the next try (3 s up to 48 s), so a busy camera isn't reopened every 3 s forever.
+     */
+    private int snapshotFailStreak;
+
     /**
      * Opens the secondary camera, captures a single frame to the pipeline's
      * secondary SurfaceTexture, then closes it. Reschedules itself.
@@ -1013,12 +1024,13 @@ public class DualCameraRecordingService extends Service {
             return;
         }
         if (isCapturingSnapshot) {
-            // Previous snapshot still in progress — skip and retry later
-            backgroundHandler.postDelayed(this::captureSecondarySnapshot, FALLBACK_SNAPSHOT_INTERVAL_MS);
+            // Previous snapshot still in progress; it schedules the next one when done.
             return;
         }
 
         isCapturingSnapshot = true;
+        // Cleared when a frame arrives; anything else counts as a failure.
+        snapshotFailStreak++;
         String secId = resolvedSecondaryId;
         if (secId == null || recordingPipeline == null) {
             isCapturingSnapshot = false;
@@ -1120,6 +1132,7 @@ public class DualCameraRecordingService extends Service {
                                                 if (framesReceived >= 1) {
                                                     // Got our frame — close and schedule next
                                                     FLog.d(TAG, "Fallback: PiP snapshot captured");
+                                                    snapshotFailStreak = 0;
                                                     session.close();
                                                     camera.close();
                                                     isCapturingSnapshot = false;
@@ -1162,6 +1175,7 @@ public class DualCameraRecordingService extends Service {
                                                         @NonNull CameraCaptureSession s,
                                                         @NonNull CaptureRequest request,
                                                         @NonNull android.hardware.camera2.TotalCaptureResult result) {
+                                                    snapshotFailStreak = 0;
                                                     session.close();
                                                     camera.close();
                                                     isCapturingSnapshot = false;
@@ -1199,8 +1213,9 @@ public class DualCameraRecordingService extends Service {
     /** Schedules the next PiP snapshot in fallback mode. */
     private void scheduleNextSnapshot() {
         if (!isStopping && fallbackMode && state != DualCameraState.DISABLED) {
-            backgroundHandler.postDelayed(this::captureSecondarySnapshot,
-                    FALLBACK_SNAPSHOT_INTERVAL_MS);
+            long delay = FALLBACK_SNAPSHOT_INTERVAL_MS << Math.min(Math.max(snapshotFailStreak, 0), 4);
+            backgroundHandler.removeCallbacks(snapshotRunnable);
+            backgroundHandler.postDelayed(snapshotRunnable, delay);
         }
     }
 

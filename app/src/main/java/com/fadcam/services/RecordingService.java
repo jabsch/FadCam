@@ -3748,6 +3748,10 @@ public class RecordingService extends Service {
             float maxDelta,
             boolean globalSuppressed
     ) {
+        // Only the Motion Lab settings screen listens, and it sets this flag while open.
+        if (sharedPreferencesManager == null || !sharedPreferencesManager.isMotionDebugUiActive()) {
+            return;
+        }
         long now = SystemClock.elapsedRealtime();
         boolean significant = previousState != currentState
                 || (action != null && action != com.fadcam.motion.domain.state.MotionStateMachine.TransitionAction.NONE);

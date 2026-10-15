@@ -13,6 +13,12 @@ public class FadCamApplication extends Application implements DefaultLifecycleOb
     public void onCreate() {
         super.onCreate();
         com.fadcam.utils.CrashRecorder.install(this);
+        // Set while the Motion Lab screen is open and cleared in its onStop. A process
+        // death skips onStop, which would leave the debug preview encoding forever.
+        SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(this);
+        if (prefs.isMotionDebugUiActive()) {
+            prefs.setMotionDebugUiActive(false);
+        }
         ProcessLifecycleOwner.get().getLifecycle().addObserver(this);
         com.fadcam.utils.PixelOptimizedMode.applyOnceIfNeeded(this);
         // Room DB open + invalidation observer registration is deferred off the
