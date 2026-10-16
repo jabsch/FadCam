@@ -1148,8 +1148,8 @@
     <!-- E2E Stream Encryption: must load before HlsService so FadCamFragLoader is ready -->
     <script src="js/services/E2EKeyManager.js?v=1.0.0"></script>
     <script src="js/services/FadCamFragLoader.js?v=1.0.0"></script>
-    <script src="js/services/ApiService.js?v=2.8.0"></script>
-    <script src="js/services/HlsService.js?v=2.7.0"></script>
+    <script src="js/services/ApiService.js?v=2.9.0"></script>
+    <script src="js/services/HlsService.js?v=2.8.0"></script>
     <script src="js/services/FadexNotificationManager.js?v=2.5.0"></script>
     <script src="js/models/ServerStatus.js?v=2.5.0"></script>
     <script src="js/viewmodels/DashboardViewModel.js?v=2.5.0"></script>
@@ -2978,7 +2978,7 @@
             const debugUrl = _debugIsCloud
                 ? (() => { const t = FadCamRemote.getStreamToken(); return t ? `${streamUrl}?token=${encodeURIComponent(t)}` : streamUrl; })()
                 : streamUrl;
-            fetch(debugUrl)
+            fetch(debugUrl, _debugIsCloud ? {} : { headers: authService.getAuthHeaders() })
                 .then(r => r.text())
                 .then(manifest => {
                     console.log('[DEBUG] Raw M3U8 Manifest:');
@@ -4417,7 +4417,7 @@
             // Send to server API
             fetch('/alarm/schedule', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authService.getAuthHeaders() },
                 body: JSON.stringify({
                     scheduledTime: scheduledDate.getTime(),
                     sound: sound,
@@ -4621,7 +4621,7 @@
 
             fetch('/alarm/ring', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authService.getAuthHeaders() },
                 body: JSON.stringify({
                     sound: soundFile,
                     duration_ms: durationMs
@@ -5066,7 +5066,9 @@
                 // ===== AUTH STATE CHANGE DETECTION =====
                 
                 // Check if auth was disabled on server side
-                if (previousAuthEnabled === true && status.authEnabled === false) {
+                const lockOverlay = document.getElementById('lockScreenOverlay');
+                const lockVisible = lockOverlay && lockOverlay.classList.contains('visible');
+                if ((previousAuthEnabled === true || lockVisible) && status.authEnabled === false) {
                     console.warn('[AuthIntegration] Authentication disabled on server, hiding lock screen');
                     previousAuthEnabled = status.authEnabled;
                     authService.logout();

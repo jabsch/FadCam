@@ -167,6 +167,14 @@ class ApiService {
             const fetchTime = performance.now() - startTime;
             console.log(`📡 [/status] Response received in ${fetchTime.toFixed(2)}ms, status: ${response.status}`);
             
+            if (response.status === 401) {
+                // Remote Security is on and this browser has no valid session
+                if (typeof authService !== 'undefined') authService.clearToken();
+                const overlay = document.getElementById('lockScreenOverlay');
+                if (typeof showLockScreen === 'function' && overlay && !overlay.classList.contains('visible')) {
+                    showLockScreen();
+                }
+            }
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
