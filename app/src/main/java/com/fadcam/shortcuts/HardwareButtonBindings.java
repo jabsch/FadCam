@@ -17,6 +17,7 @@ import com.fadcam.service.HardwareButtonAccessibilityService;
  */
 public final class HardwareButtonBindings {
     private static final String PREFS = "hardware_button_bindings";
+    private static final String KEY_CAMERA_APPS_KEEP_KEYS = "camera_apps_keep_volume_keys";
 
     private HardwareButtonBindings() {}
 
@@ -48,6 +49,18 @@ public final class HardwareButtonBindings {
         String key = keyFor(keyCode, gesture);
         if (key == null) return;
         prefs(context).edit().putString(key, shortcutId == null ? "" : shortcutId).apply();
+    }
+
+    /**
+     * Whether volume keys go straight to a camera app while it is on screen, so
+     * its volume-key shutter keeps working. On by default.
+     */
+    public static boolean cameraAppsKeepVolumeKeys(@NonNull Context context) {
+        return prefs(context).getBoolean(KEY_CAMERA_APPS_KEEP_KEYS, true);
+    }
+
+    public static void setCameraAppsKeepVolumeKeys(@NonNull Context context, boolean keep) {
+        prefs(context).edit().putBoolean(KEY_CAMERA_APPS_KEEP_KEYS, keep).apply();
     }
 
     /** Whether the user has turned on JaCam's button service in Accessibility settings. */

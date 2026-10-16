@@ -3276,6 +3276,8 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="hardware_buttons_volume_down_double">Double-tap volume down</string>
     <string name="hardware_buttons_double_helper">Press the volume key twice quickly to run the shortcut you assign. While a double tap is set, a single press still changes the volume, but only after a short pause (about a third of a second) to make sure no second press is coming. Turn on the button service once in Android\'s Accessibility settings so it works from any screen, even with the screen off.</string>
     <string name="hardware_buttons_none">None</string>
+    <string name="hardware_buttons_camera_apps">Camera apps keep volume keys</string>
+    <string name="hardware_buttons_camera_apps_helper">When enabled, a camera app on screen (like Pixel Camera) gets every volume key press, so its volume-key shutter and zoom keep working. JaCam\'s button shortcuts pause while it\'s open and work again as soon as you leave it, or with the screen off. When disabled, your shortcuts also run inside camera apps, but their volume-key shutter stops working because a press JaCam catches can\'t be passed back to the camera. No Pixel settings need to change.</string>
     <string name="hardware_buttons_helper">Hold or double-tap a volume key to run the shortcut you assign to it. A short press still changes the volume. Turn on the button service once in Android\'s Accessibility settings so it works from any screen, even with the screen off.</string>
     <string name="hardware_buttons_enable_prompt">Turn on \"JaCam hardware buttons\" so your button shortcuts work</string>
 </resources>
