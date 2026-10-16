@@ -4519,8 +4519,11 @@ public class RecordingService extends Service {
                 mainHandler.post(RecordingService.this::attemptStartRecordingIfReady);
             } else {
                 FLog.d(TAG, "Camera opened but no pending recording start");
-                // If we're not starting recording, create a preview session
-                if (previewSurface != null) {
+                // Resume after a pause that closed the camera, a live camera switch and
+                // preview-only all reopen the camera and need a session. The GL pipeline
+                // consumes the frames (previewSurface is never a camera output on that
+                // path), so a resume from the background with no surface needs one too.
+                if (glRecordingPipeline != null || previewSurface != null) {
                     try {
                         createCameraPreviewSession();
                     } catch (Exception e) {
@@ -5129,6 +5132,12 @@ public class RecordingService extends Service {
                 highSpeedSession.setRepeatingBurst(highSpeedRequests, null, backgroundHandler);
                 maybeApplyDeferredAeLockAfterSessionStart("high-speed");
 
+                // Start the GL pipeline once the burst is live, as the standard session
+                // callback does; without it 120/240 fps recordings encode no frames.
+                if (glRecordingPipeline != null && !previewOnlyActive) {
+                    glRecordingPipeline.startRecording();
+                }
+
                 // Handle recording state
                 handleSessionConfigured();
             } catch (CameraAccessException e) {
@@ -5460,7 +5469,10 @@ public class RecordingService extends Service {
             // Using cached location data (too soon to update)");
         }
         
-        // Show GPS-off message if provider is disabled — covers location + UTM independently
+        // Show GPS-off message if provider is disabled — covers location + UTM independently.
+        // This runs before getExtendedSensorData() each tick and is the only reader
+        // when no speed/altitude/accuracy line is shown, so it refreshes the state too.
+        refreshGpsProviderState();
         if (!cachedGpsProviderEnabled) {
             StringBuilder gpsOffMsg = new StringBuilder("\nLocation: GPS is off");
             if (sharedPreferencesManager.isUtmEnabled()) {
@@ -5510,23 +5522,30 @@ public class RecordingService extends Service {
         }
     }
 
-    private String getExtendedSensorData() {
-        if (sharedPreferencesManager == null) {
-            return "";
-        }
-
-        // Throttled GPS provider check — same API as HomeFragment banner, cached for 5s.
-        // Only the GPS fields read it, so skip the system call when none is shown.
+    /** Throttled GPS provider check (same API as the Home banner), cached for 5 s. */
+    private void refreshGpsProviderState() {
         long now = System.currentTimeMillis();
-        boolean gpsFieldShown = sharedPreferencesManager.isSpeedEnabled()
-                || sharedPreferencesManager.isAltitudeEnabled()
-                || sharedPreferencesManager.isAccuracyEnabled();
-        if (gpsFieldShown && now - lastGpsProviderCheckMs >= GPS_PROVIDER_CHECK_INTERVAL_MS) {
+        if (now - lastGpsProviderCheckMs >= GPS_PROVIDER_CHECK_INTERVAL_MS) {
             android.location.LocationManager lm = (android.location.LocationManager)
                     getSystemService(Context.LOCATION_SERVICE);
             cachedGpsProviderEnabled = lm != null
                     && lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER);
             lastGpsProviderCheckMs = now;
+        }
+    }
+
+    private String getExtendedSensorData() {
+        if (sharedPreferencesManager == null) {
+            return "";
+        }
+
+        // Only the GPS fields read the provider state here, so skip the system call
+        // when none is shown; getLocationData() refreshes it for the location line.
+        boolean gpsFieldShown = sharedPreferencesManager.isSpeedEnabled()
+                || sharedPreferencesManager.isAltitudeEnabled()
+                || sharedPreferencesManager.isAccuracyEnabled();
+        if (gpsFieldShown) {
+            refreshGpsProviderState();
         }
 
         if (locationHelper != null && sensorDataProvider != null) {

@@ -881,9 +881,20 @@ public class GLRecordingPipeline {
                 });
 
                 try {
-                    if (watermarkInfoProvider != null) {
+                    if (watermarkInfoProvider != null && handler != null) {
+                        // Upload on the GL thread: off it there is no EGL context, the
+                        // upload silently does nothing, yet the renderer records the
+                        // size, so later same-size updates never reach the texture.
                         String initial = watermarkInfoProvider.getWatermarkText();
-                        glRenderer.setWatermarkText(initial != null ? initial : "");
+                        final String text = initial != null ? initial : "";
+                        final GLWatermarkRenderer renderer = glRenderer;
+                        handler.post(() -> {
+                            try {
+                                renderer.updateWatermarkTextOnGlThread(text);
+                            } catch (Exception e) {
+                                FLog.w(TAG, "Failed to apply initial watermark", e);
+                            }
+                        });
                     }
                 } catch (Exception e) {
                     FLog.w(TAG, "Failed to apply initial watermark", e);

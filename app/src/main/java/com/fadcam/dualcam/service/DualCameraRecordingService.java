@@ -1986,6 +1986,13 @@ public class DualCameraRecordingService extends Service {
             recordingPipeline = null;
         }
 
+        // Stop the watermark's GPS, compass, noise and geocoder like a normal stop
+        // does; the error/destroy path used to leave GPS polling for the process lifetime.
+        if (watermarkManager != null) {
+            watermarkManager.destroy();
+            watermarkManager = null;
+        }
+
         closeCamera(primarySession, primaryCameraDevice, "primary");
         closeCamera(secondarySession, secondaryCameraDevice, "secondary");
         primarySession = null;
