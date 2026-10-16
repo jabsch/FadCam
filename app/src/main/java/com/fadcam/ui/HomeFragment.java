@@ -6461,7 +6461,7 @@ public class HomeFragment extends BaseFragment {
             clockTextDateArabic = tvDateArabic;
         }
 
-        // Live max-duration countdown badge (runs on the same 1s tick).
+        // Minute-rate safety net for the countdown badge; the live 1 s refresh is in updateInfoRunnable.
         updateQuickTimerCountdown();
     }
 
@@ -7512,6 +7512,9 @@ public class HomeFragment extends BaseFragment {
                         // Always update storage info (lightweight)
                         // Timer calculation now reads directly from SharedPreferences in updateStorageUiWithCachedInfo
                         updateStorageInfo();
+                        // Max-duration countdown badge rides this 1 s tick; the clock
+                        // loop only wakes once a minute.
+                        updateQuickTimerCountdown();
 
                         // Update stats every 3 seconds during recording for live feedback
                         updateCounter++;

@@ -651,6 +651,11 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
                     previewUiPanX += dx;
                     previewUiPanY += dy;
                     applyPreviewTransform();
+                    long panNow = System.currentTimeMillis();
+                    if (panNow - lastZoomDispatchMs >= 33L) {
+                        lastZoomDispatchMs = panNow;
+                        dispatchZoomPanToCamera(pinchZoomRatio);
+                    }
                     lastTouchX = event.getX();
                     lastTouchY = event.getY();
                     return true;
@@ -675,6 +680,8 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
             }
             if (isPanningPreview) {
                 isPanningPreview = false;
+                // Send the settled pan; moves above are throttled
+                dispatchZoomPanToCamera(pinchZoomRatio);
                 return true;
             }
 
@@ -1486,9 +1493,8 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
         }
         lastZoomDispatchMs = now;
         lastDispatchedZoomRatio = next;
-        Intent intent = RecordingControlIntents.setZoomRatio(this, next);
-        intent.setClass(this, getTargetServiceClass());
-        startService(intent);
+        // With the pan clamped to the new zoom, or the camera keeps the stale saved pan
+        dispatchZoomPanToCamera(next);
     }
 
     private void applyPreviewTransform() {
@@ -1502,11 +1508,33 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
         previewUiPanX = Math.max(-maxPanX, Math.min(maxPanX, previewUiPanX));
         previewUiPanY = Math.max(-maxPanY, Math.min(maxPanY, previewUiPanY));
 
-        android.graphics.Matrix m = new android.graphics.Matrix();
-        m.postScale(previewUiScale, previewUiScale, w / 2f, h / 2f);
-        m.postTranslate(previewUiPanX, previewUiPanY);
-        textureView.setTransform(m);
+        // The camera crop is the only zoom: this surface is a camera output, so it
+        // already shows the zoomed feed. Scaling it again showed zoom squared (as
+        // HomeFragment once did). previewUiScale/pan only drive the zoom map and the
+        // pan sent to the camera.
+        textureView.setTransform(null);
         updateZoomMapUi();
+    }
+
+    private float getCurrentNormalizedPanX() {
+        if (textureView == null || previewUiScale <= 1.001f) return 0f;
+        float maxPanX = (textureView.getWidth() * (previewUiScale - 1f)) / 2f;
+        if (maxPanX <= 0f) return 0f;
+        return Math.max(-1f, Math.min(1f, -previewUiPanX / maxPanX));
+    }
+
+    private float getCurrentNormalizedPanY() {
+        if (textureView == null || previewUiScale <= 1.001f) return 0f;
+        float maxPanY = (textureView.getHeight() * (previewUiScale - 1f)) / 2f;
+        if (maxPanY <= 0f) return 0f;
+        return Math.max(-1f, Math.min(1f, -previewUiPanY / maxPanY));
+    }
+
+    private void dispatchZoomPanToCamera(float zoomRatio) {
+        Intent intent = RecordingControlIntents.setZoomRatio(this, zoomRatio,
+                getCurrentNormalizedPanX(), getCurrentNormalizedPanY());
+        intent.setClass(this, getTargetServiceClass());
+        startService(intent);
     }
 
     private void setupZoomHud() {
@@ -1521,7 +1549,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
                 updateZoomTileTint();
                 updateZoomHudUi(1.0f);
                 applyPreviewTransform();
-                Intent intent = RecordingControlIntents.setZoomRatio(this, 1.0f);
+                Intent intent = RecordingControlIntents.setZoomRatio(this, 1.0f, 0f, 0f);
                 intent.setClass(this, getTargetServiceClass());
                 startService(intent);
                 scheduleAutoHide();
@@ -1550,6 +1578,12 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
             previewUiPanY = 0f;
             isPanningPreview = false;
             longPressTriggered = false;
+        } else if (textureView != null) {
+            // Start from the camera's saved pan so the zoom map matches the crop
+            float maxPanX = (textureView.getWidth() * (previewUiScale - 1f)) / 2f;
+            float maxPanY = (textureView.getHeight() * (previewUiScale - 1f)) / 2f;
+            previewUiPanX = -Math.max(-1f, Math.min(1f, prefs.getSpecificPanX(cam))) * maxPanX;
+            previewUiPanY = -Math.max(-1f, Math.min(1f, prefs.getSpecificPanY(cam))) * maxPanY;
         }
         applyPreviewTransform();
         updateZoomHudUi(pinchZoomRatio);

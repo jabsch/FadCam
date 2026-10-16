@@ -553,16 +553,27 @@ public class AnnotationView extends View {
                 canvas.restoreToCount(layerSave);
             }
             
-        } else {
-            // NO ACTIVE DRAWING/ERASING: Draw the cached bitmap
-            if (drawingLayerBitmap != null) {
-                // CRITICAL: During drag, regenerate bitmap for real-time movement
-                if (isDraggingObject) {
-                    redrawAllToLayer();
+        } else if (isDraggingObject) {
+            // Moving, rotating or scaling an object: draw the layers straight to the
+            // canvas, as the stroke path does, instead of rebuilding full-screen layer
+            // bitmaps every frame. The cache is rebuilt once when the drag ends.
+            Matrix transform = new Matrix();
+            for (AnnotationLayer layer : currentPage.getLayers()) {
+                if (layer.isDeleted() || !layer.isVisible()) continue;
+                if (canvasHidden && !layer.isPinned()) continue;
+                int layerSave = beginLayer(canvas, layer.getOpacity());
+                for (AnnotationObject obj : layer.getObjects()) {
+                    if (obj.isDeleted() || !obj.isVisible()) continue;
+                    float originalOpacity = obj.getOpacity();
+                    obj.setOpacity(originalOpacity * layer.getOpacity());
+                    obj.draw(canvas, transform);
+                    obj.setOpacity(originalOpacity);
                 }
-                
-                canvas.drawBitmap(drawingLayerBitmap, 0, 0, null);
+                canvas.restoreToCount(layerSave);
             }
+        } else if (drawingLayerBitmap != null) {
+            // NO ACTIVE DRAWING/ERASING: Draw the cached bitmap
+            canvas.drawBitmap(drawingLayerBitmap, 0, 0, null);
         }
         
         // LAYER 3: Draw selection highlights and handles on top
