@@ -3,6 +3,7 @@ package com.fadcam.streaming;
 import com.fadcam.Log;
 import com.fadcam.FLog;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.fadcam.streaming.model.ClientEvent;
 import com.fadcam.streaming.model.ClientMetrics;
@@ -115,15 +116,20 @@ import fi.iki.elonen.NanoHTTPD;
             response = newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, "");
             response.addHeader("Access-Control-Allow-Origin", "*");
             response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-            response.addHeader("Access-Control-Allow-Headers", "Content-Type, Cache-Control, Pragma");
+            response.addHeader("Access-Control-Allow-Headers", "Content-Type, Cache-Control, Pragma, Authorization");
             response.addHeader("Access-Control-Max-Age", "3600");
             return response;
         }
         
-        if (Method.GET.equals(method)) {
+        // Remote Security: everything except the page itself, its static files and
+        // the sign-in endpoints needs a valid session while a password is set.
+        if (!isPublicPath(uri) && !validateAuthToken(session)) {
+            response = jsonResponse(Response.Status.UNAUTHORIZED,
+                "{\"success\":false,\"message\":\"Unauthorized\",\"authEnabled\":true,\"authenticated\":false}");
+        } else if (Method.GET.equals(method)) {
             if ("/live.m3u8".equals(uri) || "/stream.m3u8".equals(uri)) {
                 // HLS playlist - industry standard for live streaming
-                response = servePlaylist();
+                response = servePlaylist(queryToken(session));
             } else if ("/init.mp4".equals(uri)) {
                 response = serveInitSegment(clientIP);
             } else if (uri.startsWith("/seg-") && uri.endsWith(".m4s")) {
@@ -207,7 +213,7 @@ import fi.iki.elonen.NanoHTTPD;
         // Add CORS headers to all responses
         response.addHeader("Access-Control-Allow-Origin", "*");
         response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        response.addHeader("Access-Control-Allow-Headers", "Content-Type, Cache-Control, Pragma");
+        response.addHeader("Access-Control-Allow-Headers", "Content-Type, Cache-Control, Pragma, Authorization");
         response.addHeader("Access-Control-Max-Age", "3600");
         
         return response;
@@ -217,7 +223,11 @@ import fi.iki.elonen.NanoHTTPD;
      * Serve HLS playlist (M3U8) with fragment references.
      */
     @NonNull
-    private Response servePlaylist() {
+    private Response servePlaylist(@Nullable String queryToken) {
+        // A player that can't send headers (native HLS) signs in with ?token=; the
+        // init and segment links carry it too so their requests are let through.
+        String tokenSuffix = queryToken == null ? ""
+                : "?token=" + android.net.Uri.encode(queryToken);
         // Check if streaming is enabled at all
         if (!streamManager.isStreamingEnabled()) {
             FLog.w(TAG, "❌ Streaming is disabled - recording not started or streaming mode is DISABLED");
@@ -290,7 +300,7 @@ import fi.iki.elonen.NanoHTTPD;
             m3u8.append("#EXT-X-MEDIA-SEQUENCE:").append(liveEdge.get(0).sequenceNumber).append("\n");
             
             // INIT SEGMENT - MUST be declared before fragments
-            m3u8.append("#EXT-X-MAP:URI=\"/init.mp4\"\n");
+            m3u8.append("#EXT-X-MAP:URI=\"/init.mp4").append(tokenSuffix).append("\"\n");
 
             // Professional live streaming: minimum 2 fragments buffered before serving (lowered to reduce startup delay)
             if (fragments.size() < 2) {
@@ -305,7 +315,8 @@ import fi.iki.elonen.NanoHTTPD;
             // Add fragments to playlist
             for (RemoteStreamManager.FragmentData fragment : liveEdge) {
                 m3u8.append("#EXTINF:").append(String.format(java.util.Locale.US, "%.3f", fragment.getDurationSeconds())).append(",\n");
-                m3u8.append("/seg-").append(fragment.sequenceNumber).append(".m4s\n");
+                m3u8.append("/seg-").append(fragment.sequenceNumber).append(".m4s")
+                    .append(tokenSuffix).append("\n");
             }
             
             // No per-request logging: players fetch the playlist every couple of seconds.
@@ -1466,15 +1477,34 @@ import fi.iki.elonen.NanoHTTPD;
         }
     }
     
+    /** Paths reachable without signing in: the page, its files and the sign-in endpoints. */
+    private static boolean isPublicPath(String uri) {
+        return "/".equals(uri)
+                || uri.startsWith("/css/") || uri.startsWith("/js/")
+                || uri.startsWith("/assets/") || uri.startsWith("/fadex/")
+                || "/auth/check".equals(uri) || "/auth/login".equals(uri)
+                || "/auth/logout".equals(uri)
+                || "/api/github/notification".equals(uri);
+    }
+
     /**
-     * Extract Bearer token from Authorization header
+     * Session token from the Authorization header, or from a {@code token} query
+     * parameter (HLS players that can't set headers).
      */
     private String extractAuthToken(IHTTPSession session) {
         String authHeader = session.getHeaders().get("authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7);
         }
-        return null;
+        return queryToken(session);
+    }
+
+    @Nullable
+    private static String queryToken(IHTTPSession session) {
+        java.util.List<String> values = session.getParameters().get("token");
+        if (values == null || values.isEmpty()) return null;
+        String token = values.get(0);
+        return token == null || token.isEmpty() ? null : token;
     }
     
     /**

@@ -66,7 +66,15 @@ class HlsService {
                 console.warn('[HlsService] ☁️ Cloud mode but no stream token available!');
             }
         } else {
-            console.log('[HlsService] 📱 Local mode, no auth needed');
+            // Local mode: send the Remote Security session, read per request so a
+            // player started before sign-in picks it up once the user unlocks.
+            baseConfig.xhrSetup = function(xhr, url) {
+                const headers = typeof authService !== 'undefined' ? authService.getAuthHeaders() : {};
+                if (headers['Authorization']) {
+                    xhr.open('GET', url, true);
+                    xhr.setRequestHeader('Authorization', headers['Authorization']);
+                }
+            };
         }
         
         return baseConfig;
@@ -96,6 +104,13 @@ class HlsService {
             this.hls.attachMedia(videoElement);
         } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
             console.log('[HlsService] Native HLS support detected');
+            // Native players can't send headers: the server accepts the session as
+            // ?token= and adds it to the init and segment links.
+            const headers = typeof authService !== 'undefined' ? authService.getAuthHeaders() : {};
+            const auth = headers['Authorization'];
+            if (auth && !url.includes('token=')) {
+                url += (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(auth.substring(7));
+            }
             videoElement.src = url;
             this.isReady = true;
             this.emit('ready');
