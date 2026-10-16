@@ -162,6 +162,10 @@ public class ShortcutsSettingsFragment extends Fragment {
                 view.setOnClickListener(v -> showHardwareBindingPicker(row));
             }
         }
+        View cameraApps = root.findViewById(R.id.row_hw_camera_apps);
+        if (cameraApps != null) {
+            cameraApps.setOnClickListener(v -> showCameraAppsPicker());
+        }
         refreshHardwareButtons(root);
     }
 
@@ -210,6 +214,31 @@ public class ShortcutsSettingsFragment extends Fragment {
                 value.setText(bindingLabel(row));
             }
         }
+        TextView cameraApps = root.findViewById(R.id.value_hw_camera_apps);
+        if (cameraApps != null) {
+            cameraApps.setText(HardwareButtonBindings.cameraAppsKeepVolumeKeys(requireContext())
+                    ? R.string.setting_enabled_msg : R.string.setting_disabled_msg);
+        }
+    }
+
+    private void showCameraAppsPicker() {
+        final String resultKey = "picker_result_hw_camera_apps";
+        final String onId = "on";
+        final String offId = "off";
+        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
+            String selected = b.getString(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID);
+            if (selected == null) return;
+            HardwareButtonBindings.setCameraAppsKeepVolumeKeys(requireContext(), onId.equals(selected));
+            refreshHardwareButtons(getView());
+        });
+        java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
+        items.add(new com.fadcam.ui.picker.OptionItem(onId, getString(R.string.setting_enabled_msg)));
+        items.add(new com.fadcam.ui.picker.OptionItem(offId, getString(R.string.setting_disabled_msg)));
+        com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(
+                getString(R.string.hardware_buttons_camera_apps), items,
+                HardwareButtonBindings.cameraAppsKeepVolumeKeys(requireContext()) ? onId : offId,
+                resultKey, getString(R.string.hardware_buttons_camera_apps_helper))
+                .show(getParentFragmentManager(), "hw_camera_apps_picker");
     }
 
     private String bindingLabel(HardwareRow row) {

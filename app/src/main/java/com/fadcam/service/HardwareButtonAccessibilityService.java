@@ -1,11 +1,15 @@
 package com.fadcam.service;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.media.AudioManager;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
+import android.provider.MediaStore;
 import android.view.KeyEvent;
 import android.view.ViewConfiguration;
 import android.view.accessibility.AccessibilityEvent;
@@ -13,19 +17,25 @@ import com.fadcam.FLog;
 import com.fadcam.shortcuts.HardwareButtonBindings;
 import com.fadcam.shortcuts.ShortcutsManager;
 import com.fadcam.shortcuts.VolumeKeyGestureDetector;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Runs JaCam shortcuts from hardware buttons, including with the screen off or
  * another app open. Holding or double-tapping a bound volume key runs its
  * shortcut; a single short press still changes the volume, and holding a key
  * whose hold is unbound keeps changing it. Unbound keys are never touched, and
- * nothing is intercepted during calls.
+ * nothing is intercepted during calls. While a camera app is on screen its
+ * volume-key shutter gets the keys instead, unless the user turned that off.
  */
 public class HardwareButtonAccessibilityService extends AccessibilityService {
     private static final String TAG = "HwButtonService";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private VolumeKeyGestureDetector detector;
+    /** App whose window last came to the front, or null before the first one. */
+    private String foregroundPackage;
+    private final Map<String, Boolean> cameraPackages = new HashMap<>();
 
     @Override
     protected void onServiceConnected() {
@@ -65,7 +75,7 @@ public class HardwareButtonAccessibilityService extends AccessibilityService {
         if (detector == null) {
             return false;
         }
-        if (isInCall()) {
+        if (isInCall() || cameraAppHasVolumeKeys()) {
             detector.reset();
             return false;
         }
@@ -119,9 +129,67 @@ public class HardwareButtonAccessibilityService extends AccessibilityService {
         return mode != AudioManager.MODE_NORMAL;
     }
 
+    /**
+     * A camera app on screen uses volume keys as its shutter. An accessibility
+     * service can't hand a consumed press back, so they must not be consumed.
+     */
+    private boolean cameraAppHasVolumeKeys() {
+        if (foregroundPackage == null || !isCameraPackage(foregroundPackage)) {
+            return false;
+        }
+        PowerManager power = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        if (power != null && !power.isInteractive()) {
+            // Screen off: nothing is on screen to take a photo
+            return false;
+        }
+        return HardwareButtonBindings.cameraAppsKeepVolumeKeys(this);
+    }
+
+    private boolean isOwnActivity(CharSequence className) {
+        if (className == null) return false;
+        try {
+            getPackageManager().getActivityInfo(
+                    new ComponentName(getPackageName(), className.toString()), 0);
+            return true;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+    }
+
+    private boolean isCameraPackage(String pkg) {
+        Boolean cached = cameraPackages.get(pkg);
+        if (cached == null) {
+            cached = handles(pkg, MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)
+                    || handles(pkg, MediaStore.ACTION_IMAGE_CAPTURE)
+                    || handles(pkg, MediaStore.INTENT_ACTION_VIDEO_CAMERA);
+            cameraPackages.put(pkg, cached);
+        }
+        return cached;
+    }
+
+    private boolean handles(String pkg, String action) {
+        try {
+            return !getPackageManager()
+                    .queryIntentActivities(new Intent(action).setPackage(pkg), 0).isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        // Key events only.
+        if (event == null || event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+                || event.getPackageName() == null) {
+            return;
+        }
+        String pkg = event.getPackageName().toString();
+        // System UI (shade, volume panel, lock screen) and JaCam's floating
+        // overlays sit on top of the app in front; they don't change which app that is.
+        if (pkg.equals("com.android.systemui")
+                || (pkg.equals(getPackageName()) && !isOwnActivity(event.getClassName()))) {
+            return;
+        }
+        foregroundPackage = pkg;
     }
 
     @Override
