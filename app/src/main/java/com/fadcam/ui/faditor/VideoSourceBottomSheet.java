@@ -266,8 +266,12 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
     private void loadRecordings() {
         scanExecutor.execute(() -> {
             List<RecordingItem> items = scanActiveStorage();
-            if (!isAdded()) return;
-            requireActivity().runOnUiThread(() -> displayRecordings(items));
+            android.app.Activity activity = getActivity();
+            if (activity == null) return;
+            // Re-checked on the UI thread: the sheet can close between scan and post
+            activity.runOnUiThread(() -> {
+                if (isAdded()) displayRecordings(items);
+            });
         });
     }
 
@@ -642,10 +646,11 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         final TextView durationMeta = metaView;
         scanExecutor.execute(() -> {
             long durationMs = getVideoDuration(ctx, item.uri);
-            if (!isAdded()) return;
+            android.app.Activity activity = getActivity();
+            if (activity == null || !isAdded()) return;
             String durationStr = formatDuration(durationMs);
             String fullMeta = formatSize(item.size) + " · " + durationStr + " · " + item.source;
-            requireActivity().runOnUiThread(() -> durationMeta.setText(fullMeta));
+            activity.runOnUiThread(() -> durationMeta.setText(fullMeta));
         });
 
         row.addView(textSection);
@@ -844,5 +849,13 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
             this.lastModified = lastModified;
             this.source = source;
         }
+    }
+
+    @Override
+    public void onDestroy() {
+        // Stops the queued duration lookups (they kept reading every recording after
+        // the sheet closed) and frees the thread each open leaked
+        scanExecutor.shutdownNow();
+        super.onDestroy();
     }
 }

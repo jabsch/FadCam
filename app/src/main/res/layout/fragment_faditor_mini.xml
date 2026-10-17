@@ -294,7 +294,7 @@
                         android:layout_height="wrap_content"
                         android:fontFamily="@font/materialicons"
                         android:text="video_library"
-                        android:textColor="#333333"
+                        android:textColor="?android:attr/textColorSecondary"
                         android:textSize="48sp"
                         android:layout_marginBottom="12dp" />
 
@@ -313,7 +313,7 @@
                         android:layout_height="wrap_content"
                         android:text="@string/faditor_empty_desc"
                         android:textSize="13sp"
-                        android:textColor="#555555"
+                        android:textColor="?android:attr/textColorSecondary"
                         android:textAlignment="center"
                         android:lineSpacingExtra="2dp" />
                 </LinearLayout>

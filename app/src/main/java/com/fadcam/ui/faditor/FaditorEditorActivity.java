@@ -2241,18 +2241,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
         List<AudioClip> clips = project.getTimeline().getAudioClips();
         for (int i = 0; i < clips.size(); i++) {
             AudioClip ac = clips.get(i);
+            // Every clip keeps a slot (null when it can't play), so player i stays clip i;
+            // skipping one shifted the rest onto the wrong clips
+            audioPlayers.add(null);
+            audioPlayersReady.add(false);
             if (ac == null) continue;
             final int idx = i;
 
+            MediaPlayer mp = null;
             try {
-                MediaPlayer mp = new MediaPlayer();
+                mp = new MediaPlayer();
                 mp.setDataSource(this, ac.getSourceUri());
                 mp.setLooping(false);
                 float vol = ac.isMuted() ? 0f : ac.getVolumeLevel();
                 mp.setVolume(vol, vol);
 
-                audioPlayers.add(mp);
-                audioPlayersReady.add(false);
+                audioPlayers.set(idx, mp);
 
                 mp.setOnPreparedListener(p -> {
                     if (idx < audioPlayersReady.size()) {
@@ -2270,6 +2274,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 mp.prepareAsync();
             } catch (Exception e) {
                 FLog.e(TAG, "Failed to prepare audio player[" + i + "]", e);
+                if (mp != null && audioPlayers.get(idx) != mp) {
+                    try { mp.release(); } catch (Exception ignored) {}
+                }
             }
         }
     }
@@ -3503,6 +3510,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * Show a bottom sheet letting the user choose between adding an image or video asset.
      */
     private void showAddAssetPicker() {
+        if (project == null) return; // tools are tappable before the video finishes preparing
         AddAssetBottomSheet sheet = AddAssetBottomSheet.newInstance();
         sheet.setCallback(isImage -> {
             if (isImage) {
@@ -3613,6 +3621,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * Split the selected segment at the current playhead position.
      */
     private void splitAtPlayhead() {
+        if (project == null) return;
         try {
             // Check if an audio clip is selected — split that
             int audioIdx = editorTimeline.getSelectedAudioIndex();
@@ -3730,11 +3739,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * Delete the currently selected segment (cannot delete the last remaining segment).
      */
     private void deleteSelectedSegment() {
+        if (project == null) return; // still preparing the video
         try {
             // Check if an audio clip is selected — delete that instead
             int audioIdx = editorTimeline.getSelectedAudioIndex();
             if (audioIdx >= 0) {
                 deleteSelectedAudioClip(audioIdx);
+                return;
+            }
+            if (selectedClipIndex < 0) {
+                Toast.makeText(this, R.string.faditor_select_segment_first, Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -3788,6 +3802,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * Duplicate the currently selected segment (inserts a copy right after it).
      */
     private void duplicateSelectedSegment() {
+        if (project == null) return;
+        if (selectedClipIndex < 0) {
+            Toast.makeText(this, R.string.faditor_select_segment_first, Toast.LENGTH_SHORT).show();
+            return;
+        }
         try {
             Timeline timeline = project.getTimeline();
             int newIndex = timeline.duplicateClip(selectedClipIndex);

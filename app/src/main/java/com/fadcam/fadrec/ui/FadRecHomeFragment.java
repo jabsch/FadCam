@@ -301,6 +301,10 @@ public class FadRecHomeFragment extends HomeFragment {
                         }
                     } else if ("com.fadcam.fadrec.ANNOTATION_SERVICE_PERMISSION_ERROR".equals(action)) {
                         // Overlay permission error, turn off the menu switch
+                        // The loading dialog is not cancelable, so it stayed up forever here
+                        if (loadingDialog != null && loadingDialog.isShowing()) {
+                            loadingDialog.dismiss();
+                        }
                         if (getView() != null) {
                             View cardFloatingControls = getView().findViewById(com.fadcam.R.id.cardFloatingControls);
                             if (cardFloatingControls != null) {
