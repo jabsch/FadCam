@@ -239,6 +239,7 @@
 
                 <com.fadcam.ui.AvatarToggleView
                     android:id="@+id/annotationSwitch"
+                    android:contentDescription="@string/enable_annotations"
                     android:layout_width="48dp"
                     android:layout_height="48dp"
                     android:layout_gravity="center_vertical"
@@ -274,6 +275,7 @@
 
                 <com.fadcam.ui.AvatarToggleView
                     android:id="@+id/snapGuidesSwitch"
+                    android:contentDescription="@string/snap_guides"
                     android:layout_width="48dp"
                     android:layout_height="48dp"
                     android:layout_gravity="center_vertical" />

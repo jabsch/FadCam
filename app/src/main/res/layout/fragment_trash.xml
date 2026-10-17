@@ -301,6 +301,7 @@
             </LinearLayout>
             <com.fadcam.ui.AvatarToggleView
                 android:id="@+id/switch_show_trash_in_settings"
+                android:contentDescription="@string/trash_show_in_settings_title"
                 android:layout_width="52dp"
                 android:layout_height="52dp"
                 android:layout_gravity="center_vertical"

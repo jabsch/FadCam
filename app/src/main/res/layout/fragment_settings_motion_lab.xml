@@ -249,6 +249,7 @@
 
                     <com.fadcam.ui.AvatarToggleView
                         android:id="@+id/switch_motion_enabled"
+                        android:contentDescription="@string/motion_lab_enable_sensor"
                         android:layout_width="52dp"
                         android:layout_height="52dp"
                         android:layout_gravity="center_vertical" />
@@ -599,6 +600,7 @@
 
                     <com.fadcam.ui.AvatarToggleView
                         android:id="@+id/switch_motion_auto_torch"
+                        android:contentDescription="@string/motion_lab_auto_torch"
                         android:layout_width="52dp"
                         android:layout_height="52dp"
                         android:layout_gravity="center_vertical" />
