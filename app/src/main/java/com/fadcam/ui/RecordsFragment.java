@@ -1126,24 +1126,24 @@ public class RecordsFragment extends BaseFragment implements
             // Finished state
             if (snapshot.getState() == BatchOperationSessionSnapshot.State.COMPLETED_SUCCESS) {
                 deletionDockTitle.animateSlot(
-                        getOperationTypeName(snapshot.getOperationType()) + " completed", 300);
+                        getString(R.string.records_batch_done_title, getOperationTypeName(snapshot.getOperationType())), 300);
                 deletionDockIcon.setImageResource(R.drawable.ic_check_circle);
-                deletionDockCurrentItem.setText("Successfully processed " + snapshot.getCompletedItemCount() + " items");
+                deletionDockCurrentItem.setText(getResources().getQuantityString(R.plurals.records_batch_success_items, snapshot.getCompletedItemCount(), snapshot.getCompletedItemCount()));
             } else if (snapshot.getState() == BatchOperationSessionSnapshot.State.COMPLETED_PARTIAL) {
                 deletionDockTitle.animateSlot(
-                        getOperationTypeName(snapshot.getOperationType()) + " completed",
+                        getString(R.string.records_batch_done_title, getOperationTypeName(snapshot.getOperationType())),
                         300);
                 deletionDockIcon.setImageResource(R.drawable.ic_error);
-                deletionDockCurrentItem.setText("Processed " + snapshot.getCompletedItemCount() + ", skipped " + snapshot.getSkippedItemCount());
+                deletionDockCurrentItem.setText(getString(R.string.records_batch_partial_items, snapshot.getCompletedItemCount(), snapshot.getSkippedItemCount()));
             } else {
                 deletionDockTitle.animateSlot(
-                        getOperationTypeName(snapshot.getOperationType()) + " failed", 300);
+                        getString(R.string.records_batch_failed_title, getOperationTypeName(snapshot.getOperationType())), 300);
                 deletionDockIcon.setImageResource(R.drawable.ic_error);
-                deletionDockCurrentItem.setText("Failed to process " + snapshot.getFailedItemCount() + " items");
+                deletionDockCurrentItem.setText(getResources().getQuantityString(R.plurals.records_batch_failed_items, snapshot.getFailedItemCount(), snapshot.getFailedItemCount()));
             }
             deletionDockProgress.setProgress(100);
             deletionDockEta.setText(getString(R.string.records_delete_header_dismiss_hint));
-            deletionDockSummary.setText("Completed: " + snapshot.getCompletedItemCount() + "/" + snapshot.getTotalItemCount() + " (Failed: " + snapshot.getFailedItemCount() + ")");
+            deletionDockSummary.setText(getString(R.string.records_batch_summary_done, snapshot.getCompletedItemCount(), snapshot.getTotalItemCount(), snapshot.getFailedItemCount()));
             showDeletionDockActionButton(true, false, immediate);
             animateDeletionDock(true, immediate);
             return;
@@ -1152,7 +1152,7 @@ public class RecordsFragment extends BaseFragment implements
         // Active/running state
         int progressIndex = Math.min(snapshot.getCompletedItemCount() + 1, snapshot.getTotalItemCount());
         deletionDockTitle.animateSlot(
-                getOperationTypeName(snapshot.getOperationType()) + " " + progressIndex + "/" + snapshot.getTotalItemCount(), 300);
+                getString(R.string.records_batch_progress_title, getOperationTypeName(snapshot.getOperationType()), progressIndex, snapshot.getTotalItemCount()), 300);
         deletionDockIcon.setImageResource(getOperationTypeIcon(snapshot.getOperationType()));
         deletionDockProgress.setProgress(snapshot.getProgressPercent());
         deletionDockCurrentItem.setText(snapshot.getCurrentItemName() == null || snapshot.getCurrentItemName().trim().isEmpty()
@@ -1160,7 +1160,7 @@ public class RecordsFragment extends BaseFragment implements
                 : snapshot.getCurrentItemName());
         String eta = buildBatchOperationEta(snapshot);
         deletionDockEta.setText(eta == null ? getString(R.string.records_delete_header_working) : eta);
-        deletionDockSummary.setText("Completed: " + snapshot.getCompletedItemCount() + ", Failed: " + snapshot.getFailedItemCount());
+        deletionDockSummary.setText(getString(R.string.records_batch_summary_running, snapshot.getCompletedItemCount(), snapshot.getFailedItemCount()));
         showDeletionDockActionButton(true, true, immediate);
         animateDeletionDock(true, immediate);
     }

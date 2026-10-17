@@ -31,6 +31,8 @@ import java.util.List;
  * OnboardingPermissionsFragment handles permission requests and enforces policy for AppIntro.
  */
 public class OnboardingPermissionsFragment extends Fragment implements SlidePolicy {
+    private static final String ONBOARDING_PERMS_PREFS = "onboarding_permissions";
+    private static final String KEY_PERMISSIONS_REQUESTED = "permissions_requested";
     private boolean permissionsGranted = false;
     private MaterialButton grantButton;
     private int permissionRequestCount = 0; // Track how many times requested
@@ -120,11 +122,17 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
         }
         permissionLauncher.launch(permissions.toArray(new String[0]));
         permissionRequestCount++;
+        requireContext().getSharedPreferences(ONBOARDING_PERMS_PREFS, android.content.Context.MODE_PRIVATE)
+                .edit().putBoolean(KEY_PERMISSIONS_REQUESTED, true).apply();
     }
 
     private boolean isAnyPermissionPermanentlyDenied() {
         // Check for each permission if it's denied and shouldShowRequestPermissionRationale is false
         if (getActivity() == null) return false;
+        // A permission never asked for also has no rationale; without this the first run
+        // counted as "permanently denied" and the dialog never opened by itself
+        if (!requireContext().getSharedPreferences(ONBOARDING_PERMS_PREFS, android.content.Context.MODE_PRIVATE)
+                .getBoolean(KEY_PERMISSIONS_REQUESTED, false)) return false;
         boolean denied = false;
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED &&
                 !ActivityCompat.shouldShowRequestPermissionRationale(getActivity(), Manifest.permission.CAMERA)) denied = true;

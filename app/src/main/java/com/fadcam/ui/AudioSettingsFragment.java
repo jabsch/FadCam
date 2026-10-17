@@ -351,10 +351,27 @@ public class AudioSettingsFragment extends Fragment {
                 refreshAllValues();
             }
         });
-        String helper = getString(R.string.setting_audio_input_source_title);
         com.fadcam.ui.picker.PickerBottomSheetFragment sheet = com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(
-                getString(R.string.setting_audio_input_source_title), items, null, resultKey, helper);
+                getString(R.string.setting_audio_input_source_title), items, currentMicLabel(), resultKey, null);
         sheet.show(getParentFragmentManager(), "audio_mic_picker");
+    }
+
+    /** Label of the mic in use, so the picker can tick it (it showed no selection before). */
+    private String currentMicLabel(){
+        if(SharedPreferencesManager.AUDIO_INPUT_SOURCE_WIRED.equals(prefs.getAudioInputSource())){
+            int savedType = prefs.getAudioInputDeviceType();
+            String savedName = prefs.getAudioInputDeviceName();
+            for(int i=0;i<availableInputMics.size() && i<availableMicLabels.size();i++){
+                AudioDeviceInfo dev = availableInputMics.get(i);
+                if(dev == null || dev.getType() != savedType) continue;
+                CharSequence name = dev.getProductName();
+                if(savedName == null || (name != null && savedName.equals(name.toString()))){
+                    return availableMicLabels.get(i);
+                }
+            }
+        }
+        String phone = getString(R.string.audio_input_source_phone);
+        return availableMicLabels.contains(phone) ? phone : null;
     }
 
     private void updateAudioInputSourceStatusUI(){

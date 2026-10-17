@@ -1000,8 +1000,8 @@ public class VideoSettingsFragment extends Fragment {
         boolean custom = getBitrateMode();
         int currentValueMbps = getBitrateCustomValue() / 1000;
         java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
-        items.add(new com.fadcam.ui.picker.OptionItem("auto", "Auto"));
-        items.add(new com.fadcam.ui.picker.OptionItem("custom", "Custom (" + currentValueMbps + " Mbps)"));
+        items.add(new com.fadcam.ui.picker.OptionItem("auto", getString(R.string.bitrate_mode_auto)));
+        items.add(new com.fadcam.ui.picker.OptionItem("custom", getString(R.string.bitrate_mode_custom_value, currentValueMbps)));
         final String resultKey = "picker_result_bitrate_mode";
         getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
             String sel = b.getString(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID);
@@ -1038,7 +1038,7 @@ public class VideoSettingsFragment extends Fragment {
         });
         com.fadcam.ui.picker.MaterialNumberPickerBottomSheetFragment sheet = com.fadcam.ui.picker.MaterialNumberPickerBottomSheetFragment
                 .newInstance(
-                        getString(R.string.setting_video_bitrate_title), 1, 200, currentMbps, "1 - 200 Mbps", 3, 100,
+                        getString(R.string.setting_video_bitrate_title), 1, 200, currentMbps, getString(R.string.bitrate_custom_range), 3, 100,
                         getString(R.string.bitrate_info_warning_low), getString(R.string.bitrate_info_warning_high),
                         resultKey);
         sheet.show(getParentFragmentManager(), "bitrate_value_input");
