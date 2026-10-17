@@ -36,7 +36,8 @@
             android:gravity="center"
             android:textSize="28sp"
             android:textColor="@android:color/darker_gray"
-            android:fontFamily="@font/materialicons" />
+            android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no" />
 
         <TextView
             android:id="@+id/mini_card_title"

@@ -3877,7 +3877,7 @@ public class RecordsFragment extends BaseFragment implements
         int qr = getMiniAppsSubtypeCount("QR");
         setChipLabelWithCount(chipMiniAppsAll, R.string.records_filter_miniapps_all, all);
         if (chipMiniAppsQR != null) {
-            chipMiniAppsQR.animateSlot(makeChipLabel("QR", qr), 300);
+            chipMiniAppsQR.animateSlot(makeChipLabel(getString(R.string.records_filter_miniapps_qr), qr), 300);
         }
     }
 
@@ -4014,7 +4014,7 @@ public class RecordsFragment extends BaseFragment implements
         setChipLabelWithCount(chipFilterStream, R.string.records_filter_stream, stream);
         setChipLabelWithCount(chipFilterShot, R.string.records_filter_shot, shot);
         if (chipFilterMiniApps != null) {
-            chipFilterMiniApps.animateSlot(makeChipLabel("Mini Apps", miniapps), 300);
+            chipFilterMiniApps.animateSlot(makeChipLabel(getString(R.string.mini_apps_title), miniapps), 300);
         }
 
         reorderFilterChipsByCount(camera, screen, faditor, stream, shot, miniapps);

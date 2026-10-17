@@ -3486,4 +3486,8 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="forensics_just_now">Just now</string>
     <string name="avatar_toggle_on">ON</string>
     <string name="avatar_toggle_off">OFF</string>
+    <string name="records_filter_miniapps_qr">QR</string>
+    <string name="mini_apps_about_desc">Mini Apps are small utility applications within JaCam that provide useful tools and features for quick access.</string>
+    <string name="mini_apps_current_tools_desc">• Torch: A modernized flashlight tool with custom patterns.\n• QR Scanner: Scan QR codes and barcodes instantly.</string>
+    <string name="mini_apps_qr_reference_desc">When you scan a code, JaCam automatically saves the captured frame image along with its raw data metadata to your records. This ensures you have a permanent reference and never lose scanned information.</string>
 </resources>
