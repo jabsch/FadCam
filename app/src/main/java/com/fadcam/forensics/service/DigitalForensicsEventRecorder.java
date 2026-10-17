@@ -326,7 +326,7 @@ public class DigitalForensicsEventRecorder {
                     Intent persisted = new Intent(Constants.ACTION_FORENSICS_SNAPSHOT_PERSISTED);
                     persisted.putExtra("snapshot_uid", snapshotUid);
                     persisted.putExtra("media_uid", mediaUid);
-                    appContext.sendBroadcast(persisted);
+                    appContext.sendBroadcast(persisted.setPackage(appContext.getPackageName()));
                 }
                 event.lastSnapshotMs = timelineMs;
                 event.lastSnapshotPHash = payload.pHash;

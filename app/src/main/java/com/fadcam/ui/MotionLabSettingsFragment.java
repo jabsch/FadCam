@@ -435,15 +435,7 @@ public class MotionLabSettingsFragment extends Fragment {
         }
         IntentFilter filter = new IntentFilter(Constants.BROADCAST_MOTION_LAB_DEBUG);
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                requireContext().registerReceiver(
-                    motionDebugReceiver,
-                    filter,
-                    Context.RECEIVER_NOT_EXPORTED
-                );
-            } else {
-                requireContext().registerReceiver(motionDebugReceiver, filter);
-            }
+            androidx.core.content.ContextCompat.registerReceiver(requireContext(), motionDebugReceiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
             motionDebugReceiverRegistered = true;
         } catch (Exception ignored) {
         }

@@ -305,7 +305,7 @@ public class WatermarkSettingsFragment extends Fragment {
         gpsProviderReceiver = new GpsProviderReceiver();
         android.content.IntentFilter gpsFilter = new android.content.IntentFilter(
                 android.location.LocationManager.PROVIDERS_CHANGED_ACTION);
-        requireContext().registerReceiver(gpsProviderReceiver, gpsFilter);
+        androidx.core.content.ContextCompat.registerReceiver(requireContext(), gpsProviderReceiver, gpsFilter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
 
         permissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
             if (granted) {

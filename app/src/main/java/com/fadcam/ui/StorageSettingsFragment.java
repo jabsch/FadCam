@@ -235,7 +235,7 @@ public class StorageSettingsFragment extends Fragment {
         com.fadcam.utils.StorageInfoCache.clearCache();
         try {
             Intent intent = new Intent(Constants.ACTION_STORAGE_LOCATION_CHANGED);
-            requireContext().sendBroadcast(intent);
+            requireContext().sendBroadcast(intent.setPackage(requireContext().getPackageName()));
             FLog.i(TAG, "Successfully sent ACTION_STORAGE_LOCATION_CHANGED broadcast.");
 
             // Also try a direct refresh approach as fallback

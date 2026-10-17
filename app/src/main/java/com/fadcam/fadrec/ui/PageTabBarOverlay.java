@@ -394,7 +394,7 @@ public class PageTabBarOverlay {
                 Intent intent = new Intent("com.fadcam.fadrec.RENAME_PAGE");
                 intent.putExtra("page_index", index);
                 intent.putExtra("page_name", page.getName());
-                context.sendBroadcast(intent);
+                context.sendBroadcast(intent.setPackage(context.getPackageName()));
             });
         }
         

@@ -375,7 +375,7 @@ public class TorchService extends Service {
         // Broadcast state change
         Intent stateIntent = new Intent(Constants.BROADCAST_ON_TORCH_STATE_CHANGED);
         stateIntent.putExtra(Constants.INTENT_EXTRA_TORCH_STATE, state);
-        sendBroadcast(stateIntent);
+        sendBroadcast(stateIntent.setPackage(getPackageName()));
     }
 
     private void manageServiceNotification(boolean isTorchOn) {

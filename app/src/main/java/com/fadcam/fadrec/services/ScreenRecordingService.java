@@ -1029,7 +1029,7 @@ public class ScreenRecordingService extends Service {
                             } else if (safRecordingUri != null) {
                                 recordingCompleteIntent.putExtra("videoUri", safRecordingUri.toString());
                             }
-                            sendBroadcast(recordingCompleteIntent);
+                            sendBroadcast(recordingCompleteIntent.setPackage(getPackageName()));
                             FLog.d(TAG, "Broadcasted ACTION_RECORDING_COMPLETE for list refresh");
                         } catch (Exception e) {
                             FLog.e(TAG, "Error broadcasting recording complete", e);

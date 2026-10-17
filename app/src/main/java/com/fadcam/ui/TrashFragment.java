@@ -1539,7 +1539,7 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
         if (!refreshSuccess) {
             try {
                 Intent intent = new Intent(com.fadcam.Constants.ACTION_FILES_RESTORED);
-                requireContext().sendBroadcast(intent);
+                requireContext().sendBroadcast(intent.setPackage(requireContext().getPackageName()));
                 FLog.i("TrashFragment", "Sent ACTION_FILES_RESTORED broadcast as fallback.");
             } catch (Exception e) {
                 FLog.e("TrashFragment", "Failed to send fallback broadcast", e);
