@@ -5854,6 +5854,9 @@ public class RecordingService extends Service {
 
     private final Runnable notificationPrefRefresh = () -> {
         if (isStopping) return;
+        // The channel name follows the preset too; the service outlives recordings, so
+        // without this a disguised preset still showed "FadCam Recording" on long-press
+        createNotificationChannel();
         if (recordingState == RecordingState.IN_PROGRESS) {
             if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
                     != PackageManager.PERMISSION_GRANTED) return;
@@ -5872,9 +5875,13 @@ public class RecordingService extends Service {
             // START sent with startForegroundService() crashes the app without it.
             try {
                 // Create a minimal notification.
+                // Android 13+ still lists it in the active-apps (Task Manager) sheet,
+                // so it follows the chosen preset instead of naming the app
+                String minimalTitle = sharedPreferencesManager.getNotificationTitle();
                 NotificationCompat.Builder minimalBuilder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                        .setContentTitle(getString(R.string.app_name))
-                        .setSmallIcon(R.drawable.ic_notification_icon);
+                        .setContentTitle(minimalTitle != null ? minimalTitle
+                                : getString(R.string.notification_video_recording))
+                        .setSmallIcon(presetSmallIcon(sharedPreferencesManager.getNotificationPreset()));
 
                 // Check CAMERA and RECORD_AUDIO permissions before declaring service types
                 int foregroundServiceType = 0;

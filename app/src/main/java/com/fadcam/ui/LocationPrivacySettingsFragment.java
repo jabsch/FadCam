@@ -8,7 +8,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -41,7 +40,9 @@ public class LocationPrivacySettingsFragment extends Fragment {
         // Registered once in onCreate so a grant that lands after recreation still reaches us
         // Android 12+ ignores a request for precise location on its own; ask for both
         permissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
-            if(Boolean.TRUE.equals(result.get(Manifest.permission.ACCESS_FINE_LOCATION))){ onPermissionGrantedPostRequest(); } else { onPermissionDeniedPostRequest(); }
+            // "Approximate" is enough: the network fix the geotag uses works with it
+            if(Boolean.TRUE.equals(result.get(Manifest.permission.ACCESS_FINE_LOCATION))
+                    || Boolean.TRUE.equals(result.get(Manifest.permission.ACCESS_COARSE_LOCATION))){ onPermissionGrantedPostRequest(); } else { onPermissionDeniedPostRequest(); }
         });
     }
 
@@ -65,6 +66,23 @@ public class LocationPrivacySettingsFragment extends Fragment {
 
     // Removed duplicate manual back handling; centralized via OverlayNavUtil
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Location revoked in system settings while away: the row kept saying Enabled
+        // although nothing could be tagged
+        Context ctx = getContext();
+        if (ctx != null && prefs != null && prefs.isLocationEmbeddingEnabled() && !hasLocationPermission(ctx)) {
+            prefs.setLocationEmbeddingEnabled(false);
+        }
+        refreshValues();
+    }
+
+    private static boolean hasLocationPermission(@NonNull Context ctx) {
+        return ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    }
+
     private void refreshValues(){
         if(valueEmbed==null || prefs==null) return;
         valueEmbed.setText(prefs.isLocationEmbeddingEnabled() ? getString(R.string.setting_enabled) : getString(R.string.setting_disabled));
@@ -85,7 +103,7 @@ public class LocationPrivacySettingsFragment extends Fragment {
 
     private void ensurePermissionThen(Runnable onGranted, boolean forEmbedding){
         Context ctx = getContext(); if(ctx==null) return;
-        if(ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION)== PackageManager.PERMISSION_GRANTED){
+        if(hasLocationPermission(ctx)){
             onGranted.run();
         } else {
             showPermissionDialog(forEmbedding, onGranted);
@@ -109,6 +127,8 @@ public class LocationPrivacySettingsFragment extends Fragment {
         refreshValues();
     }
     private void onPermissionDeniedPostRequest(){
-        Toast.makeText(requireContext(), R.string.location_permission_denied, Toast.LENGTH_SHORT).show();
+        // Also opens app settings when Android won't ask again
+        com.fadcam.utils.PermissionSettings.showDenied(this,
+                Manifest.permission.ACCESS_FINE_LOCATION, R.string.location_permission_denied);
     }
 }

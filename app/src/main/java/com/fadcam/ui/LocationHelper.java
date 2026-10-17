@@ -71,8 +71,17 @@ public class LocationHelper {
         return fastUpdates;
     }
 
+    /**
+     * Set by stopLocationUpdates. A reader that still held the helper restarted
+     * the GPS with its next getCurrentLocation, and nothing removed those updates.
+     */
+    private volatile boolean stopped;
+    private volatile long lastStartMs;
+
     public void startLocationUpdates() {
         if (provider != null && !isInitializing.getAndSet(true)) {
+            stopped = false;
+            lastStartMs = System.currentTimeMillis();
             FLog.d(TAG, "🗺️ LOCATION_HELPER: Starting location updates with 1s polling");
             IMyLocationConsumer consumer = new IMyLocationConsumer() {
                 @Override
@@ -124,6 +133,7 @@ public class LocationHelper {
     }
 
     public void stopLocationUpdates() {
+        stopped = true;
         if (provider != null) {
             FLog.d(TAG, "LOCATION_HELPER: Stopping location updates");
             provider.stopLocationProvider();
@@ -152,7 +162,10 @@ public class LocationHelper {
             boolean staleLocation = lastLocationUpdateTime == 0 || 
                 System.currentTimeMillis() - lastLocationUpdateTime > 10000; // 10 seconds
                 
-            if (staleLocation && !isInitializing.get()) {
+            // At most every 30 s: with no fix (indoors) the 1 Hz watermark tick
+            // re-registered both providers every second
+            if (staleLocation && !stopped && !isInitializing.get()
+                    && System.currentTimeMillis() - lastStartMs > 30_000) {
                 FLog.d(TAG, "LOCATION_HELPER: Trying to restart location updates due to stale data");
                 startLocationUpdates();
             }
