@@ -1310,6 +1310,29 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
         isUnlocked = false;
     }
 
+    /** Set once the screen went to the background, so coming back asks for the PIN again. */
+    private boolean relockOnStart = false;
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        if (getView() != null && sharedPreferencesManager != null
+                && sharedPreferencesManager.isAppLockEnabled()) {
+            // Hide before the recents snapshot; the lock used to never come back here
+            getView().findViewById(R.id.constraint_layout_root).setVisibility(View.INVISIBLE);
+            relockOnStart = true;
+        }
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (relockOnStart) {
+            relockOnStart = false;
+            checkAppLock();
+        }
+    }
+
     // TODO: Create TrashAdapter class
     // TODO: Implement logic for restore, permanent delete, empty all
     // TODO: Implement auto-deletion of files older than 30 days (perhaps in
