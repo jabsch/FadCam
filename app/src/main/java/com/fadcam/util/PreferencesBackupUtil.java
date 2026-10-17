@@ -138,6 +138,20 @@ public final class PreferencesBackupUtil {
         return stream;
     }
 
+    /** Stores an imported number as the type this device already uses for the key, else as the file says. */
+    private static void putNumber(SharedPreferences.Editor editor, String key,
+                                  @androidx.annotation.Nullable Object current, double num, String fileType) {
+        if (current instanceof Integer || (!(current instanceof Long) && !(current instanceof Float) && "int".equals(fileType))) {
+            editor.putInt(key, (int) num);
+        } else if (current instanceof Float || (!(current instanceof Long) && "float".equals(fileType))) {
+            editor.putFloat(key, (float) num);
+        } else {
+            editor.putLong(key, (long) num);
+        }
+    }
+
+    private static final int MAX_BACKUP_CHARS = 2 * 1024 * 1024;
+
     /**
      * Reads JSON from provided URI.
      */
@@ -150,6 +164,8 @@ public final class PreferencesBackupUtil {
             String line;
             while((line = br.readLine()) != null){
                 sb.append(line).append('\n');
+                // A real backup is a few KB; a wrongly picked video would run out of memory
+                if(sb.length() > MAX_BACKUP_CHARS) throw new IOException("File is too large to be a settings backup");
             }
         }
         return new JSONObject(sb.toString());
@@ -199,14 +215,17 @@ public final class PreferencesBackupUtil {
                     case "bool":
                         editor.putBoolean(key, entry.getBoolean("v"));
                         break;
+                    // A backup from upstream FadCam or another version can tag a key with
+                    // a different number type than this build reads: the type stored on
+                    // this device wins, as in the legacy branch below
                     case "int":
-                        editor.putInt(key, entry.getInt("v"));
+                        putNumber(editor, key, existing.get(key), entry.getLong("v"), "int");
                         break;
                     case "long":
-                        editor.putLong(key, entry.getLong("v"));
+                        putNumber(editor, key, existing.get(key), entry.getLong("v"), "long");
                         break;
                     case "float":
-                        editor.putFloat(key, (float) entry.getDouble("v"));
+                        putNumber(editor, key, existing.get(key), entry.getDouble("v"), "float");
                         break;
                     case "string":
                         editor.putString(key, entry.getString("v"));

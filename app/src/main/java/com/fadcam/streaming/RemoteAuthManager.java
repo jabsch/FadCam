@@ -141,7 +141,7 @@ public class RemoteAuthManager {
         activeSessions.put(token, session);
         saveSessionsToStorage();
         
-        FLog.i(TAG, "New session created: " + token.substring(0, 8) + "... (expires in 24h)");
+        FLog.i(TAG, "New session created (expires in 24h)");
         return session;
     }
     
@@ -175,7 +175,7 @@ public class RemoteAuthManager {
     public void revokeSession(String token) {
         if (activeSessions.remove(token) != null) {
             saveSessionsToStorage();
-            FLog.i(TAG, "Session revoked: " + token.substring(0, 8) + "...");
+            FLog.i(TAG, "Session revoked");
         }
     }
     

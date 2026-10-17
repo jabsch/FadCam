@@ -11124,7 +11124,7 @@ public class HomeFragment extends BaseFragment {
      */
     private int resolveHomeDrawable(int resIndex) {
         if (sharedPreferencesManager == null) return HOME_DEFAULT_DRAWABLES[resIndex];
-        int eyeColor = sharedPreferencesManager.sharedPreferences.getInt(
+        int eyeColor = sharedPreferencesManager.safeGetInt(
                 Constants.PREF_AVATAR_EYE_COLOR, Constants.DEFAULT_AVATAR_EYE_COLOR);
         int[] res = HOME_EYE_COLOR_DRAWABLES.get(eyeColor);
         return res != null ? res[resIndex] : HOME_DEFAULT_DRAWABLES[resIndex];

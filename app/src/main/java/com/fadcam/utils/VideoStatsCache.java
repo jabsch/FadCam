@@ -43,9 +43,9 @@ public class VideoStatsCache {
     public static VideoStats getCachedStats(SharedPreferencesManager sharedPrefs) {
         synchronized (cacheLock) {
             try {
-                int videoCount = sharedPrefs.sharedPreferences.getInt(PREF_STATS_VIDEO_COUNT, -1);
-                long totalSizeMB = sharedPrefs.sharedPreferences.getLong(PREF_STATS_TOTAL_SIZE_MB, -1L);
-                long lastUpdate = sharedPrefs.sharedPreferences.getLong(PREF_STATS_LAST_UPDATE, 0L);
+                int videoCount = sharedPrefs.safeGetInt(PREF_STATS_VIDEO_COUNT, -1);
+                long totalSizeMB = sharedPrefs.safeGetLong(PREF_STATS_TOTAL_SIZE_MB, -1L);
+                long lastUpdate = sharedPrefs.safeGetLong(PREF_STATS_LAST_UPDATE, 0L);
                 
                 if (videoCount >= 0 && totalSizeMB >= 0) {
                     return new VideoStats(videoCount, totalSizeMB, lastUpdate);

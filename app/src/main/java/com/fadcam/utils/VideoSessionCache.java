@@ -65,8 +65,8 @@ public class VideoSessionCache {
         
         try {
             // Load persistent cache metadata
-            sCachedVideoCount = sharedPrefs.sharedPreferences.getInt(PREF_CACHE_VIDEO_COUNT, 0);
-            sSessionCacheTimestamp = sharedPrefs.sharedPreferences.getLong(PREF_CACHE_TIMESTAMP, 0);
+            sCachedVideoCount = sharedPrefs.safeGetInt(PREF_CACHE_VIDEO_COUNT, 0);
+            sSessionCacheTimestamp = sharedPrefs.safeGetLong(PREF_CACHE_TIMESTAMP, 0);
             sForceRefreshOnNextAccess = sharedPrefs.sharedPreferences.getBoolean(PREF_CACHE_INVALIDATED, false);
             
             // Note: Disk cache loading will be done when first accessed via getSessionCachedVideos

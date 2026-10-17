@@ -2515,7 +2515,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
      */
     private int resolveFullscreenDrawable(int resIndex) {
         if (prefs == null) return FULLSCREEN_DEFAULT_DRAWABLES[resIndex];
-        int eyeColor = prefs.sharedPreferences.getInt(
+        int eyeColor = prefs.safeGetInt(
                 Constants.PREF_AVATAR_EYE_COLOR, Constants.DEFAULT_AVATAR_EYE_COLOR);
         int[] res = FULLSCREEN_EYE_COLOR_DRAWABLES.get(eyeColor);
         return res != null ? res[resIndex] : FULLSCREEN_DEFAULT_DRAWABLES[resIndex];

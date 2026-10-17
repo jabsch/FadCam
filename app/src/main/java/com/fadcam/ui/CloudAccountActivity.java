@@ -188,7 +188,7 @@ public class CloudAccountActivity extends AppCompatActivity {
         public void onLinkSuccess(String token, long expiryMs, String email,
                                   String refreshToken, String userId, String e2eVerifyTag,
                                   String streamKey) {
-            FLog.i(TAG, "Device linked successfully to: " + email + ", has refresh: " + (refreshToken != null && !refreshToken.isEmpty()));
+            FLog.i(TAG, "Device linked successfully, has refresh: " + (refreshToken != null && !refreshToken.isEmpty()));
 
             cloudAuthManager.setJwtToken(token, expiryMs, refreshToken, userId);
             cloudAuthManager.setDeviceName(deviceName);
