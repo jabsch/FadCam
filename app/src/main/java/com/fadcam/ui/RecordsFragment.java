@@ -607,7 +607,10 @@ public class RecordsFragment extends BaseFragment implements
             RecordsDeletionService.resumeIfNeeded(getContext());
         }
         if (snapshot != null && !snapshot.completedUriStrings.isEmpty()) {
-            applyDeletedItemsToUi(parseUriList(snapshot.completedUriStrings));
+            // Copies to the gallery or a folder also land in completedUriStrings; only
+            // destructive kinds may drop rows from the list.
+            applyDeletedItemsToUi(parseUriList(snapshot.completedUriStrings),
+                    snapshot.operationKind.name());
         }
         renderDeletionSnapshot(snapshot, immediate);
     }
@@ -4744,7 +4747,7 @@ public class RecordsFragment extends BaseFragment implements
                 getString(R.string.delete_all_videos_title),
                 "DELETE",
                 getString(R.string.delete_all_videos_title),
-                getString(R.string.delete_all_videos_subtitle_short),
+                getString(R.string.delete_all_videos_subtitle_count, totalVideoCount),
                 R.drawable.ic_delete_all);
         confirm.setCallbacks(new InputActionBottomSheetFragment.Callbacks() {
             @Override

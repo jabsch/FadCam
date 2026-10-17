@@ -406,7 +406,7 @@
     <string name="video_menu_mark_viewed">Mark as Viewed</string>
     <string name="video_menu_mark_unviewed">Mark as Unviewed</string>
     <string name="video_menu_upload_youtube">Upload to YouTube</string>
-    <string name="video_menu_upload_drive">Upload to  Google Drive</string>
+    <string name="video_menu_upload_drive">Upload to Google Drive</string>
     <string name="video_menu_open_with">Open with...</string>
     <string name="chooser_open_with">Open with</string>
     <string name="image_viewer_title">Photo Viewer</string>
@@ -3431,4 +3431,5 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="video_bitrate_summary_custom">%1$.1f Mbps (Custom)</string>
     <string name="video_bitrate_summary_auto">%1$.1f Mbps (Auto)</string>
     <string name="camera_switch_failed_reason">Camera switch failed: %1$s</string>
+    <string name="delete_all_videos_subtitle_count">Moves the %1$d items shown in this view to Trash</string>
 </resources>
