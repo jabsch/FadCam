@@ -57,7 +57,7 @@ public class WatermarkSettingsFragment extends Fragment {
     private ViewPager2 previewPager;
     private PreviewPagerAdapter previewAdapter;
     private View dotFadCam, dotFadRec;
-    private ActivityResultLauncher<String> permissionLauncher;
+    private ActivityResultLauncher<String[]> permissionLauncher;
     private Runnable pendingGrantAction;
     private View locationRow;
     private GpsProviderReceiver gpsProviderReceiver;
@@ -307,8 +307,9 @@ public class WatermarkSettingsFragment extends Fragment {
                 android.location.LocationManager.PROVIDERS_CHANGED_ACTION);
         androidx.core.content.ContextCompat.registerReceiver(requireContext(), gpsProviderReceiver, gpsFilter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
 
-        permissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
-            if (granted) {
+        // Android 12+ ignores a request for precise location on its own; ask for both
+        permissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+            if (Boolean.TRUE.equals(result.get(Manifest.permission.ACCESS_FINE_LOCATION))) {
                 onPermissionGrantedPostRequest();
             } else {
                 onPermissionDeniedPostRequest();
@@ -442,7 +443,7 @@ public class WatermarkSettingsFragment extends Fragment {
                 .setMessage(R.string.location_permission_description)
                 .setPositiveButton(R.string.universal_grant, (d, w) -> {
                     pendingGrantAction = proceed;
-                    permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
+                    permissionLauncher.launch(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION});
                 })
                 .setNegativeButton(R.string.universal_cancel, (d, w) -> { })
                 .show();
@@ -458,7 +459,8 @@ public class WatermarkSettingsFragment extends Fragment {
 
     private void onPermissionDeniedPostRequest() {
         pendingGrantAction = null;
-        Toast.makeText(requireContext(), R.string.location_permission_denied, Toast.LENGTH_SHORT).show();
+        com.fadcam.utils.PermissionSettings.showDenied(this, Manifest.permission.ACCESS_FINE_LOCATION,
+                R.string.location_permission_denied);
     }
 
     private void showWatermarkStyleBottomSheet(){
