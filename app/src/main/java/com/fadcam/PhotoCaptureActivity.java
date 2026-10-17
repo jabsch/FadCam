@@ -81,7 +81,8 @@ public class PhotoCaptureActivity extends ComponentActivity {
             intent.setAction(Constants.INTENT_ACTION_CAPTURE_PHOTO);
             try {
                 startService(intent);
-                Utils.showQuickToast(this, R.string.photo_capture_saved);
+                // No "saved" here: the service reports the real outcome (this toasted
+                // "saved" before the shot, then "failed" on errors)
             } catch (Exception e) {
                 Toast.makeText(this, R.string.photo_capture_failed, Toast.LENGTH_SHORT).show();
             }

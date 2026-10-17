@@ -88,7 +88,9 @@ public class UpdateCheckService {
                 freeLatest.stableVer, freeLatest.stableUrl,
                 freeLatest.betaVer, freeLatest.betaUrl,
                 proLatest.stableVer, proLatest.stableUrl,
-                hasStable, hasBeta, hasPro, false);
+                hasStable, hasBeta, hasPro,
+                // No release feed means we can't tell; was reported as "up to date"
+                freeXml[0] == null);
         lastResult = result;
 
         FLog.d(TAG, "Result: stable=" + hasStable + "(" + freeLatest.stableVer

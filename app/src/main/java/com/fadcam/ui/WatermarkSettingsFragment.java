@@ -413,7 +413,7 @@ public class WatermarkSettingsFragment extends Fragment {
         new AlertDialog.Builder(requireContext(), com.google.android.material.R.style.MaterialAlertDialog_Material3)
                 .setTitle(R.string.location_permission_title)
                 .setMessage(R.string.location_permission_description)
-                .setPositiveButton("Grant", (d, w) -> {
+                .setPositiveButton(R.string.universal_grant, (d, w) -> {
                     pendingGrantAction = proceed;
                     permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
                 })
@@ -936,9 +936,11 @@ public class WatermarkSettingsFragment extends Fragment {
                 .setPositiveButton(R.string.watermark_network_warning_enable, (d, w) -> {
                     onConfirm.run();
                 })
-                .setNegativeButton("Cancel", (d, w) -> {
-                    // Reset the switch
-                    View switchWeather = getView().findViewById(R.id.switch_weather);
+                .setNegativeButton(R.string.universal_cancel, (d, w) -> d.cancel())
+                // Back / tap outside also lands here; before, only Cancel reset the switch
+                .setOnCancelListener(d -> {
+                    View root = getView();
+                    View switchWeather = root != null ? root.findViewById(R.id.switch_weather) : null;
                     if (switchWeather instanceof com.fadcam.ui.AvatarToggleView) {
                         ((com.fadcam.ui.AvatarToggleView) switchWeather).setChecked(false);
                     }

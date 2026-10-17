@@ -272,6 +272,7 @@ public class MotionLabSettingsFragment extends Fragment {
             1,
             120,
             initial,
+            6,
             getString(R.string.motion_lab_analysis_helper),
             value -> viewModel.onAnalysisFpsChanged(value)
         );
@@ -286,6 +287,7 @@ public class MotionLabSettingsFragment extends Fragment {
             0,
             100,
             initial,
+            80,
             getString(R.string.motion_lab_sensitivity_hint),
             value -> viewModel.onSensitivityChanged(value)
         );
@@ -300,6 +302,7 @@ public class MotionLabSettingsFragment extends Fragment {
             0,
             60000,
             initial,
+            220,
             getString(R.string.motion_lab_debounce_hint),
             value -> viewModel.onDebounceMsChanged(value)
         );
@@ -314,6 +317,7 @@ public class MotionLabSettingsFragment extends Fragment {
             0,
             3600,
             initialSeconds,
+            10,
             getString(R.string.motion_lab_post_roll_hint),
             value -> viewModel.onPostRollMsChanged(value * 1000)
         );
@@ -328,6 +332,7 @@ public class MotionLabSettingsFragment extends Fragment {
             0,
             120,
             initial,
+            2,
             getString(R.string.motion_lab_pre_roll_hint),
             value -> viewModel.onPreRollSecondsChanged(value)
         );
@@ -339,6 +344,7 @@ public class MotionLabSettingsFragment extends Fragment {
         int min,
         int max,
         int initial,
+        int defaultValue,
         String helper,
         IntConsumer consumer
     ) {
@@ -387,7 +393,7 @@ public class MotionLabSettingsFragment extends Fragment {
                 inputSheet.getArguments().putBoolean(
                         MaterialNumberPickerBottomSheetFragment.ARG_SHOW_RESET, true);
                 inputSheet.getArguments().putInt(
-                        MaterialNumberPickerBottomSheetFragment.ARG_DEFAULT_VALUE, initial);
+                        MaterialNumberPickerBottomSheetFragment.ARG_DEFAULT_VALUE, defaultValue); // was the saved value, so Reset did nothing
                 inputSheet.getArguments().putString(
                         MaterialNumberPickerBottomSheetFragment.ARG_FOOTER, helper);
             }

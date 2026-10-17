@@ -3365,4 +3365,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
         <item quantity="one">Restoring %d item…</item>
         <item quantity="other">Restoring %d items…</item>
     </plurals>
+    <string name="camera_switched_front">Switched to front camera</string>
+    <string name="camera_switched_rear">Switched to rear camera</string>
+    <string name="universal_grant">Grant</string>
 </resources>

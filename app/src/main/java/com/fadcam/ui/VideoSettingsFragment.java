@@ -1816,9 +1816,10 @@ public class VideoSettingsFragment extends Fragment {
             return;
         float current = prefs.getSpecificZoomRatio(cam);
         java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
-        String currentId = String.format(Locale.getDefault(), "%.1f", current);
+        // Ids use Locale.US: "1,5" from a comma-decimal locale failed parseFloat, so picks did nothing
+        String currentId = String.format(Locale.US, "%.1f", current);
         for (Float r : ratios) {
-            items.add(new com.fadcam.ui.picker.OptionItem(String.format(Locale.getDefault(), "%.1f", r),
+            items.add(new com.fadcam.ui.picker.OptionItem(String.format(Locale.US, "%.1f", r),
                     String.format(Locale.getDefault(), "%.1fx", r)));
         }
         final String resultKey = "picker_result_zoom_ratio";
