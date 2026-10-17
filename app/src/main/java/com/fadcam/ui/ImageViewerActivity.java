@@ -118,6 +118,10 @@ public class ImageViewerActivity extends AppCompatActivity {
             metaView.setText(isForensic ? buildInlineMeta()
                     : (itemDisplayName != null ? itemDisplayName : String.valueOf(uri.getLastPathSegment())));
         }
+        // Name the photo instead of the generic "Photo Viewer"
+        if (imageView != null && itemDisplayName != null) {
+            imageView.setContentDescription(itemDisplayName);
+        }
         if (more != null) {
             if (isForensic || isScan) {
                 more.setOnClickListener(v -> showInfoSheet(uri));

@@ -32,10 +32,14 @@
 
         <ImageView
             android:id="@+id/records_sidebar_close_btn"
-        android:contentDescription="@string/universal_close"
-            android:layout_width="14dp"
-            android:layout_height="14dp"
-            android:layout_marginEnd="12dp"
+            android:contentDescription="@string/universal_close"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="17dp"
+            android:layout_marginTop="-17dp"
+            android:layout_marginBottom="-17dp"
+            android:layout_marginStart="-17dp"
+            android:layout_marginEnd="-5dp"
             android:src="@drawable/ic_close"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="?attr/pickerTextSecondary"

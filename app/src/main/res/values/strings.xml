@@ -2175,6 +2175,11 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
 
     <!-- Tips Navigation Strings -->
     <string name="close">Close</string>
+    <string name="home_cards_collapsed">Collapsed</string>
+    <string name="home_cards_expanded">Expanded</string>
+    <string name="player_seek_bar_desc">Playback position</string>
+    <string name="gps_banner_dismiss">Dismiss GPS warning</string>
+    <string name="home_recording_paused_title">Recording Paused</string>
     <string name="remote_copy_url">Copy dashboard address</string>
     <string name="previous">Previous</string>
     <string name="next">Next</string>

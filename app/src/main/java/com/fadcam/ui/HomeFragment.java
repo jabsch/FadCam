@@ -13421,6 +13421,14 @@ public class HomeFragment extends BaseFragment {
                 cardRailToggleLandscape.setVisibility(View.GONE);
             }
         }
+        // TalkBack only said "Toggle Home cards", never whether they were shown
+        CharSequence railState = getString(folded ? R.string.home_cards_collapsed : R.string.home_cards_expanded);
+        if (cardRailTogglePortrait != null) {
+            androidx.core.view.ViewCompat.setStateDescription(cardRailTogglePortrait, railState);
+        }
+        if (cardRailToggleLandscape != null) {
+            androidx.core.view.ViewCompat.setStateDescription(cardRailToggleLandscape, railState);
+        }
         updateStartStopButtonForFoldedState();
         
         // Refresh ModeSwitcherComponent indicator position after layout changes

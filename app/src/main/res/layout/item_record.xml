@@ -37,7 +37,7 @@
                 android:id="@+id/image_view_thumbnail"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:contentDescription="@string/desc_video_thumbnail"
+                android:importantForAccessibility="no"
                 android:scaleType="centerCrop"
                 tools:srcCompat="@tools:sample/backgrounds/scenic" />
 
@@ -51,6 +51,7 @@
             <!-- Serial Number Overlay -->
             <TextView
                 android:id="@+id/text_view_serial_number"
+                android:importantForAccessibility="no"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="top|start"
@@ -80,7 +81,7 @@
                     android:background="@drawable/new_badge_background"
                     android:paddingHorizontal="6dp"
                     android:paddingVertical="2dp"
-                    android:text="NEW"
+                    android:text="@string/badge_new"
                     android:textColor="@color/white"
                     android:textSize="9sp"
                     android:textStyle="bold"
@@ -259,6 +260,7 @@
                         android:id="@+id/icon_time_ago"
                         android:layout_width="12dp"
                         android:layout_height="12dp"
+                        android:importantForAccessibility="no"
                         android:src="@drawable/ic_calendar"
                         android:tint="?android:attr/textColorSecondary" />
 
@@ -284,6 +286,7 @@
                     <ImageView
                         android:layout_width="12dp"
                         android:layout_height="12dp"
+                        android:importantForAccessibility="no"
                         android:src="@drawable/ic_stat_playback"
                         android:tint="?android:attr/textColorSecondary" />
 
@@ -311,6 +314,7 @@
                         android:id="@+id/icon_file_size"
                         android:layout_width="12dp"
                         android:layout_height="12dp"
+                        android:importantForAccessibility="no"
                         android:src="@drawable/database_24px"
                         android:tint="?android:attr/textColorSecondary" />
 

@@ -34,6 +34,7 @@
             <!-- Hamburger Update Badge -->
             <TextView
                 android:id="@+id/hamburgerBadgeDot"
+                android:importantForAccessibility="no"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="top|end"
@@ -371,7 +372,7 @@
 
                         <LinearLayout android:id="@+id/layoutClockInner" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="4dp">
 
-                                    <TextView android:layout_width="28dp" android:layout_height="28dp" android:layout_gravity="center_vertical" android:layout_marginEnd="4dp" android:fontFamily="@font/materialicons" android:text="access_time" android:textColor="?attr/homeRailTextPrimary" android:textSize="20sp" android:gravity="center" />
+                                    <TextView android:layout_width="28dp" android:layout_height="28dp" android:layout_gravity="center_vertical" android:layout_marginEnd="4dp" android:importantForAccessibility="no" android:fontFamily="@font/materialicons" android:text="access_time" android:textColor="?attr/homeRailTextPrimary" android:textSize="20sp" android:gravity="center" />
 
                             <LinearLayout android:id="@+id/layoutClockContent" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="4dp">
 
@@ -389,7 +390,7 @@
 
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="4dp">
 
-                            <TextView android:layout_width="28dp" android:layout_height="28dp" android:layout_gravity="center" android:layout_marginEnd="4dp" android:fontFamily="@font/materialicons" android:text="folder" android:textColor="?attr/sectionHeaderColor" android:textSize="20sp" android:gravity="center" />
+                            <TextView android:layout_width="28dp" android:layout_height="28dp" android:layout_gravity="center" android:layout_marginEnd="4dp" android:importantForAccessibility="no" android:fontFamily="@font/materialicons" android:text="folder" android:textColor="?attr/sectionHeaderColor" android:textSize="20sp" android:gravity="center" />
 
                             <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="4dp">
                                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
@@ -587,6 +588,7 @@
                         android:layout_width="48dp"
                         android:layout_height="48dp"
                         android:gravity="center"
+                        android:importantForAccessibility="no"
                         android:text="pause_circle"
                         android:textSize="48sp"
                         android:textColor="#FFFFFF"
@@ -597,7 +599,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:text="Recording Paused"
+                        android:text="@string/home_recording_paused_title"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#FFFFFF"
