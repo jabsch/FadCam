@@ -127,6 +127,12 @@ public class QRScannerActivity extends AppCompatActivity {
             });
         }
 
+        if (com.fadcam.RecordingShortcutDispatcher.hasActiveSession(this)) {
+            // Opening the back camera here would take it from the running recording
+            Toast.makeText(this, getString(R.string.qr_scanner_busy_recording), Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, RC_CAMERA);
         } else startCamera();
@@ -190,8 +196,8 @@ public class QRScannerActivity extends AppCompatActivity {
                 final String text = result.getText();
                 final String format = result.getBarcodeFormat().name();
                 mainHandler.post(() -> showScanResult(text, format));
-                final Bitmap bmp = frameBitmap;
-                cameraExecutor.execute(() -> saveScan(text, format, bmp));
+                // Already on cameraExecutor: re-posting threw once onDestroy shut it down
+                saveScan(text, format, frameBitmap);
                 return;
             }
         }
@@ -369,10 +375,18 @@ public class QRScannerActivity extends AppCompatActivity {
     private void onGalleryImagePicked(Uri uri) {
         if (uri == null) return;
         FLog.i("QRScanner", "Gallery image picked: " + uri);
+        // Decoding a large photo with TRY_HARDER takes seconds: keep it off the main thread
+        try {
+            cameraExecutor.execute(() -> decodeGalleryImage(uri));
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+        }
+    }
+
+    private void decodeGalleryImage(Uri uri) {
         try {
             Bitmap bitmap = decodeSampled(uri, 2048);
             if (bitmap == null) {
-                Toast.makeText(this, getString(R.string.qr_scanner_could_not_load), Toast.LENGTH_SHORT).show();
+                mainHandler.post(() -> Toast.makeText(this, getString(R.string.qr_scanner_could_not_load), Toast.LENGTH_SHORT).show());
                 return;
             }
             Result result = decodeBitmap(bitmap);
@@ -387,16 +401,16 @@ public class QRScannerActivity extends AppCompatActivity {
                 // left running, its next hit replaced this result and saved a duplicate,
                 // and with a camera result already showing this one was dropped
                 isScanning.set(false);
-                showScanResult(text, format);
-                final Bitmap bmp = bitmap;
-                final String t = text, f = format;
-                cameraExecutor.execute(() -> saveScan(t, f, bmp));
+                mainHandler.post(() -> {
+                    if (!isFinishing() && !isDestroyed()) showScanResult(text, format);
+                });
+                saveScan(text, format, bitmap);
             } else {
-                Toast.makeText(this, getString(R.string.qr_scanner_no_barcode), Toast.LENGTH_SHORT).show();
+                mainHandler.post(() -> Toast.makeText(this, getString(R.string.qr_scanner_no_barcode), Toast.LENGTH_SHORT).show());
             }
         } catch (Exception e) {
             FLog.e("QRScanner", "Gallery decode error", e);
-            Toast.makeText(this, getString(R.string.qr_scanner_failed_process), Toast.LENGTH_SHORT).show();
+            mainHandler.post(() -> Toast.makeText(this, getString(R.string.qr_scanner_failed_process), Toast.LENGTH_SHORT).show());
         }
     }
 

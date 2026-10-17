@@ -283,8 +283,12 @@ public class ForensicsInsightsFragment extends Fragment {
         updateChipVisuals();
         updateTimelineTitle();
         dataLoaded = false;
+        // A load already running is for the old range; redo it when it lands
+        if (isLoading) reloadAfterLoad = true;
         loadIntelligence();
     }
+
+    private boolean reloadAfterLoad = false;
 
     private void updateTimelineTitle() {
         if (timelineTitle == null) return;
@@ -520,6 +524,11 @@ public class ForensicsInsightsFragment extends Fragment {
         }
         isLoading = false;
         dataLoaded = true;
+        if (reloadAfterLoad) {
+            reloadAfterLoad = false;
+            dataLoaded = false;
+            loadIntelligence();
+        }
     }
 
     // ── Threat computation ───────────────────────────────────────────────

@@ -980,7 +980,9 @@ public class ForensicsGalleryFragment extends Fragment {
             String deletedMsg = context.getString(R.string.forensics_gallery_deleted_toast, finalMoved, finalDeleted);
             android.app.Activity activity = getActivity();
             if (activity == null || !isAdded()) {
-                Toast.makeText(context, deletedMsg, Toast.LENGTH_SHORT).show();
+                // Still on the executor thread here: a Toast needs the main looper
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
+                        Toast.makeText(context, deletedMsg, Toast.LENGTH_SHORT).show());
                 return;
             }
             activity.runOnUiThread(() -> {
