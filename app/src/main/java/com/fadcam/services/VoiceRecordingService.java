@@ -75,9 +75,18 @@ public class VoiceRecordingService extends Service {
         if (ACTION_START.equals(action) && recorder == null) {
             // Foreground first: a startForegroundService() caller has a few
             // seconds to get here, and the mic is only usable while foreground.
-            ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(),
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
-                            ? ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE : 0);
+            try {
+                ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(),
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+                                ? ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE : 0);
+            } catch (RuntimeException e) {
+                // Android 12+ refuses a background start, and 14+ refuses a mic
+                // service the app isn't allowed to run right now (e.g. locked screen)
+                FLog.e(TAG, "Voice recording refused by the system", e);
+                Toast.makeText(this, R.string.voice_recording_failed, Toast.LENGTH_LONG).show();
+                stopSelf();
+                return START_NOT_STICKY;
+            }
             if (!startRecorder()) {
                 Toast.makeText(this, R.string.voice_recording_failed, Toast.LENGTH_LONG).show();
                 stopSelfCleanly();
@@ -205,12 +214,15 @@ public class VoiceRecordingService extends Service {
             DocumentFile file = dir != null ? dir.createFile(MIME_M4A, fileName) : null;
             Uri uri = file != null ? file.getUri() : null;
             if (uri != null) {
+                // Set first so a failed open still deletes the empty document
+                outputUri = uri;
                 outputPfd = getContentResolver().openFileDescriptor(uri, "w");
                 if (outputPfd != null) {
                     mr.setOutputFile(outputPfd.getFileDescriptor());
-                    outputUri = uri;
                     return true;
                 }
+                file.delete();
+                outputUri = null;
             }
             FLog.w(TAG, "Custom storage unavailable, saving voice recording internally");
         }

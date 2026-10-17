@@ -3424,4 +3424,5 @@ For the smoothest playback experience, you can use an external player like VLC. 
         <item quantity="one">%1$d selected</item>
         <item quantity="other">%1$d selected</item>
     </plurals>
+    <string name="voice_recording_busy">Stop the video recording first. Both can\'t use the microphone at once.</string>
 </resources>
