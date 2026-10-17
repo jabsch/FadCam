@@ -937,7 +937,6 @@
     <string name="playback_speed_label">Velocità riproduzione</string>
     <string name="playback_speed_title">Velocità riproduzione</string>
     <string name="playback_speed_subtitle">Imposta la velocità di riproduzione predefinita</string>
-    <string name="toast_default_playback_speed_set">Velocità riproduzione predefinita impostata</string>
     <string name="mute_playback_title">Riproduzione muta</string>
     <string name="mute_playback_subtitle">Riproduci video senza audio per impostazione predefinita</string>
     <string name="mute_playback_helper">Quando abilitato, tutti i video verranno riprodotti senza audio. Puoi sempre riattivare l\'audio durante la riproduzione.</string>
@@ -954,11 +953,9 @@
     <string name="playback_controls_heading">Controlli</string>
     <string name="playback_controls_helper">Personalizza il comportamento dei controlli del lettore video.</string>
     <string name="controls_hide_delay_title">Ritardo occultamento controlli</string>
-    <string name="controls_hide_delay_subtitle">Dopo quanto tempo nascondere automaticamente i controlli</string>
     <string name="controls_hide_delay_helper">Imposta il ritardo in millisecondi prima che i controlli del lettore video si nascondano automaticamente.</string>
     <string name="sound_heading">Audio</string>
     <string name="seek_amount_title">Avanzamento ricerca</string>
-    <string name="seek_amount_subtitle">Imposta l\'intervallo di avanzamento/indietro</string>
     <string name="seek_amount_helper">Durata dell\'avanzamento o riavvolgimento quando tocchi i pulsanti di ricerca.</string>
     <string name="seek_amount_custom">Personalizzato</string>
     <string name="seek_amount_custom_title">Intervallo ricerca personalizzato</string>
@@ -990,9 +987,6 @@
     <string name="timer_15_minutes">15 minuti</string>
     <string name="timer_30_minutes">30 minuti</string>
     <string name="timer_1_hour">1 ora</string>
-    <string name="timer_seconds_short">s</string>
-    <string name="timer_minutes_short">min</string>
-    <string name="timer_hours_short">h</string>
     <string name="timer_custom_label">Personalizzato</string>
     <string name="timer_custom_title">Timer personalizzato</string>
     <string name="timer_custom_low_hint">Secondi</string>
@@ -1041,8 +1035,6 @@
     <string name="setting_theme_title">Tema</string>
     <string name="settings_option_theme">Tema</string>
     <string name="settings_theme_changed">Tema cambiato</string>
-    <string name="note_theme">Seleziona tema
-(Predefinito: %1$s)</string>
     <string name="start_recording">Avvia registrazione</string>
     <string name="shortcut_start_back">Avvia posteriore</string>
     <string name="shortcut_start_front">Avvia frontale</string>
@@ -1122,7 +1114,6 @@
     <string name="faditor_exporting">Esportazione in corso...</string>
     <string name="faditor_exporting_percent">Esportazione %1$d%%</string>
     <string name="faditor_export_success">Esportazione riuscita</string>
-    <string name="faditor_export_error">Errore esportazione</string>
     <string name="faditor_export_in_progress">Esportazione in corso...</string>
     <string name="faditor_remuxing">Remuxing in corso...</string>
     <string name="faditor_remuxing_percent">Remuxing %1$d%%</string>
@@ -1145,7 +1136,6 @@
     <string name="faditor_tool_crop_free">Libero</string>
     <string name="faditor_tool_canvas">Tela</string>
     <string name="faditor_canvas_title">Tela</string>
-    <string name="faditor_canvas_applied">Tela applicata</string>
     <string name="faditor_tool_audio">Audio</string>
     <string name="faditor_audio_extract_current">Estrai audio</string>
     <string name="faditor_audio_extract_current_desc">Estrae l\'audio dal video corrente</string>
@@ -1187,12 +1177,10 @@
     <string name="faditor_export_confirm_title">Avvia esportazione?</string>
     <string name="faditor_export_confirm_action">Esporta</string>
     <string name="faditor_export_confirm_subtitle">Questa operazione potrebbe richiedere del tempo.</string>
-    <string name="faditor_export_confirm_helper">Conferma l\'esportazione del video con le impostazioni correnti.</string>
     <string name="faditor_export_notif_channel">Progresso esportazione</string>
     <string name="faditor_export_notif_channel_desc">Notifiche di progresso per le esportazioni video Faditor.</string>
     <string name="faditor_export_notif_title">Esportazione video</string>
     <string name="faditor_export_notif_error_title">Esportazione fallita</string>
-    <string name="faditor_export_progress">Esportazione in corso: %1$d%%</string>
     <string name="faditor_export_completed">Video esportato con successo</string>
     <string name="faditor_export_cancelled">Esportazione annullata</string>
     <string name="faditor_export_failed">Esportazione fallita</string>
@@ -1202,7 +1190,6 @@
     <string name="export_complete">Completato</string>
     <string name="export_file_size">Dimensione file: %1$s</string>
     <string name="export_error_hint">Errore durante l\'esportazione</string>
-    <string name="export_status">%1$d%%</string>
     <string name="faditor_export_info">%1$s • %2$d clip%3$s • H.264 + AAC</string>
     <string name="faditor_flip_title">Capovolgi</string>
     <string name="faditor_home_tagline">Modifica. Converti. Esporta.</string>
@@ -1220,12 +1207,9 @@
     <string name="faditor_feature_privacy_desc">Tutta l\'elaborazione avviene sul dispositivo</string>
     <string name="faditor_feature_convert">Converti</string>
     <string name="faditor_feature_convert_desc">Da frammentato a MP4 standard</string>
-    <string name="faditor_select_items">%1$d selezionati</string>
     <string name="faditor_selected_count">%1$d selezionati</string>
     <string name="faditor_delete_projects_title">Eliminare i progetti selezionati?</string>
-    <string name="faditor_delete_projects_message">Questa azione non può essere annullata. I file di progetto verranno eliminati.</string>
     <string name="faditor_delete_confirm">Elimina</string>
-    <string name="faditor_version_info">v%1$s</string>
     <string name="faditor_empty_title">Nessun progetto</string>
     <string name="faditor_empty_desc">Crea un nuovo progetto per iniziare a modificare</string>
     <string name="faditor_info_title">Informazioni Faditor</string>
@@ -1262,7 +1246,6 @@
     <string name="dialog_audio_cancel">Annulla</string>
     <string name="dialog_audio_invalid_bitrate">Inserisci un bitrate valido (es., 128000)</string>
     <string name="dialog_audio_invalid_sampling_rate">Inserisci una frequenza di campionamento valida (es., 44100)</string>
-    <string name="dialog_audio_settings_summary">%1$s kbps • %2$s Hz • %3$s</string>
     <string name="dialog_audio_info_text">Le impostazioni audio personalizzate ti permettono di controllare bitrate e frequenza di campionamento dell\'audio registrato.</string>
     <string name="helper_record_audio">Abilita o disabilita la registrazione audio.</string>
     <string name="helper_audio_input_source">Scegli la sorgente del segnale audio per la registrazione.</string>
@@ -1298,12 +1281,10 @@
     <string name="bitrate_custom_hint">es., 16</string>
     <string name="bitrate_reset_button">Reimposta a default</string>
     <string name="bitrate_helper_text">Il bitrate determina la qualità video e la dimensione del file. Un bitrate più alto = migliore qualità ma file più grande.</string>
-    <string name="bitrate_info_default">Usando il bitrate predefinito consigliato per la risoluzione selezionata.</string>
     <string name="bitrate_info_custom">Usando bitrate personalizzato: %1$s Mbps</string>
     <string name="bitrate_info_warning_low">Il bitrate personalizzato è molto basso. La qualità video potrebbe essere notevolmente ridotta. Considera l\'aumento.</string>
     <string name="bitrate_info_warning_high">Il bitrate personalizzato è molto alto. I file risultanti saranno grandi. Assicurati di avere spazio di archiviazione sufficiente.</string>
     <string name="bitrate_info_ok">Il bitrate personalizzato è accettabile.</string>
-    <string name="bitrate_invalid">Valore bitrate non valido. Inserisci un numero positivo.</string>
     <string name="bitrate_save_success">Bitrate salvato con successo</string>
     <string name="bitrate_reset_success">Bitrate reimpostato al valore predefinito</string>
     <string name="bitrate_current">Bitrate attuale: %1$s Mbps</string>
@@ -1315,16 +1296,11 @@
     <string name="universal_enable">Abilita</string>
     <string name="universal_disable">Disabilita</string>
     <string name="delete_video_dialog_title">Elimina video</string>
-    <string name="delete_video_dialog_message">Spostare questo video nel cestino?</string>
-    <string name="delete_video_progress">Eliminazione in corso...</string>
-    <string name="delete_video_success_toast">Video spostato nel cestino</string>
-    <string name="delete_video_fail_toast">Eliminazione video fallita</string>
     <string name="delete_video_cancelled_toast">Eliminazione annullata</string>
     <string name="delete_video_error_null_toast">Errore: video non trovato</string>
     <string name="delete_videos_success_toast">%1$d video spostati nel cestino</string>
     <string name="delete_videos_partial_success_toast">%1$d spostati, %2$d falliti</string>
     <string name="delete_videos_log">Eliminazione di %1$d video selezionati…</string>
-    <string name="trash_auto_deleted_toast">Spostato nel cestino</string>
     <string name="trash_empty_toast_message">Il cestino è vuoto</string>
     <string name="trash_emptied_toast">Cestino svuotato</string>
     <string name="trash_items_deleted_toast">%1$d elementi eliminati</string>
@@ -1336,7 +1312,6 @@
     <string name="universal_deleted">Eliminato</string>
     <string name="universal_delete_failed">Eliminazione fallita</string>
     <string name="dialog_permanently_delete_title">Eliminare definitivamente?</string>
-    <string name="dialog_permanently_delete_message">Questi elementi verranno eliminati definitivamente e non potranno essere recuperati.</string>
     <string name="dialog_empty_all_trash_message">Tutti gli elementi nel cestino verranno eliminati definitivamente.</string>
     <string name="universal_cancel">Annulla</string>
     <string name="universal_delete">Elimina</string>
@@ -1431,7 +1406,6 @@
     <string name="onboarding_human_checkbox3">Capisco che FadCam è software open-source</string>
     <string name="onboarding_human_button">Conferma e continua</string>
     <string name="trash_select_all">Seleziona tutto</string>
-    <string name="location_permission_granted_manual_toggle">Posizione: %1$s</string>
     <string name="location_embedding_enabled">Incorporazione posizione abilitata</string>
     <string name="allow_location_access">Consenti accesso posizione</string>
     <string name="location_permission_message">FadCam utilizza i dati di posizione per aggiungere coordinate GPS o indirizzo alla filigrana video. La posizione viene utilizzata esclusivamente per questa funzionalità.</string>
@@ -1460,7 +1434,6 @@
     <string name="remote_coming_soon_badge">Prossimamente</string>
     <string name="update_sarcastic_heading">Chiunque altro salta gli aggiornamenti?</string>
     <string name="update_visit_github">Visita GitHub per l\'ultima versione e changelog se preferisci fare le cose da solo.</string>
-    <string name="update_version_arrow">v%1$s → v%2$s</string>
     <string name="update_variation_1">Ancora sulla v%1$s? Com’è ... nostalgico. Nel frattempo, la v%2$s è là fuori a fare scalpore. È ora di mettersi al passo!</string>
     <string name="update_variation_2">La v%1$s è così la scorsa stagione. Nel frattempo, la v%2$s è pronta a stupire con nuove funzionalità e correzioni di bug. Aggiorna per un’esperienza migliore!</string>
     <string name="update_variation_3">La tua app vive nel passato con la v%1$s. Nel frattempo, la v%2$s è il futuro—più veloce, più intelligente e più brillante. Perché non unirsi?</string>
@@ -1644,7 +1617,7 @@
     <string name="forensics_copy_done">Dettagli prova copiati</string>
     <string name="digital_forensics_preview_title">Anteprima rilevazione live</string>
     <string name="digital_forensics_preview_subtitle">Anteprima overlay simulata</string>
-    <string name="digital_forensics_preview_default">PERSONA 92%%</string>
+    <string name="digital_forensics_preview_default">PERSONA 92%</string>
     <string name="settings_watermark_subtitle">Modalità overlay marchio</string>
     <string name="prefs_import_export_title">Importa / Esporta</string>
     <string name="prefs_import_export_subtitle">Backup, ripristino, reset</string>
@@ -1729,7 +1702,6 @@
     <string name="notification_setup_save">Salva</string>
     <string name="notification_setup_cancel">Annulla</string>
     <string name="notification_setup_ok">OK</string>
-    <string name="notification_channel_recording">Registrazione</string>
     <string name="notification_channel_system_updates">Aggiornamenti sistema</string>
     <string name="notification_channel_downloads">Download</string>
     <string name="notification_channel_data_sync">Sincronizzazione dati</string>
@@ -1800,7 +1772,6 @@
     <string name="fix_video_internal_only">Riparazione solo per file interni.</string>
     <string name="fix_video_saf_copy_fail">Copia per riparazione fallita.</string>
     <string name="fix_video_saf_write_fail">Scrittura file riparato fallita.</string>
-    <string name="fix_video_saf_success">Video riparato!</string>
     <string name="fix_video_saf_export">Esporta o condividi.</string>
     <string name="debug_log_tools_title">Log debug</string>
     <string name="debug_log_tools_subtitle">Anteprima, cerca, condividi o elimina log</string>
@@ -1829,9 +1800,7 @@
     <string name="restore_destination_original">Posizione originale</string>
     <string name="restore_destination_original_desc">Ripristina posizione originale</string>
     <string name="restore_confirm_title">Conferma ripristino</string>
-    <string name="restore_confirm_message">Ripristinare %1$d elemento/i?</string>
     <string name="restore_progress_title">Ripristino in corso</string>
-    <string name="restore_success_message">%1$d elemento/i ripristinato/i</string>
     <string name="restore_error_message">Errore ripristino</string>
     <string name="restore_cancelled">Ripristino annullato</string>
     <string name="restore_confirm_button">Ripristina</string>
@@ -2046,7 +2015,7 @@
     <string name="motion_lab_trigger_person_confirmed">Persona confermata</string>
     <string name="motion_lab_trigger_person_confirmed_desc">Attiva solo per persone</string>
     <string name="motion_lab_sensitivity">Sensibilità</string>
-    <string name="motion_lab_sensitivity_hint">0-100%%</string>
+    <string name="motion_lab_sensitivity_hint">0-100%</string>
     <string name="motion_lab_analysis_fps">FPS analisi</string>
     <string name="motion_lab_analysis_helper">Frame al secondo per analisi.</string>
     <string name="motion_lab_analysis_2_desc">2 FPS - Basso consumo</string>
@@ -2059,24 +2028,13 @@
     <string name="motion_lab_pre_roll">Pre-roll</string>
     <string name="motion_lab_pre_roll_hint">Secondi prima del movimento</string>
     <string name="motion_lab_set_value_row_title">Imposta valore</string>
-    <string name="motion_lab_set_value_row_subtitle">Regola soglia e parametri</string>
     <string name="motion_lab_auto_torch">Torcia automatica</string>
     <string name="motion_lab_auto_torch_helper">Accende la torcia al rilevamento</string>
     <string name="motion_lab_debug_title">Debug Motion Lab</string>
-    <string name="motion_lab_debug_state_placeholder">Stato: %1$s</string>
-    <string name="motion_lab_debug_score_placeholder">Punteggio: %1$.2f</string>
-    <string name="motion_lab_debug_threshold_placeholder">Soglia: %1$.2f</string>
-    <string name="motion_lab_debug_action_placeholder">Azione: %1$s</string>
-    <string name="motion_lab_debug_person_placeholder">Persona: %1$s</string>
-    <string name="motion_lab_debug_metrics_placeholder">Metriche: %1$s</string>
     <string name="motion_lab_debug_frame">Frame debug</string>
     <string name="motion_lab_debug_copy_snapshot">Copia snapshot</string>
     <string name="motion_lab_debug_copy_done">Copiato</string>
     <string name="motion_lab_debug_no_snapshot">Nessuno snapshot</string>
-    <string name="motion_lab_debug_score_value">%.2f</string>
-    <string name="motion_lab_debug_threshold_value">%.2f</string>
-    <string name="motion_lab_debug_person_value">%s</string>
-    <string name="motion_lab_debug_metrics_value">%s</string>
     <string name="motion_lab_info_cd">Info Motion Lab</string>
     <string name="motion_lab_info_title">Come funziona Motion Lab</string>
     <string name="motion_lab_info_body">Motion Lab analisi movimento via AI.</string>
@@ -2149,7 +2107,6 @@
     <string name="screen_rec_bitrate_mode_auto">Auto</string>
     <string name="screen_rec_bitrate_mode_manual">Manuale</string>
     <string name="screen_rec_bitrate_helper">Bitrate più alto = qualità migliore.</string>
-    <string name="screen_rec_bitrate_range">%1$s - %2$s Mbps</string>
     <string name="screen_rec_bitrate_low_hint">Mbps (min)</string>
     <string name="screen_rec_bitrate_high_hint">Mbps (max)</string>
     <string name="screen_rec_orientation_portrait">Verticale</string>

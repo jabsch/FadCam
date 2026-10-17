@@ -64,12 +64,18 @@ public final class PreferencesBackupUtil {
         set.add(com.fadcam.Constants.PREF_SCREEN_RECORDING_STATE);
         set.add("screen_recording_start_time");
         set.add(com.fadcam.Constants.PREF_MOTION_DEBUG_UI_ACTIVE);
+        // Install state, not settings: an import without them (or a Reset) sent the user
+        // back through the whole onboarding and permission flow
+        set.add(com.fadcam.Constants.COMPLETED_ONBOARDING_KEY);
+        set.add(com.fadcam.Constants.FIRST_INSTALL_CHECKED_KEY);
         // Add more runtime/transient keys here if discovered later
         EXCLUDED_KEYS = java.util.Collections.unmodifiableSet(set);
     }
 
     private static boolean isTransientKey(String key){
-        return EXCLUDED_KEYS.contains(key);
+        // Resume positions are keyed by recording URI and file name: they leaked file names
+        // into a shareable export, and an import wiped every one of them
+        return EXCLUDED_KEYS.contains(key) || key.startsWith("video_pos_");
     }
 
     /**
@@ -150,7 +156,9 @@ public final class PreferencesBackupUtil {
         }
     }
 
-    private static final int MAX_BACKUP_CHARS = 2 * 1024 * 1024;
+    // The preview sheet carries the JSON in its arguments, and a large one crashed the
+    // app with TransactionTooLargeException when it went to the background
+    private static final int MAX_BACKUP_CHARS = 256 * 1024;
 
     /**
      * Reads JSON from provided URI.

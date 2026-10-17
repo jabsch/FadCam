@@ -37,6 +37,9 @@ public class PrefsBackupBottomSheetFragment extends BottomSheetDialogFragment {
     private ActivityResultLauncher<Intent> importLauncher;
     private ActivityResultLauncher<Intent> previewLauncher;
     private JSONObject lastLoadedJson; // can be from import or preview
+    private static final java.util.concurrent.ExecutorService IO =
+            java.util.concurrent.Executors.newSingleThreadExecutor();
+    private static final android.os.Handler MAIN = new android.os.Handler(android.os.Looper.getMainLooper());
 
     public static PrefsBackupBottomSheetFragment newInstance(){
         return new PrefsBackupBottomSheetFragment();
@@ -55,46 +58,73 @@ public class PrefsBackupBottomSheetFragment extends BottomSheetDialogFragment {
             if(result.getResultCode() == Activity.RESULT_OK && result.getData()!=null){
                 Uri uri = result.getData().getData();
                 if(uri!=null){
-                    try {
-                        JSONObject json = PreferencesBackupUtil.buildBackupJson(requireContext());
-                        PreferencesBackupUtil.writeJsonToUri(requireContext(), uri, json);
-                        Toast.makeText(requireContext(), getString(R.string.prefs_export_success), Toast.LENGTH_SHORT).show();
-                    } catch (Exception e){
-                        Toast.makeText(requireContext(), getString(R.string.prefs_export_failed)+": "+e.getMessage(), Toast.LENGTH_LONG).show();
-                    }
+                    exportInBackground(uri);
                 }
             }
         });
-        importLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+        // Import and preview both load the file and show it before anything is applied
+        ActivityResultCallback<androidx.activity.result.ActivityResult> load = result -> {
             if(result.getResultCode() == Activity.RESULT_OK && result.getData()!=null){
                 Uri uri = result.getData().getData();
-                if(uri!=null){
-                    try {
-                        JSONObject json = PreferencesBackupUtil.readJsonFromUri(requireContext(), uri);
-                        lastLoadedJson = json;
-                        // Safe default: always preview before importing so the user
-                        // sees what will be loaded (and any malformed values) first.
-                        renderPreviewDialog(json);
-                    } catch (Exception e){
-                        Toast.makeText(requireContext(), getString(R.string.prefs_import_failed)+": "+e.getMessage(), Toast.LENGTH_LONG).show();
-                    }
-                }
+                if(uri!=null) loadInBackground(uri);
             }
-        });
-        previewLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-            if(result.getResultCode() == Activity.RESULT_OK && result.getData()!=null){
-                Uri uri = result.getData().getData();
-                if(uri!=null){
-                    try {
-                        JSONObject json = PreferencesBackupUtil.readJsonFromUri(requireContext(), uri);
-                        lastLoadedJson = json;
-                        renderPreviewDialog(json);
-                    } catch (Exception e){
-                        Toast.makeText(requireContext(), getString(R.string.prefs_import_failed)+": "+e.getMessage(), Toast.LENGTH_LONG).show();
-                    }
-                }
+        };
+        importLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), load);
+        previewLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), load);
+    }
+
+    /**
+     * File IO runs off the main thread: a backup in Drive or another cloud provider is
+     * downloaded inside openInputStream, which froze the sheet long enough for an ANR.
+     */
+    private void exportInBackground(Uri uri){
+        final android.content.Context appCtx = requireContext().getApplicationContext();
+        IO.execute(() -> {
+            Exception error = null;
+            try {
+                PreferencesBackupUtil.writeJsonToUri(appCtx, uri, PreferencesBackupUtil.buildBackupJson(appCtx));
+            } catch (Exception e){
+                error = e;
             }
+            final Exception failure = error;
+            // Application context: the result still shows if the sheet was closed meanwhile
+            MAIN.post(() -> Toast.makeText(appCtx, failure == null
+                    ? appCtx.getString(R.string.prefs_export_success)
+                    : failureText(appCtx, R.string.prefs_export_failed, failure),
+                    failure == null ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show());
         });
+    }
+
+    private void loadInBackground(Uri uri){
+        final android.content.Context appCtx = requireContext().getApplicationContext();
+        IO.execute(() -> {
+            JSONObject loaded = null;
+            Exception error = null;
+            try {
+                loaded = PreferencesBackupUtil.readJsonFromUri(appCtx, uri);
+            } catch (Exception e){
+                error = e;
+            }
+            final JSONObject json = loaded;
+            final Exception failure = error;
+            MAIN.post(() -> {
+                if(failure != null){
+                    Toast.makeText(appCtx, failureText(appCtx, R.string.prefs_import_failed, failure), Toast.LENGTH_LONG).show();
+                    return;
+                }
+                if(!isAdded() || getParentFragmentManager().isStateSaved()) return;
+                lastLoadedJson = json;
+                // Safe default: always preview before importing so the user
+                // sees what will be loaded (and any malformed values) first.
+                renderPreviewDialog(json);
+            });
+        });
+    }
+
+    /** "Import failed: reason", or just "Import failed" when the exception has no message. */
+    private static String failureText(android.content.Context ctx, int prefixRes, Exception e){
+        String msg = e.getMessage();
+        return msg == null || msg.isEmpty() ? ctx.getString(prefixRes) : ctx.getString(prefixRes) + ": " + msg;
     }
 
     @Override
@@ -189,7 +219,7 @@ public class PrefsBackupBottomSheetFragment extends BottomSheetDialogFragment {
             intent.putExtra(Intent.EXTRA_TITLE, suggested);
             exportLauncher.launch(intent);
         } catch (Exception e){
-            Toast.makeText(requireContext(), getString(R.string.prefs_export_failed)+": "+e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(requireContext(), failureText(requireContext(), R.string.prefs_export_failed, e), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -203,7 +233,7 @@ public class PrefsBackupBottomSheetFragment extends BottomSheetDialogFragment {
             intent.putExtra(Intent.EXTRA_MIME_TYPES, BACKUP_MIME_TYPES);
             importLauncher.launch(intent);
         } catch (Exception e){
-            Toast.makeText(requireContext(), getString(R.string.prefs_import_failed)+": "+e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(requireContext(), failureText(requireContext(), R.string.prefs_import_failed, e), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -217,7 +247,7 @@ public class PrefsBackupBottomSheetFragment extends BottomSheetDialogFragment {
                     Toast.makeText(requireContext(), getString(R.string.prefs_reset_done), Toast.LENGTH_LONG).show();
                     restartAppUI();
                 } catch (Exception e){
-                    Toast.makeText(requireContext(), getString(R.string.prefs_reset_failed)+": "+e.getMessage(), Toast.LENGTH_LONG).show();
+                    Toast.makeText(requireContext(), failureText(requireContext(), R.string.prefs_reset_failed, e), Toast.LENGTH_LONG).show();
                 }
             }
         });
@@ -236,7 +266,7 @@ public class PrefsBackupBottomSheetFragment extends BottomSheetDialogFragment {
             intent.putExtra(Intent.EXTRA_MIME_TYPES, BACKUP_MIME_TYPES);
             previewLauncher.launch(intent);
         } catch (Exception e){
-            Toast.makeText(requireContext(), getString(R.string.prefs_import_failed)+": "+e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(requireContext(), failureText(requireContext(), R.string.prefs_import_failed, e), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -262,7 +292,7 @@ public class PrefsBackupBottomSheetFragment extends BottomSheetDialogFragment {
                     : getString(R.string.prefs_import_success), Toast.LENGTH_LONG).show();
             restartAppUI();
         } catch (Exception ex){
-            Toast.makeText(requireContext(), getString(R.string.prefs_import_failed)+": "+ex.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(requireContext(), failureText(requireContext(), R.string.prefs_import_failed, ex), Toast.LENGTH_LONG).show();
         }
     }
 

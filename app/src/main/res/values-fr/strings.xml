@@ -180,7 +180,6 @@ Astuce : Avec H.265 (HEVC), vous pouvez utiliser environ la moitié du débit de
     <string name="up_to_date_description">Vous utilisez déjà la dernière version.</string>
     <string name="up_to_date_loading">Vérification des mises à jour…</string>
     <string name="update_available_title">Mise à jour disponible</string>
-    <string name="update_available_message">Une nouvelle version (%1$s) est disponible. Pour mettre à jour, s\'il vous plait allez sur F-Droid store ou notre dépôt GitHub pour plus de détails.</string>
     <string name="visit_fdroid">Visiter F-Droid</string>
     <string name="visit_github">Visiter GitHub</string>
     <string name="delete_all_videos_title">Supprimer toutes les vidéos</string>

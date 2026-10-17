@@ -222,7 +222,6 @@
     <string name="up_to_date_description">Zaten en son sürümü kullanıyorsunuz.</string>
     <string name="up_to_date_loading">Güncellemeler kontrol ediliyor…</string>
     <string name="update_available_title">Güncelleme Mevcut</string>
-    <string name="update_available_message">Yeni bir sürüm (%1$s) mevcut. Güncellemek için lütfen F-Droid mağazasını veya GitHub depomuzu ziyaret edin.</string>
     <string name="visit_fdroid">F-Droid\'i Ziyaret Et</string>
     <string name="visit_github">GitHub\'u Ziyaret Et</string>
     <string name="delete_all_videos_title">Tüm Videoları Sil</string>
@@ -1901,7 +1900,7 @@
 <string name="faditor_feature_export_desc">Donanım hızlandırmalı kodlama ile MP4 olarak dışa aktarın</string>
 <string name="faditor_feature_preview">Canlı Önizleme</string>
 <string name="faditor_feature_preview_desc">Kırpılmış kliplerinizin anında oynatılması</string>
-<string name="faditor_feature_privacy">%%100 Çevrimdışı</string>
+<string name="faditor_feature_privacy">%100 Çevrimdışı</string>
 <string name="faditor_feature_privacy_desc">Tüm düzenleme yerel olarak yapılır — yükleme yok, bulut yok</string>
 <string name="faditor_feature_convert">Akıllı Dönüştür</string>
 <string name="faditor_feature_convert_desc">Çökmeye dayanıklı kayıtları, her yerde sorunsuz oynatma için aranabilir MP4\'e otomatik dönüştürür</string>

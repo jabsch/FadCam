@@ -1659,7 +1659,6 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="forensics_source_label">Πηγή: %1$s</string>
     <string name="forensics_gallery_title">Συλλογή Αποδείξεων</string>
     <string name="forensics_gallery_selected_count">%1$d επιλεγμένα</string>
-    <string name="forensics_gallery_deleted_toast">%1$d μετακινήθηκαν στον κάδο</string>
     <plurals name="forensics_gallery_selected_count_plural">
         <item quantity="one">%1$d selected</item>
         <item quantity="other">%1$d selected</item>
@@ -1889,7 +1888,6 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="fix_video_internal_only">Η επιδιόρθωση υποστηρίζεται μόνο για εσωτερικά αρχεία.</string>
     <string name="fix_video_saf_copy_fail">Αποτυχία αντιγραφής SAF βίντεο.</string>
     <string name="fix_video_saf_write_fail">Δεν είναι δυνατή η εγγραφή.</string>
-    <string name="fix_video_saf_success">Το βίντεο επιδιορθώθηκε!</string>
     <string name="fix_video_saf_export">Εξαγωγή ή κοινή χρήση του επιδιορθωμένου αρχείου.</string>
     <!-- Debug Log Tools -->
     <string name="debug_log_tools_title">Αρχείο Καταγραφής</string>
@@ -1923,7 +1921,6 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="restore_confirm_title">Επιβεβαίωση Επαναφοράς</string>
     <string name="restore_confirm_message">Επαναφορά %1$d στοιχείων στο %2$s;</string>
     <string name="restore_progress_title">Επαναφορά Αρχείων</string>
-    <string name="restore_success_message">Επιτυχής επαναφορά %1$d στοιχείων</string>
     <string name="restore_error_message">Αποτυχία επαναφοράς</string>
     <string name="restore_cancelled">Η επαναφορά ακυρώθηκε</string>
     <string name="restore_confirm_button">Επαναφορά</string>

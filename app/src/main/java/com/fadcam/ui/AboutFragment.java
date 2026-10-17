@@ -487,6 +487,8 @@ public class AboutFragment extends BaseFragment {
 
 
     private void checkForUpdates() {
+        // A fast double tap opened two uncancellable dialogs and only the second was ever dismissed
+        if (loadingDialog != null && loadingDialog.isShowing()) return;
         showLoadingDialog(getString(R.string.up_to_date_loading));
         // Read the version on the main thread: the fragment may be gone when the check returns
         final String currentVersion = getAppVersionForUpdates();
