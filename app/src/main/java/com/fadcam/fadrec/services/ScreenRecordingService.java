@@ -31,6 +31,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.ServiceCompat;
 import androidx.core.content.ContextCompat;
 
 import android.provider.DocumentsContract;
@@ -58,7 +59,7 @@ import java.util.Locale;
 public class ScreenRecordingService extends Service {
 
     private static final String TAG = "ScreenRecordingService";
-    private static final int NOTIFICATION_ID = 2; // Different from RecordingService (ID=1)
+    private static final int NOTIFICATION_ID = 2101; // Unique: RecordingService=1, DualCameraRecordingService=2
     private static final String CHANNEL_ID = "ScreenRecordingChannel";
 
     // MediaProjection components
@@ -267,11 +268,8 @@ public class ScreenRecordingService extends Service {
         }
 
         Notification notification = createNotification();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
-        } else {
-            startForeground(NOTIFICATION_ID, notification);
-        }
+        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification,
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
 
         if (!ensureMediaProjection(intent)) {
             return;
@@ -331,11 +329,8 @@ public class ScreenRecordingService extends Service {
         recordingState = ScreenRecordingState.NONE;
         Notification notification = createNotification();
         
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
-        } else {
-            startForeground(NOTIFICATION_ID, notification);
-        }
+        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification,
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
         
         forceNoAudioForThisStart = intent.getBooleanExtra(
             Constants.EXTRA_SCREEN_RECORDING_FORCE_NO_AUDIO,
@@ -355,6 +350,7 @@ public class ScreenRecordingService extends Service {
             } catch (IOException e) {
                 String errorMsg = e.getMessage() != null ? e.getMessage() : "I/O error";
                 FLog.e(TAG, "IOException starting screen recording: " + errorMsg, e);
+                discardFailedStartOutput();
                 mainHandler.post(() -> {
                     Toast.makeText(this, getString(R.string.screen_rec_failed, errorMsg), Toast.LENGTH_SHORT).show();
                     stopSelf();
@@ -362,12 +358,32 @@ public class ScreenRecordingService extends Service {
             } catch (Exception e) {
                 String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
                 FLog.e(TAG, "Error starting screen recording: " + errorMsg, e);
+                discardFailedStartOutput();
                 mainHandler.post(() -> {
                     Toast.makeText(this, getString(R.string.screen_rec_failed, errorMsg), Toast.LENGTH_SHORT).show();
                     stopSelf();
                 });
             }
         });
+    }
+
+    /** Releases the pipeline and deletes the empty output file left by a failed start. */
+    private void discardFailedStartOutput() {
+        cleanupPipeline();
+        if (outputFile != null) {
+            if (outputFile.exists() && !outputFile.delete()) {
+                FLog.w(TAG, "Could not delete failed output: " + outputFile.getName());
+            }
+            outputFile = null;
+        }
+        if (safRecordingUri != null) {
+            try {
+                DocumentsContract.deleteDocument(getContentResolver(), safRecordingUri);
+            } catch (Exception e) {
+                FLog.e(TAG, "Could not delete failed SAF output", e);
+            }
+            safRecordingUri = null;
+        }
     }
 
     private boolean ensureMediaProjection(Intent intent) {
@@ -746,7 +762,7 @@ public class ScreenRecordingService extends Service {
                 if (enableAudioForSession) {
                     fgTypes |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
                 }
-                startForeground(NOTIFICATION_ID, createNotification(), fgTypes);
+                ServiceCompat.startForeground(this, NOTIFICATION_ID, createNotification(), fgTypes);
                 
                 // Start notification updates
                 startNotificationUpdates();
@@ -896,8 +912,8 @@ public class ScreenRecordingService extends Service {
     private void handleStopRecording() {
         FLog.d(TAG, "handleStopRecording: Stopping screen recording");
         
-        if (recordingState == ScreenRecordingState.NONE) {
-            FLog.w(TAG, "No recording in progress");
+        if (recordingState == ScreenRecordingState.NONE || recordingState == ScreenRecordingState.STOPPING) {
+            FLog.w(TAG, "No recording in progress or already stopping");
             return;
         }
         
@@ -1309,7 +1325,7 @@ public class ScreenRecordingService extends Service {
                     this, 1, resumeIntent, 
                     PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
                 );
-                builder.addAction(R.drawable.ic_notification_play, "Resume", resumePendingIntent);
+                builder.addAction(R.drawable.ic_notification_play, getString(R.string.button_resume), resumePendingIntent);
             } else if (recordingState == ScreenRecordingState.IN_PROGRESS) {
                 Intent pauseIntent = new Intent(this, ScreenRecordingService.class);
                 pauseIntent.setAction(Constants.INTENT_ACTION_PAUSE_SCREEN_RECORDING);
@@ -1317,7 +1333,7 @@ public class ScreenRecordingService extends Service {
                     this, 1, pauseIntent, 
                     PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
                 );
-                builder.addAction(R.drawable.ic_notification_pause, "Pause", pausePendingIntent);
+                builder.addAction(R.drawable.ic_notification_pause, getString(R.string.button_pause), pausePendingIntent);
             }
         }
         
@@ -1371,7 +1387,8 @@ public class ScreenRecordingService extends Service {
      * Gets notification text with recording duration.
      */
     private String getNotificationText() {
-        return recordingState == ScreenRecordingState.PAUSED ? "Recording paused" : "Recording";
+        return getString(recordingState == ScreenRecordingState.PAUSED
+            ? R.string.fadrec_notification_paused : R.string.fadrec_notification_recording);
     }
 
     /**

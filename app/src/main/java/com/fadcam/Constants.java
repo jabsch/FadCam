@@ -313,8 +313,6 @@ public abstract class Constants {
         "com.fadcam.ACTION_STOP_SCREEN_RECORDING";
     
     // Transparent permission activity actions
-    public static final String ACTION_SCREEN_RECORDING_PERMISSION_GRANTED =
-        "com.fadcam.ACTION_SCREEN_RECORDING_PERMISSION_GRANTED";
     public static final String ACTION_SCREEN_RECORDING_PERMISSION_DENIED =
         "com.fadcam.ACTION_SCREEN_RECORDING_PERMISSION_DENIED";
 

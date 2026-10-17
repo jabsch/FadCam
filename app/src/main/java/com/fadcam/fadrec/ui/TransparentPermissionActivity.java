@@ -31,15 +31,11 @@ public class TransparentPermissionActivity extends ComponentActivity {
         
         FLog.d(TAG, "TransparentPermissionActivity created");
         
-        // Check if we already requested permission (activity recreated)
+        // Activity recreated while the prompt is open: the launcher below must still be
+        // registered so the pending result is delivered; requestScreenCapturePermission() skips the relaunch
         if (savedInstanceState != null) {
             permissionRequested = savedInstanceState.getBoolean("permissionRequested", false);
             FLog.d(TAG, "Activity recreated, permissionRequested: " + permissionRequested);
-            if (permissionRequested) {
-                // Permission already requested, activity was recreated
-                // Don't request again, just wait for result or finish
-                return;
-            }
         }
         
         // Initialize MediaProjectionHelper
@@ -58,20 +54,10 @@ public class TransparentPermissionActivity extends ComponentActivity {
                     
                     FLog.d(TAG, "Permission GRANTED - resultCode: " + result.getResultCode());
                     
-                    // Send broadcast with permission result to start recording
-                    // Use LocalBroadcastManager to guarantee delivery on Android 12+
-                    Intent broadcastIntent = new Intent(Constants.ACTION_SCREEN_RECORDING_PERMISSION_GRANTED);
-                    broadcastIntent.putExtra("resultCode", result.getResultCode());
-                    // Copy the entire data intent into the broadcast (including all extras)
-                    if (data.getExtras() != null) {
-                        broadcastIntent.putExtras(data.getExtras());
-                    }
-                    // Also store the data intent itself as a parcelable
-                    broadcastIntent.putExtra("mediaProjectionData", data);
-                    
-                    this.sendBroadcast(broadcastIntent.setPackage(this.getPackageName()));
-                    
-                    FLog.d(TAG, "[BROADCAST-SEND] Permission granted broadcast sent via LocalBroadcastManager with data extras");
+                    // Start the service directly while this activity is visible, so recording starts
+                    // even when FadRec's screen (the old broadcast receiver) is gone and the app is
+                    // in the background
+                    mediaProjectionHelper.startScreenRecording(result.getResultCode(), data, false);
                 } else {
                     // Permission denied or data is null
                     FLog.w(TAG, "Screen capture permission DENIED or data null - resultCode: " + result.getResultCode());

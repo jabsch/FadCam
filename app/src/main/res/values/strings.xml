@@ -1088,7 +1088,7 @@
     <string name="stop_recording">Stop</string>
     <string name="shortcut_take_photo">Photo</string>
     <string name="shortcut_take_photo_front">Selfie</string>
-    <string name="shortcut_take_screenshot">FadRec</string>
+    <string name="shortcut_take_screenshot">Screenshot</string>
     <string name="screenshot_capture_saved">Screenshot saved</string>
     <string name="screenshot_capture_failed">Could not capture screenshot</string>
     <string name="screenshot_capture_system_saved">Screenshot captured by system. Saved in system screenshots.</string>
@@ -3387,4 +3387,18 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="camera_switch_resume_first">Resume recording to switch camera</string>
     <string name="records_empty_filter">No recordings match this filter</string>
     <string name="about_no_email_app">No email app found</string>
+    <string name="shortcut_start_failed">Failed to start recording</string>
+    <string name="shortcut_stop_failed">Failed to stop recording</string>
+    <string name="shortcut_badge_toggle">Rec Toggle</string>
+    <string name="shortcut_badge_back">Back</string>
+    <string name="shortcut_badge_front">Front</string>
+    <string name="shortcut_badge_current">Current</string>
+    <string name="shortcut_badge_dual">Dual</string>
+    <string name="shortcut_badge_stop">Stop</string>
+    <string name="shortcut_badge_torch">Torch</string>
+    <string name="shortcut_badge_shot_back">FadShot Back</string>
+    <string name="shortcut_badge_shot_front">FadShot Front</string>
+    <string name="shortcut_badge_screenshot">Screenshot</string>
+    <string name="shortcut_badge_voice">Voice</string>
+    <string name="shortcut_badge_default">Shortcut</string>
 </resources>
