@@ -120,7 +120,7 @@ public class UpdateAvailableBottomSheet extends BottomSheetDialogFragment {
             tvUpdateDescription.setTextColor(Color.WHITE);
             
             // Fetch changelog from GitHub
-            fetchAndDisplayChangelog(tvUpdateDescription);
+            fetchAndDisplayChangelog(tvUpdateDescription, version);
         }
 
         // Version row: current version (red), arrow, new version (green)
@@ -171,8 +171,8 @@ public class UpdateAvailableBottomSheet extends BottomSheetDialogFragment {
      * Fetches the changelog from GitHub and displays it in the TextView
      * @param tvUpdateDescription TextView to display the changelog
      */
-    private void fetchAndDisplayChangelog(TextView tvUpdateDescription) {
-        ChangelogParser.fetchChangelog().thenAccept(changelogHtml -> {
+    private void fetchAndDisplayChangelog(TextView tvUpdateDescription, String version) {
+        ChangelogParser.fetchChangelog(version).thenAccept(changelogHtml -> {
             if (getActivity() == null || !isAdded()) return;
             
             requireActivity().runOnUiThread(() -> {

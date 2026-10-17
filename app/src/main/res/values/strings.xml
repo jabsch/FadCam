@@ -3446,4 +3446,6 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="playback_channel_name">Video playback</string>
     <string name="playback_channel_desc">Background media playback controls</string>
     <string name="video_recording_voice_busy">Stop the voice recording first. Both can\'t use the microphone at once.</string>
+    <!-- Must match the words inside onboarding_human_checkbox3 that link to the policy -->
+    <string name="onboarding_privacy_policy_link">Privacy Policy</string>
 </resources>

@@ -18,30 +18,41 @@ import java.util.regex.Pattern;
  */
 public class ChangelogParser {
     private static final String TAG = "ChangelogParser";
-    private static final String CHANGELOG_URL = "https://raw.githubusercontent.com/jabsch/FadCam/refs/heads/master/CHANGELOG.md";
+    // The release's own notes: CHANGELOG.md in the repo still holds upstream's v3 text
+    private static final String RELEASE_BY_TAG_URL = "https://api.github.com/repos/jabsch/FadCam/releases/tags/v";
     private static final String HEADER_COLOR = "#E43C3C"; // Red color for headers
 
     /**
      * Fetches the changelog from GitHub and returns it as a CompletableFuture<String>
      * @return CompletableFuture containing the formatted changelog HTML
      */
-    public static CompletableFuture<String> fetchChangelog() {
+    public static CompletableFuture<String> fetchChangelog(String version) {
         return CompletableFuture.supplyAsync(() -> {
+            java.net.HttpURLConnection conn = null;
             try {
-                URL url = new URL(CHANGELOG_URL);
-                BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream()));
+                if (version == null || version.trim().isEmpty()) return "";
+                String tag = version.trim().startsWith("v") ? version.trim().substring(1) : version.trim();
+                URL url = new URL(RELEASE_BY_TAG_URL + tag);
+                conn = (java.net.HttpURLConnection) url.openConnection();
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(10000);
+                conn.setRequestProperty("Accept", "application/vnd.github+json");
+                if (conn.getResponseCode() != 200) return "";
                 StringBuilder content = new StringBuilder();
-                String line;
-                
-                while ((line = reader.readLine()) != null) {
-                    content.append(line).append("\n");
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        content.append(line).append("\n");
+                    }
                 }
-                reader.close();
-                
-                return parseChangelogInternal(content.toString());
+                String body = new org.json.JSONObject(content.toString()).optString("body", "");
+                if (body.trim().isEmpty()) return "";
+                return parseChangelogInternal(body.replace("\r\n", "\n"));
             } catch (Exception e) {
                 FLog.e(TAG, "Error fetching changelog", e);
                 return "";
+            } finally {
+                if (conn != null) conn.disconnect();
             }
         });
     }

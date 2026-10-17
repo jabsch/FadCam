@@ -76,7 +76,7 @@ public class ReadmeBottomSheetFragment extends BottomSheetDialogFragment {
 
                 // GitHub row (second)
                 LinearLayout githubRow = buildActionRow(R.drawable.ic_github, getString(R.string.button_readme_github), getString(R.string.readme_github_subtitle));
-                githubRow.setOnClickListener(v -> openUrl("https://github.com/anonfaded/FadCam"));
+                githubRow.setOnClickListener(v -> openUrl("https://github.com/jabsch/FadCam"));
                 linksCard.addView(githubRow);
 
                 // Divider 2

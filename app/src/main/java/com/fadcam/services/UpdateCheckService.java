@@ -61,14 +61,13 @@ public class UpdateCheckService {
         // Fetch both feeds in parallel on a small thread pool
         ExecutorService pool = Executors.newFixedThreadPool(2);
         final String[] freeXml = {null}, proXml = {null};
-        try {
-            pool.execute(() -> freeXml[0] = fetchFeed(FREE_FEED, FREE_REPO));
-            pool.execute(() -> proXml[0] = fetchFeed(PRO_FEED, PRO_REPO));
-            pool.shutdown();
-            pool.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        java.util.concurrent.Future<String> freeFuture = pool.submit(() -> fetchFeed(FREE_FEED, FREE_REPO));
+        java.util.concurrent.Future<String> proFuture = pool.submit(() -> fetchFeed(PRO_FEED, PRO_REPO));
+        pool.shutdown();
+        // Each fetch can take 10 s to connect plus 10 s to read; a 15 s total wait
+        // reported slow networks as "failed to check"
+        freeXml[0] = awaitFeed(freeFuture);
+        proXml[0] = awaitFeed(proFuture);
 
         // Parse free repo
         ReleaseInfo freeLatest = parseFeed(freeXml[0], FREE_REPO);
@@ -99,6 +98,18 @@ public class UpdateCheckService {
         return result;
     }
 
+    private static String awaitFeed(java.util.concurrent.Future<String> future) {
+        try {
+            return future.get(25, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (Exception e) {
+            future.cancel(true);
+            return null;
+        }
+    }
+
     // ── HTTP ─────────────────────────────────────────────────────────
 
     private static String fetchFeed(String feedUrl, String repo) {
@@ -122,6 +133,11 @@ public class UpdateCheckService {
                 while ((n = is.read(buf)) != -1) bos.write(buf, 0, n);
                 is.close();
                 String xml = bos.toString("UTF-8");
+                // A captive portal answers 200 with a login page; that isn't "up to date"
+                if (!xml.contains("<feed")) {
+                    FLog.w(TAG, repo + " response is not an Atom feed");
+                    return null;
+                }
                 // Feed size is noise — not logged (was: "feed: N chars").
                 return xml;
             } finally {
