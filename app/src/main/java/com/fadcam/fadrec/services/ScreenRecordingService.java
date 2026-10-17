@@ -862,7 +862,7 @@ public class ScreenRecordingService extends Service {
     private String getRecordingTimestamp() {
         // Abbreviated day (e.g. "Wed, ") included when the Day toggle is on.
         String pattern = (sharedPreferencesManager.isWatermarkDayEnabled() ? "EEE, " : "")
-                + "dd/MMM/yyyy hh:mm:ss a";
+                + "dd/MMM/yyyy " + (android.text.format.DateFormat.is24HourFormat(this) ? "HH:mm:ss" : "hh:mm:ss a");
         SimpleDateFormat sdf = new SimpleDateFormat(pattern, Locale.ENGLISH);
         return sdf.format(new Date());
     }

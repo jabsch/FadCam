@@ -525,7 +525,8 @@ public class GLRecordingPipeline {
                         } catch (Exception e) {
                             FLog.w(TAG, "Watermark update failed", e);
                         }
-                        watermarkUpdateHandler.postDelayed(this, 1000); // 1 second constant
+                        // Aligned to the wall-clock second so the seconds digit doesn't lag or skip
+                        watermarkUpdateHandler.postDelayed(this, 1000 - (System.currentTimeMillis() % 1000));
                     }
                 }
             };
