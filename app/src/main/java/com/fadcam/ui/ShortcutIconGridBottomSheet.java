@@ -36,8 +36,18 @@ public class ShortcutIconGridBottomSheet extends BottomSheetDialogFragment {
     private OnShortcutIconSelectedListener listener;
     private SharedPreferencesManager spm;
 
+    /** Needed by the fragment manager to restore the sheet after recreation. */
+    public ShortcutIconGridBottomSheet() {}
+
     public ShortcutIconGridBottomSheet(OnShortcutIconSelectedListener listener) {
         this.listener = listener;
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        // Restored without a listener (recreation): a pick would go nowhere, so close
+        if (listener == null) dismissAllowingStateLoss();
     }
 
     @Nullable

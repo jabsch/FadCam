@@ -91,12 +91,25 @@ public class ShortcutsPreferences {
      */
     @Nullable
     public String setCustomIconFromUri(@NonNull String shortcutId, @NonNull Uri imageUri) {
-        try (InputStream is = ctx.getContentResolver().openInputStream(imageUri)) {
-            if (is == null) return null;
-            android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeStream(is);
-            if (bmp == null) return null;
-            return setCustomIconFromBitmap(shortcutId, bmp);
-        } catch (Exception e) {
+        try {
+            // Bounds first: a full-size 50+ MP photo would run out of memory
+            android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
+            opts.inJustDecodeBounds = true;
+            try (InputStream is = ctx.getContentResolver().openInputStream(imageUri)) {
+                if (is == null) return null;
+                android.graphics.BitmapFactory.decodeStream(is, null, opts);
+            }
+            int sample = 1;
+            while (Math.min(opts.outWidth, opts.outHeight) / (sample * 2) >= 432) sample *= 2;
+            android.graphics.BitmapFactory.Options decode = new android.graphics.BitmapFactory.Options();
+            decode.inSampleSize = sample;
+            try (InputStream is = ctx.getContentResolver().openInputStream(imageUri)) {
+                if (is == null) return null;
+                android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeStream(is, null, decode);
+                if (bmp == null) return null;
+                return setCustomIconFromBitmap(shortcutId, bmp);
+            }
+        } catch (Exception | OutOfMemoryError e) {
             return null;
         }
     }
