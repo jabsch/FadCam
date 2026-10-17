@@ -87,6 +87,7 @@ public class SettingsHomeFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         com.fadcam.Utils.attachPressScaleToClickableRows(view);
         super.onViewCreated(view, savedInstanceState);
+        registerSwitchSheetListeners();
         com.fadcam.SharedPreferencesManager prefs = com.fadcam.SharedPreferencesManager.getInstance(requireContext());
         prefManager = prefs;
         prefListener = (sp, key) -> {
@@ -699,18 +700,41 @@ public class SettingsHomeFragment extends Fragment {
         }
     }
 
+    private static final String RESULT_SWITCH_ONBOARDING = "picker_result_onboarding";
+    private static final String RESULT_SWITCH_AUTO_UPDATE = "picker_result_auto_update";
+    private static final String RESULT_SWITCH_DEBUG_LOGGING = "picker_result_debug_logging";
+
+    /**
+     * Registered once per view. They used to be set only when a sheet was opened, so a
+     * sheet restored after rotation sent its switch to nobody and the setting was not saved.
+     */
+    private void registerSwitchSheetListeners() {
+        androidx.fragment.app.FragmentManager fm = getParentFragmentManager();
+        final com.fadcam.SharedPreferencesManager prefs = com.fadcam.SharedPreferencesManager.getInstance(requireContext());
+        final String switchKey = com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE;
+        fm.setFragmentResultListener(RESULT_SWITCH_ONBOARDING, getViewLifecycleOwner(), (k, b) -> {
+            if (!b.containsKey(switchKey)) return;
+            boolean state = b.getBoolean(switchKey);
+            if (state) { prefs.sharedPreferences.edit().putBoolean(com.fadcam.Constants.FIRST_INSTALL_CHECKED_KEY, false).apply(); }
+            prefs.setShowOnboarding(state);
+            if (getView() != null) refreshAppInlineValues(getView());
+        });
+        fm.setFragmentResultListener(RESULT_SWITCH_AUTO_UPDATE, getViewLifecycleOwner(), (k, b) -> {
+            if (!b.containsKey(switchKey)) return;
+            prefs.sharedPreferences.edit().putBoolean("auto_update_check_enabled", b.getBoolean(switchKey)).apply();
+            if (getView() != null) refreshAppInlineValues(getView());
+        });
+        fm.setFragmentResultListener(RESULT_SWITCH_DEBUG_LOGGING, getViewLifecycleOwner(), (k, b) -> {
+            if (!b.containsKey(switchKey)) return;
+            prefs.sharedPreferences.edit().putBoolean(com.fadcam.Constants.PREF_DEBUG_DATA, b.getBoolean(switchKey)).apply();
+            if (getView() != null) refreshAppInlineValues(getView());
+        });
+    }
+
     private void showOnboardingSwitchSheet() {
-        final String resultKey = "picker_result_onboarding";
+        final String resultKey = RESULT_SWITCH_ONBOARDING;
         com.fadcam.SharedPreferencesManager prefs = com.fadcam.SharedPreferencesManager.getInstance(requireContext());
         boolean enabled = prefs.isShowOnboarding();
-        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
-            if (b.containsKey(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE)) {
-                boolean state = b.getBoolean(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE);
-                if (state) { prefs.sharedPreferences.edit().putBoolean(com.fadcam.Constants.FIRST_INSTALL_CHECKED_KEY, false).apply(); }
-                prefs.setShowOnboarding(state);
-                refreshAppInlineValues(requireView());
-            }
-        });
         String helper = getString(R.string.note_onboarding);
         com.fadcam.ui.picker.PickerBottomSheetFragment sheet = com.fadcam.ui.picker.PickerBottomSheetFragment.newInstanceWithSwitch(
                 getString(R.string.setting_onboarding_title), new java.util.ArrayList<>(), null, resultKey, helper,
@@ -719,16 +743,9 @@ public class SettingsHomeFragment extends Fragment {
     }
 
     private void showAutoUpdateSwitchSheet() {
-        final String resultKey = "picker_result_auto_update";
+        final String resultKey = RESULT_SWITCH_AUTO_UPDATE;
         com.fadcam.SharedPreferencesManager prefs = com.fadcam.SharedPreferencesManager.getInstance(requireContext());
         boolean enabled = prefs.sharedPreferences.getBoolean("auto_update_check_enabled", true);
-        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
-            if (b.containsKey(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE)) {
-                boolean state = b.getBoolean(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE);
-                prefs.sharedPreferences.edit().putBoolean("auto_update_check_enabled", state).apply();
-                refreshAppInlineValues(requireView());
-            }
-        });
         String helper = getString(R.string.note_auto_update_check);
         com.fadcam.ui.picker.PickerBottomSheetFragment sheet = com.fadcam.ui.picker.PickerBottomSheetFragment.newInstanceWithSwitch(
                 getString(R.string.setting_auto_update_check_title), new java.util.ArrayList<>(), null, resultKey, helper,
@@ -737,16 +754,9 @@ public class SettingsHomeFragment extends Fragment {
     }
 
     private void showDebugLoggingSwitchSheet() {
-        final String resultKey = "picker_result_debug_logging";
+        final String resultKey = RESULT_SWITCH_DEBUG_LOGGING;
         com.fadcam.SharedPreferencesManager prefs = com.fadcam.SharedPreferencesManager.getInstance(requireContext());
         boolean enabled = prefs.isDebugLoggingEnabled();
-        getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
-            if (b.containsKey(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE)) {
-                boolean state = b.getBoolean(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE);
-                prefs.sharedPreferences.edit().putBoolean(com.fadcam.Constants.PREF_DEBUG_DATA, state).apply();
-                refreshAppInlineValues(requireView());
-            }
-        });
         String helper = getString(R.string.note_debug_detailed);
         com.fadcam.ui.picker.PickerBottomSheetFragment sheet = com.fadcam.ui.picker.PickerBottomSheetFragment.newInstanceWithSwitch(
                 getString(R.string.setting_debug_title), new java.util.ArrayList<>(), null, resultKey, helper,

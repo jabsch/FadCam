@@ -49,22 +49,22 @@
             <!-- Close Button (LEFT SIDE) -->
             <ImageButton
                 android:id="@+id/btnCloseWhatsNew"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:src="@drawable/ic_close"
                 android:contentDescription="@string/desc_close"
                 android:scaleType="centerInside"
                 android:tint="@android:color/white"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:padding="6dp"
-                android:layout_marginEnd="8dp" />
+                android:padding="12dp"
+                android:layout_marginEnd="2dp" />
 
             <!-- Title -->
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="✨ What's New"
+                android:text="@string/whats_new_header"
                 android:textSize="18sp"
                 android:textStyle="bold"
                 android:textColor="@android:color/white"
@@ -85,7 +85,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="New features, improvements, and bug fixes in this version."
+                android:text="@string/whats_new_info"
                 android:textColor="#E0E0E0"
                 android:textSize="11sp"
                 android:lineSpacingExtra="0.5dp"
@@ -94,7 +94,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Re-enable in Settings → 'Show Intro' toggle"
+                android:text="@string/whats_new_reenable_hint"
                 android:textColor="#888888"
                 android:textSize="10sp"
                 android:lineSpacingExtra="0.5dp"
@@ -211,7 +211,7 @@
                 android:id="@+id/btnGotIt"
                 android:layout_width="match_parent"
                 android:layout_height="42dp"
-                android:text="Got It!"
+                android:text="@string/whats_new_got_it"
                 android:textSize="14sp"
                 android:textColor="@android:color/white"
                 android:backgroundTint="#4CAF50"

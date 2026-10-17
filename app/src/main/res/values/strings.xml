@@ -3478,4 +3478,8 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="watch_player_play">Play</string>
     <string name="watch_player_pause">Pause</string>
     <string name="watch_record_toggle_desc">Start or stop recording</string>
+    <string name="whats_new_header">✨ What\'s New</string>
+    <string name="whats_new_info">New features, improvements, and bug fixes in this version.</string>
+    <string name="whats_new_reenable_hint">Re-enable in Settings → Show Intro</string>
+    <string name="whats_new_got_it">Got It!</string>
 </resources>
