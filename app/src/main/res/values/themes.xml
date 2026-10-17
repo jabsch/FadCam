@@ -607,7 +607,7 @@
         <item name="android:textColor">@color/white</item>
     </style>
 
-    <style name="Theme.FadCam.SnowVeil" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.FadCam.SnowVeil" parent="Theme.Material3.Light.NoActionBar">
         <item name="colorTopBar">@color/snowveil_theme_primary_variant</item>
         <item name="colorBottomNav">@color/snowveil_theme_primary_variant</item>
         <item name="colorHeading">@color/snowveil_theme_heading_on_blue</item>
