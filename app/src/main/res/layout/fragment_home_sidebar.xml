@@ -32,8 +32,10 @@
             <ImageView
                 android:id="@+id/home_sidebar_close_btn"
         android:contentDescription="@string/universal_close"
-                android:layout_width="14dp" android:layout_height="14dp"
-                android:layout_marginEnd="0dp"
+                android:layout_width="32dp" android:layout_height="32dp"
+                android:padding="9dp"
+                android:layout_marginStart="-9dp"
+                android:layout_marginEnd="-9dp"
                 android:src="@drawable/ic_close"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:tint="?attr/pickerTextSecondary"
@@ -527,9 +529,11 @@
 
             <ImageView
                 android:id="@+id/btn_mini_apps_info"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:padding="2dp"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginTop="-8dp"
+                android:layout_marginBottom="-8dp"
+                android:padding="10dp"
                 android:src="@drawable/ic_info"
                 android:tint="?attr/colorHeading"
                 android:background="?attr/selectableItemBackgroundBorderless"
@@ -539,9 +543,11 @@
 
             <TextView
                 android:id="@+id/btn_mini_apps_edit"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:layout_marginStart="12dp"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginTop="-8dp"
+                android:layout_marginBottom="-8dp"
+                android:layout_marginEnd="-8dp"
                 android:padding="2dp"
                 android:fontFamily="@font/materialicons"
                 android:text="edit"

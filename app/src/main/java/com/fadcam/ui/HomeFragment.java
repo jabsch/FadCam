@@ -10593,8 +10593,11 @@ public class HomeFragment extends BaseFragment {
         // Set up hamburger menu click handler
         if (btnHamburgerMenu != null) {
             btnHamburgerMenu.setOnClickListener(v -> {
-                HomeSidebarFragment sidebar = HomeSidebarFragment.newInstance();
-                sidebar.show(getParentFragmentManager(), "HomeSidebar");
+                // show() commits later, so a double tap opened two sidebars; showNow lets
+                // the second tap find the first
+                androidx.fragment.app.FragmentManager fm = getParentFragmentManager();
+                if (fm.isStateSaved() || fm.findFragmentByTag("HomeSidebar") != null) return;
+                HomeSidebarFragment.newInstance().showNow(fm, "HomeSidebar");
             });
         }
 

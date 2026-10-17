@@ -84,12 +84,30 @@ public class GalleryFastScroller extends View {
     private final RecyclerView.OnScrollListener scrollListener = new RecyclerView.OnScrollListener() {
         @Override
         public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
-            if (!isDragging) {
-                updateThumbPositionFromRecyclerView();
-                showAndScheduleHide();
+            if (isDragging) return;
+            // Every layout pass reports (0, 0): filtering or loading flashed a useless
+            // full-height thumb on lists that fit the screen
+            if (rv.computeVerticalScrollRange() - rv.computeVerticalScrollExtent() <= 0) {
+                handler.removeCallbacks(hideRunnable);
+                animateVisibility(false);
+                return;
             }
+            updateThumbPositionFromRecyclerView();
+            if (dy != 0) showAndScheduleHide();
         }
     };
+
+    /** Whether a screen x falls in the strip where a touch starts a thumb drag (see onTouchEvent). */
+    public boolean isInDragStrip(float rawX) {
+        int[] loc = new int[2];
+        getLocationOnScreen(loc);
+        return rawX - loc[0] >= dragStripLeft();
+    }
+
+    /** From the view width, not thumbRect, which stays at 0 until the first draw. */
+    private float dragStripLeft() {
+        return getWidth() - thumbMarginEnd - currentThumbWidth - 24 * getResources().getDisplayMetrics().density;
+    }
 
     public GalleryFastScroller(Context context) {
         super(context);
@@ -124,8 +142,12 @@ public class GalleryFastScroller extends View {
 
         currentThumbWidth = thumbWidth;
 
-        trackPaint.setColor(0x1AFFFFFF);
-        thumbPaint.setColor(0xCCFFFFFF);
+        // White on dark themes, dark on Snow Veil (the white thumb vanished there)
+        android.util.TypedValue tv = new android.util.TypedValue();
+        int on = getContext().getTheme().resolveAttribute(
+                com.google.android.material.R.attr.colorOnBackground, tv, true) ? tv.data : 0xFFFFFFFF;
+        trackPaint.setColor((on & 0x00FFFFFF) | 0x1A000000);
+        thumbPaint.setColor((on & 0x00FFFFFF) | 0xCC000000);
         bubblePaint.setColor(0xE6333333);
 
         bubbleTextPaint.setColor(0xFFFFFFFF);
@@ -247,8 +269,7 @@ public class GalleryFastScroller extends View {
                 float x = event.getX();
                 float y = event.getY();
                 // Expand touch target area for easier grabbing
-                float touchLeft = thumbRect.left - 24 * getResources().getDisplayMetrics().density;
-                if (x < touchLeft) return false;
+                if (x < dragStripLeft()) return false;
 
                 isDragging = true;
                 handler.removeCallbacks(hideRunnable);

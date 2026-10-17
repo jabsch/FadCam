@@ -798,7 +798,7 @@ public class MainActivity extends AppCompatActivity {
                 swipeDownY = ev.getRawY();
                 swipeHandled = false;
                 View touched = findDeepestViewAt(getWindow().getDecorView(), ev.getRawX(), ev.getRawY());
-                swipeCandidate = !isSwipeExcludedTarget(touched);
+                swipeCandidate = !isSwipeExcludedTarget(touched, ev.getRawX());
                 if (previewGestureInProgress && Math.abs(previewGestureZoomRatio - 0.5f) >= 0.01f) {
                     swipeCandidate = false;
                 }
@@ -880,13 +880,15 @@ public class MainActivity extends AppCompatActivity {
             String tag = getFragmentTagForPosition(0);
             androidx.fragment.app.Fragment frag = fm.findFragmentByTag(tag);
             if (frag instanceof com.fadcam.ui.HomeFragment) {
+                // A swipe plus a tap (or two quick swipes) opened two stacked sidebars
+                if (fm.isStateSaved() || fm.findFragmentByTag("HomeSidebar") != null) return;
                 com.fadcam.ui.HomeSidebarFragment sidebar = com.fadcam.ui.HomeSidebarFragment.newInstance();
-                sidebar.show(fm, "HomeSidebar");
+                sidebar.showNow(fm, "HomeSidebar");
             }
         }
     }
 
-    private boolean isSwipeExcludedTarget(View touchedView) {
+    private boolean isSwipeExcludedTarget(View touchedView, float rawX) {
         if (touchedView == null) return false;
 
         View navContainer = findViewById(R.id.nav_container);
@@ -902,7 +904,10 @@ public class MainActivity extends AppCompatActivity {
             // The mode switcher is included with <include id="mode_switcher">,
             // which REPLACES the layout's own root id — check both.
             if (current.getId() == R.id.mode_switcher || current.getId() == R.id.mode_switcher_root) return true;
-            if (current instanceof com.fadcam.ui.GalleryFastScroller) return true;
+            // The scroller overlays the whole list, so it was "hit" by every touch and
+            // tab swipes never worked on Records, Trash or Forensics. Only its edge strip counts.
+            if (current instanceof com.fadcam.ui.GalleryFastScroller
+                    && ((com.fadcam.ui.GalleryFastScroller) current).isInDragStrip(rawX)) return true;
             if (current instanceof com.google.android.material.chip.Chip) return true;
             if (current instanceof com.google.android.material.chip.ChipGroup) return true;
             if (current instanceof BottomNavigationView) return true;

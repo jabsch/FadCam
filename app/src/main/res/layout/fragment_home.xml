@@ -620,6 +620,7 @@
             <!-- Rule-of-thirds grid overlay (shown only when Grid Lines setting is on) -->
             <com.fadcam.ui.GridOverlayView
                 android:id="@+id/grid_overlay"
+                android:importantForAccessibility="no"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:visibility="gone" />
