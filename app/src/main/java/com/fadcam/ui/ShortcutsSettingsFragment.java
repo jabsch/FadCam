@@ -1219,7 +1219,9 @@ public class ShortcutsSettingsFragment extends Fragment {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O
                 && awm.isRequestPinAppWidgetSupported()) {
             PendingIntent success = PendingIntent.getActivity(
-                    ctx, 0, new Intent(ctx, com.fadcam.MainActivity.class), PendingIntent.FLAG_IMMUTABLE);
+                    ctx, 0, new Intent(ctx, com.fadcam.MainActivity.class)
+                            .setAction("com.fadcam.widgets.PIN_CLOCK_SUCCESS"),
+                    PendingIntent.FLAG_IMMUTABLE);
             awm.requestPinAppWidget(provider, null, success);
         } else {
             android.widget.Toast.makeText(ctx, R.string.widgets_pin_unsupported, android.widget.Toast.LENGTH_LONG)

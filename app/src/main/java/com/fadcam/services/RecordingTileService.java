@@ -78,7 +78,7 @@ public class RecordingTileService extends TileService {
 
         FLog.d(TAG, "onClick - isDoubleTap: " + isDoubleTap);
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(this);
-        boolean recording = prefs.isRecordingInProgress();
+        boolean recording = com.fadcam.RecordingShortcutDispatcher.hasActiveSession(this);
 
         // Handle double-tap to switch cameras
         if (isDoubleTap) {
@@ -239,7 +239,7 @@ public class RecordingTileService extends TileService {
         restoreActiveStateRunnable = new Runnable() {
             @Override
             public void run() {
-                boolean recording = SharedPreferencesManager.getInstance(RecordingTileService.this).isRecordingInProgress();
+                boolean recording = com.fadcam.RecordingShortcutDispatcher.hasActiveSession(RecordingTileService.this);
                 FLog.d(TAG, "Reverting switching feedback. Active recording status: " + recording);
                 setTileState(recording);
                 restoreActiveStateRunnable = null;
