@@ -289,17 +289,19 @@ public class ForensicsInsightsFragment extends Fragment {
     }
 
     private boolean reloadAfterLoad = false;
+    // Phone's 12/24-hour setting, read before each load
+    private volatile boolean use24Hour = false;
 
     private void updateTimelineTitle() {
         if (timelineTitle == null) return;
         String rangeLabel;
         switch (selectedRange) {
-            case D7:  rangeLabel = "7 DAYS"; break;
-            case D30: rangeLabel = "30 DAYS"; break;
-            case ALL: rangeLabel = "ALL TIME"; break;
-            default:  rangeLabel = "24H"; break;
+            case D7:  rangeLabel = getString(R.string.intel_range_7d); break;
+            case D30: rangeLabel = getString(R.string.intel_range_30d); break;
+            case ALL: rangeLabel = getString(R.string.intel_range_all); break;
+            default:  rangeLabel = getString(R.string.intel_range_24h); break;
         }
-        timelineTitle.setText("ACTIVITY TIMELINE \u2022 " + rangeLabel);
+        timelineTitle.setText(getString(R.string.intel_activity_timeline) + " \u2022 " + rangeLabel);
     }
 
     private void updateChipVisuals() {
@@ -326,6 +328,7 @@ public class ForensicsInsightsFragment extends Fragment {
         final long since = selectedRange == TimeRange.ALL ? 0 : (now - selectedRange.durationMs);
         final int limit = selectedRange.queryLimit;
         final Context appContext = requireContext().getApplicationContext();
+        use24Hour = android.text.format.DateFormat.is24HourFormat(appContext);
 
         executor.execute(() -> {
             try {
@@ -426,12 +429,13 @@ public class ForensicsInsightsFragment extends Fragment {
                 // SITREP — show generation time + selected range
                 String rangeTag;
                 switch (selectedRange) {
-                    case D7:  rangeTag = "LAST 7 DAYS"; break;
-                    case D30: rangeTag = "LAST 30 DAYS"; break;
-                    case ALL: rangeTag = "ALL TIME"; break;
-                    default:  rangeTag = "LAST 24 HOURS"; break;
+                    case D7:  rangeTag = appContext.getString(R.string.intel_range_summary_7d); break;
+                    case D30: rangeTag = appContext.getString(R.string.intel_range_summary_30d); break;
+                    case ALL: rangeTag = appContext.getString(R.string.intel_range_summary_all); break;
+                    default:  rangeTag = appContext.getString(R.string.intel_range_summary_24h); break;
                 }
-                String sitrep = new SimpleDateFormat("h:mm a \u2022 dd MMM yyyy", Locale.US)
+                rangeTag = rangeTag.toUpperCase(Locale.getDefault());
+                String sitrep = new SimpleDateFormat((use24Hour ? "HH:mm" : "h:mm a") + " \u2022 dd MMM yyyy", Locale.US)
                         .format(new Date(now)).toUpperCase(Locale.US)
                         + " \u2022 " + rangeTag;
 
@@ -718,7 +722,7 @@ public class ForensicsInsightsFragment extends Fragment {
             int[][] zones, int sampleSize, long now) {
 
         StringBuilder sb = new StringBuilder();
-        SimpleDateFormat timeFmt = new SimpleDateFormat("h:mm a", Locale.US);
+        SimpleDateFormat timeFmt = new SimpleDateFormat(use24Hour ? "HH:mm" : "h:mm a", Locale.US);
 
         // Peak activity
         sb.append("\u25B8 Peak activity: ")
@@ -810,6 +814,7 @@ public class ForensicsInsightsFragment extends Fragment {
 
     /** Formats hour (0-23) as "12:00 AM", "1:00 PM", etc. */
     private String formatHourAmPm(int hour) {
+        if (use24Hour) return String.format(Locale.US, "%02d:00", hour);
         int h12 = hour % 12;
         if (h12 == 0) h12 = 12;
         String amPm = hour < 12 ? "AM" : "PM";
@@ -818,6 +823,7 @@ public class ForensicsInsightsFragment extends Fragment {
 
     /** Formats end of hour (e.g., hour 14 → "2:59 PM"). */
     private String formatHourEndAmPm(int hour) {
+        if (use24Hour) return String.format(Locale.US, "%02d:59", hour);
         int h12 = hour % 12;
         if (h12 == 0) h12 = 12;
         String amPm = hour < 12 ? "AM" : "PM";
