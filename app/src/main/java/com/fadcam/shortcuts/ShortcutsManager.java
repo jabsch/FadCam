@@ -278,10 +278,8 @@ public class ShortcutsManager {
     }
 
     public void requestPin(@NonNull ShortcutInfoCompat info) {
-        // Ensure a dynamic shortcut with this ID exists so the system uses our custom label/icon
-        try {
-            ShortcutManagerCompat.pushDynamicShortcut(ctx, info);
-        } catch (Throwable ignored) {}
+        // The pin request carries the label and icon itself. Pushing it as a dynamic
+        // shortcut too listed it twice in the launcher long-press menu.
         ShortcutManagerCompat.requestPinShortcut(ctx, info, null);
     }
 

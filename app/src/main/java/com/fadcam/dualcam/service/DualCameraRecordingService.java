@@ -2120,8 +2120,16 @@ public class DualCameraRecordingService extends Service {
         // Clean up and stop
         releaseAllResources();
         prefs.setRecordingInProgress(false);
+        // Clear the timeline like a normal stop: a leftover start time kept the tile and
+        // other screens showing an active recording
+        clearRecordingTimelineState();
+        pauseStartedAt = 0;
+        accumulatedPausedDurationMs = 0;
         com.fadcam.services.RecordingTileService.requestTileRefresh(this);
         releaseWakeLock();
+        if (previousState == DualCameraState.RECORDING || previousState == DualCameraState.PAUSED) {
+            broadcastAction(Constants.BROADCAST_ON_DUAL_RECORDING_STOPPED);
+        }
         stopSelf();
     }
 
