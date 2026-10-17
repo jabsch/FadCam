@@ -1363,7 +1363,7 @@ public class ScreenRecordingService extends Service {
         
         PendingIntent pendingIntent = PendingIntent.getActivity(
             this, 
-            0, 
+            NOTIFICATION_ID + 1, // own request code so the navigate_to_tab extra isn't swapped with another app-open intent
             openAppIntent, 
             PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
         );

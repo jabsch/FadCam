@@ -896,18 +896,16 @@ public class CloudStatusManager {
                 FLog.i(TAG, "✅ Cloud torch toggle sent to TorchService. New state: " + newState);
 
             } else if ("recording_toggle".equals(action)) {
-                // Start / stop / resume-if-paused – mirrors LiveM3U8Server.toggleRecording()
+                // Start / stop (also when paused) – mirrors LiveM3U8Server.toggleRecording()
                 boolean isRecording = spManager.isRecordingInProgress();
                 boolean isPaused = manager.isPaused();
 
                 android.content.Intent intent = new android.content.Intent(
                         context, com.fadcam.services.RecordingService.class);
-                if (isPaused) {
-                    intent.setAction(com.fadcam.Constants.INTENT_ACTION_RESUME_RECORDING);
-                    FLog.d(TAG, "☁️ recording_toggle: recording paused → RESUME");
-                } else if (isRecording) {
+                if (isRecording || isPaused) {
+                    // Paused counts as recording: the web Stop expects a stop (Resume has its own command)
                     intent.setAction(com.fadcam.Constants.INTENT_ACTION_STOP_RECORDING);
-                    FLog.d(TAG, "☁️ recording_toggle: recording active → STOP");
+                    FLog.d(TAG, "☁️ recording_toggle: recording active/paused → STOP");
                 } else {
                     intent.setAction(com.fadcam.Constants.INTENT_ACTION_START_RECORDING);
                     FLog.d(TAG, "☁️ recording_toggle: not recording → START");
