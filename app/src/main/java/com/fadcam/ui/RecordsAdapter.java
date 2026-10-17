@@ -580,9 +580,12 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                                 }
                             }
 
-                            String formattedDuration = formatVideoDuration(duration);
+                            String formattedDuration = duration > 0 ? formatVideoDuration(duration) : "--:--";
                             // Cache by URI (thread-safe ConcurrentHashMap) — survives list reorders.
-                            loadedThumbnailCache.put(uriString, formattedDuration);
+                            // A failed probe (0) isn't cached, so a later bind can still find the duration.
+                            if (duration > 0) {
+                                loadedThumbnailCache.put(uriString, formattedDuration);
+                            }
 
                             // Update UI on main thread — re-check that the holder still shows THIS video.
                             new Handler(Looper.getMainLooper()).post(() -> {

@@ -170,6 +170,11 @@ public class AppearanceSettingsFragment extends Fragment {
                             com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID
                         );
                         if (id != null) {
+                            // A new theme brings its own clock color
+                            if (!id.equals(sharedPreferencesManager.sharedPreferences.getString(
+                                    Constants.PREF_APP_THEME, Constants.DEFAULT_APP_THEME))) {
+                                sharedPreferencesManager.clearUserClockCardColor();
+                            }
                             // Persist immediately
                             sharedPreferencesManager.sharedPreferences
                                 .edit()

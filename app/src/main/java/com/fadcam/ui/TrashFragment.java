@@ -1745,15 +1745,21 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
                 // Dismiss the sheet first
                 sheet.dismiss();
                 
-                // When DELETE is typed correctly, proceed with emptying all trash
-                if (TrashManager.emptyAllTrash(getContext())) {
-                    Toast.makeText(getContext(), getString(R.string.trash_emptied_toast), Toast.LENGTH_SHORT)
-                            .show();
-                    loadTrashItems();
-                } else {
-                    Toast.makeText(getContext(), getString(R.string.trash_error_deleting_items_toast),
-                            Toast.LENGTH_SHORT).show();
+                // When DELETE is typed correctly, empty the trash off the main thread
+                if (getContext() == null) return;
+                final android.content.Context appContext = getContext().getApplicationContext();
+                if (executorService == null || executorService.isShutdown()) {
+                    executorService = java.util.concurrent.Executors.newSingleThreadExecutor();
                 }
+                executorService.submit(() -> {
+                    boolean success = TrashManager.emptyAllTrash(appContext);
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        Toast.makeText(appContext,
+                                success ? R.string.trash_emptied_toast : R.string.trash_error_deleting_items_toast,
+                                Toast.LENGTH_SHORT).show();
+                        if (isAdded()) loadTrashItems();
+                    });
+                });
             }
         });
 

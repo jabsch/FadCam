@@ -476,10 +476,13 @@ public class AboutFragment extends BaseFragment {
 
     private void checkForUpdates() {
         showLoadingDialog(getString(R.string.up_to_date_loading));
-        ExecutorService updateExecutor = Executors.newSingleThreadExecutor();
-        updateExecutor.execute(() -> {
+        // Read the version on the main thread: the fragment may be gone when the check returns
+        final String currentVersion = getAppVersionForUpdates();
+        if (executorService == null || executorService.isShutdown()) {
+            executorService = Executors.newSingleThreadExecutor();
+        }
+        executorService.execute(() -> {
             try {
-                String currentVersion = getAppVersionForUpdates();
                 com.fadcam.services.UpdateCheckService.UpdateCheckResult result =
                     com.fadcam.services.UpdateCheckService.checkForUpdate(currentVersion);
                 FLog.d("UpdateCheck", "About check: package="
@@ -491,7 +494,7 @@ public class AboutFragment extends BaseFragment {
                         + " pro=" + result.proVersion + "(" + result.hasPro + ")"
                         + " error=" + result.errorOccurred);
 
-                requireActivity().runOnUiThread(() -> {
+                runOnUiIfAdded(() -> {
                     dismissLoadingDialog();
                     if (result.errorOccurred) {
                         showErrorDialog(getString(R.string.about_update_failed));
@@ -517,12 +520,28 @@ public class AboutFragment extends BaseFragment {
                 });
             } catch (Exception e) {
                 e.printStackTrace();
-                requireActivity().runOnUiThread(() -> {
+                runOnUiIfAdded(() -> {
                     dismissLoadingDialog();
                     showErrorDialog(getString(R.string.about_update_failed));
                 });
             }
         });
+    }
+
+    /** Runs on the main thread only while the fragment is still attached. */
+    private void runOnUiIfAdded(Runnable action) {
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+            if (isAdded()) action.run();
+        });
+    }
+
+    @Override
+    public void onDestroyView() {
+        dismissLoadingDialog();
+        if (executorService != null) {
+            executorService.shutdownNow();
+        }
+        super.onDestroyView();
     }
 
     private void showLoadingDialog(String message) {

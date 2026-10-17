@@ -1319,15 +1319,12 @@ public class VideoPlayerActivity extends AppCompatActivity {
             player.setPlaybackParameters(
                 new PlaybackParameters(initialSpeed)
             );
-            // FORCE volume to 1.0 for debugging - ignore mute preference temporarily
             boolean muted = SharedPreferencesManager.getInstance(
                 this
             ).isPlaybackMuted();
             try {
-                // Always use volume 1.0 for debugging
-                float volume = 1f;
-                player.setVolume(volume);
-                FLog.d(TAG, "Player volume FORCED to 1.0 (mutedPref was=" + muted + ")");
+                player.setVolume(muted ? 0f : 1f);
+                FLog.d(TAG, "Player volume set from mute pref (muted=" + muted + ")");
             } catch (Exception e) {
                 FLog.e(TAG, "Failed to set player volume", e);
             }
