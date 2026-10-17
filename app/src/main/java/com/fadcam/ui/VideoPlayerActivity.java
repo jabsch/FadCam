@@ -743,16 +743,23 @@ public class VideoPlayerActivity extends AppCompatActivity {
                                 gestureStartX = ev.getX();
                                 gestureStartY = ev.getY();
                                 if (audioManager != null) initialStreamVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+                                // Start from what the window shows. The system setting is a
+                                // stale value under auto-brightness, and many phones use a
+                                // range above 0-255, so the first swipe jumped to 100%.
+                                initialBrightness = 0.5f;
                                 try {
-                                    int sysBright = Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_BRIGHTNESS);
-                                    initialBrightness = Math.max(0f, Math.min(1f, sysBright / 255f));
-                                } catch (Exception be) {
-                                    try {
-                                        float b = getWindow().getAttributes().screenBrightness;
-                                        if (b < 0f) b = 0.5f;
-                                        initialBrightness = b;
-                                    } catch (Exception ignored) { initialBrightness = 0.5f; }
-                                }
+                                    float wb = getWindow().getAttributes().screenBrightness;
+                                    if (wb >= 0f) {
+                                        initialBrightness = wb;
+                                    } else if (Settings.System.getInt(getContentResolver(),
+                                            Settings.System.SCREEN_BRIGHTNESS_MODE,
+                                            Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC)
+                                            == Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL) {
+                                        int sysBright = Settings.System.getInt(getContentResolver(),
+                                                Settings.System.SCREEN_BRIGHTNESS, 128);
+                                        initialBrightness = Math.max(0f, Math.min(1f, sysBright / 255f));
+                                    }
+                                } catch (Exception ignored) {}
                                 if (player != null) seekStartPosition = player.getCurrentPosition();
                             } catch (Exception ignored) {}
 
@@ -1009,21 +1016,10 @@ public class VideoPlayerActivity extends AppCompatActivity {
                             else if (gestureMode == 3) {
                                 hideBrightnessOverlay();
                                 // Persist last brightness so next gesture starts from here
+                                // (read from the window, not parsed back from the "NN%" label)
                                 try {
-                                    View root = findViewById(android.R.id.content);
-                                    View ov = root != null ? root.findViewWithTag("gesture_brightness_overlay") : null;
-                                    if (ov != null) {
-                                        TextView tv = ov.findViewById(R.id.overlay_text);
-                                        if (tv != null) {
-                                            String txt = tv.getText() != null ? tv.getText().toString().replace("%", "") : null;
-                                            if (txt != null && !txt.isEmpty()) {
-                                                try {
-                                                    int p = Integer.parseInt(txt.trim());
-                                                    lastGestureBrightness = Math.max(0f, Math.min(1f, p / 100f));
-                                                } catch (NumberFormatException ignored) {}
-                                            }
-                                        }
-                                    }
+                                    float wb = getWindow().getAttributes().screenBrightness;
+                                    if (wb >= 0f) lastGestureBrightness = wb;
                                 } catch (Exception ignored) {}
                             }
                         } catch (Exception ignored) {}
