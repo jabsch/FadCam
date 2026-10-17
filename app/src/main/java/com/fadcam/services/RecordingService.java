@@ -224,6 +224,8 @@ public class RecordingService extends Service {
             new com.fadcam.motion.domain.policy.MotionPolicy();
     private com.fadcam.motion.domain.state.MotionStateMachine motionStateMachine;
     private boolean motionAutoPaused = false;
+    // Set when Motion Lab itself asks for the resume, so it is told apart from the user's
+    private boolean motionResumePending = false;
     private boolean motionSafeMode = false;
     private int motionConsecutivePersonHits = 0;
     private long motionFramesAnalyzed = 0L;
@@ -2498,6 +2500,8 @@ public class RecordingService extends Service {
         pauseStartedAt = 0L;
         accumulatedPausedDurationMs = 0L;
         clearRecordingTimelineState();
+        // Motion Lab is per recording: left on, it kept analysing the preview afterwards
+        disableMotionLabForSession("recording_stopped");
 
         // Stop foreground service and cancel notification early to improve
         // responsiveness
@@ -2766,13 +2770,23 @@ public class RecordingService extends Service {
         }
         
         setupRecordingResumeNotification();
-        showRecordingInPausedToast();
+        // Motion Lab pauses itself every time a scene goes still; a toast each time
+        // popped over whatever app was open
+        if (!(motionLabEnabledForSession && motionAutoPaused)) {
+            showRecordingInPausedToast();
+        }
         broadcastOnRecordingPaused();
     }
 
     private void resumeRecording() {
         if (recordingState != RecordingState.PAUSED)
             return;
+        final boolean motionResume = motionResumePending;
+        motionResumePending = false;
+        if (motionLabEnabledForSession && !motionResume && motionStateMachine != null) {
+            // Manual resume while armed: let post-roll pause it again when nothing moves
+            motionStateMachine.forceRecording(SystemClock.elapsedRealtime());
+        }
         if (recordingWakeLock != null && !recordingWakeLock.isHeld()) {
             recordingWakeLock.acquire();
         }
@@ -2820,7 +2834,9 @@ public class RecordingService extends Service {
         }
         
         setupRecordingInProgressNotification();
-        showRecordingResumedToast();
+        if (!motionResume) {
+            showRecordingResumedToast();
+        }
         broadcastOnRecordingResumed();
     }
 
@@ -3663,6 +3679,8 @@ public class RecordingService extends Service {
                     && sharedPreferencesManager.isDfEvidenceCollectionEnabled();
             boolean shouldEmitForensicsSnapshot = digitalForensicsEventRecorder != null
                     && forensicsCaptureEnabled
+                    // Never tag events onto the last video once recording has stopped
+                    && recordingState != RecordingState.NONE
                     && motionStateMachine.getState() == com.fadcam.motion.domain.state.MotionSessionState.RECORDING
                     && (nowMs - motionLastForensicsHeartbeatMs) >= FORENSICS_HEARTBEAT_INTERVAL_MS
                     // The recorder drops frames without detections, so don't
@@ -3731,6 +3749,7 @@ public class RecordingService extends Service {
                     FLog.i(TAG, "MotionLab action START_RECORDING -> resuming recording");
                     motionTriggerActionCount++;
                     motionAutoPaused = false;
+                    motionResumePending = true;
                     Intent resumeIntent = new Intent(getApplicationContext(), RecordingService.class);
                     resumeIntent.setAction(Constants.INTENT_ACTION_RESUME_RECORDING);
                     ServiceStartPolicy.startRecordingAction(getApplicationContext(), resumeIntent);
