@@ -91,9 +91,9 @@ public class Utils {
                     ? android.app.Service.STOP_FOREGROUND_REMOVE
                     : android.app.Service.STOP_FOREGROUND_DETACH;
             service.stopForeground(flags);
-        } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            service.stopForeground(android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MANIFEST);
         } else {
+            // (Android 10 used to pass FOREGROUND_SERVICE_TYPE_MANIFEST = -1, which sets
+            // STOP_FOREGROUND_REMOVE and wiped "export complete"-style notifications)
             service.stopForeground(removeNotification);
         }
     }

@@ -477,6 +477,8 @@ public class ProjectStorage {
                 clipJson.addProperty("cropTop", clip.getCropTop());
                 clipJson.addProperty("cropRight", clip.getCropRight());
                 clipJson.addProperty("cropBottom", clip.getCropBottom());
+                // Photos must stay photos after reopen/undo (export and preview branch on this)
+                clipJson.addProperty("imageClip", clip.isImageClip());
                 clipsArray.add(clipJson);
             }
             timelineJson.add("clips", clipsArray);
@@ -586,6 +588,9 @@ public class ProjectStorage {
                                 speed, audioMuted, volumeLevel,
                                 rotationDeg, flipH, flipV, crop,
                                 cropL, cropT, cropR, cropB);
+                        if (clipObj.has("imageClip") && clipObj.get("imageClip").getAsBoolean()) {
+                            clip.setImageClip(true);
+                        }
                         project.getTimeline().addClip(clip);
                     }
                 }

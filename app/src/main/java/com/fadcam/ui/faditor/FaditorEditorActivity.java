@@ -2061,6 +2061,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     boolean prevMuted = srcClip != null && srcClip.isAudioMuted();
                     float prevVolume = srcClip != null ? srcClip.getVolumeLevel() : 1.0f;
 
+                    // Line the audio up with the clip it came from: same trim, starting where the
+                    // clip starts on the timeline (it used to copy the full source at 0 s, so a
+                    // trimmed or later clip played out of sync once its own audio was muted)
+                    if (srcClip != null && !srcClip.isImageClip()) {
+                        audioClip.setOutPointMs(srcClip.getOutPointMs());
+                        audioClip.setInPointMs(srcClip.getInPointMs());
+                        long clipStartMs = 0;
+                        for (int i = 0; i < selectedClipIndex && i < project.getTimeline().getClipCount(); i++) {
+                            clipStartMs += project.getTimeline().getClip(i).getTrimmedDurationMs();
+                        }
+                        audioClip.setOffsetMs(clipStartMs);
+                    }
+
                     project.getTimeline().addAudioClip(audioClip);
                     editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
 
@@ -2729,8 +2742,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     + "ms → ExoPlayer=" + playerDurationMs + "ms");
 
             clip.setSourceDurationMs(playerDurationMs);
-            clip.setInPointMs(0);
-            clip.setOutPointMs(playerDurationMs);
+            // Clamp the user's trim into the real length instead of resetting it (a saved
+            // project lost its trims on the first play)
+            long out = Math.min(clip.getOutPointMs(), playerDurationMs);
+            if (out <= 0) out = playerDurationMs;
+            long in = Math.min(clip.getInPointMs(), Math.max(0, out - 100));
+            clip.setInPointMs(in);
+            clip.setOutPointMs(out);
 
             // Refresh UI with corrected duration — but DO NOT reset playhead or player position.
             // Resetting here caused 'plays from start' because this fires right when the user
@@ -2738,7 +2756,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             refreshTotalTimeDisplay();
             editorTimeline.setTrimFromClip(clip);
             // Only update player's internal trim bounds (no seek, no playWhenReady change)
-            playerManager.updateTrimEndOnly(playerDurationMs);
+            playerManager.updateTrimEndOnly(out);
         } else {
             FLog.d(TAG, "Duration OK: stored=" + storedDuration
                     + "ms, ExoPlayer=" + playerDurationMs + "ms (keeping stored)");

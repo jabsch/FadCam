@@ -236,7 +236,7 @@ public class BatchMediaActionService extends Service {
 
         Intent completedIntent = new Intent(Constants.ACTION_BATCH_MEDIA_COMPLETED);
         completedIntent.putExtra(Constants.EXTRA_BATCH_COMPLETED_MESSAGE, summary);
-        sendBroadcast(completedIntent);
+        sendBroadcast(completedIntent.setPackage(getPackageName()));
 
         com.fadcam.Utils.stopForegroundCompat(BatchMediaActionService.this, true);
         notificationManager.cancelProgress();
@@ -262,6 +262,7 @@ public class BatchMediaActionService extends Service {
     private ProcessResult exportStandardMp4(@NonNull Uri inputUri, int index, @NonNull BatchMediaActionTask task) {
         InputPathHolder input = null;
         OutputTarget outputTarget = null;
+        boolean outputOk = false;
         try {
             input = resolveInputPath(inputUri);
             if (input == null) return ProcessResult.failed();
@@ -290,13 +291,14 @@ public class BatchMediaActionService extends Service {
             }
 
             if (!finalizeOutput(outputTarget)) return ProcessResult.failed();
+            outputOk = true;
             return ProcessResult.success();
         } catch (Exception e) {
             FLog.e(TAG, "Export failed for uri: " + inputUri, e);
             return ProcessResult.failed();
         } finally {
             closeQuietly(input);
-            cleanupOutputTarget(outputTarget);
+            cleanupOutputTarget(outputTarget, outputOk);
         }
     }
 
@@ -313,6 +315,7 @@ public class BatchMediaActionService extends Service {
         ArrayList<File> tempInputs = new ArrayList<>();
         File concatFile = null;
         OutputTarget outputTarget = null;
+        boolean outputOk = false;
         try {
             int skippedCount = 0;
             ArrayList<String> mergePaths = new ArrayList<>();
@@ -382,6 +385,7 @@ public class BatchMediaActionService extends Service {
             if (!finalizeOutput(outputTarget)) {
                 return new MergeResult(false, skippedCount);
             }
+            outputOk = true;
             return new MergeResult(true, skippedCount);
         } catch (Exception e) {
             FLog.e(TAG, "Merge failed", e);
@@ -397,7 +401,7 @@ public class BatchMediaActionService extends Service {
                     temp.delete();
                 }
             }
-            cleanupOutputTarget(outputTarget);
+            cleanupOutputTarget(outputTarget, outputOk);
         }
     }
 
@@ -557,11 +561,24 @@ public class BatchMediaActionService extends Service {
         }
     }
 
-    private void cleanupOutputTarget(@Nullable OutputTarget target) {
+    private void cleanupOutputTarget(@Nullable OutputTarget target, boolean succeeded) {
         if (target == null) return;
         if (target.requiresSafCopy && target.tempFile != null && target.tempFile.exists()) {
             //noinspection ResultOfMethodCallIgnored
             target.tempFile.delete();
+        }
+        if (!succeeded) {
+            // A failed job must not leave a 0-byte/partial video that shows up in Records
+            try {
+                if (target.safDestination != null) {
+                    target.safDestination.delete();
+                } else if (target.processingPath != null) {
+                    //noinspection ResultOfMethodCallIgnored
+                    new File(target.processingPath).delete();
+                }
+            } catch (Exception e) {
+                FLog.w(TAG, "Could not remove failed output", e);
+            }
         }
     }
 
@@ -658,7 +675,7 @@ public class BatchMediaActionService extends Service {
         Intent intent = new Intent(BatchOperationConstants.ACTION_BATCH_OPERATION_UPDATED);
         intent.putExtra(BatchOperationConstants.EXTRA_SESSION_SNAPSHOT_JSON,
                 BatchOperationSessionSnapshot.toJson(session));
-        sendBroadcast(intent);
+        sendBroadcast(intent.setPackage(getPackageName()));
     }
 
     private void emitSessionFinished(@NonNull BatchOperationSessionSnapshot session) {
@@ -667,7 +684,7 @@ public class BatchMediaActionService extends Service {
                 BatchOperationSessionSnapshot.toJson(session));
         intent.putExtra(BatchOperationConstants.EXTRA_SESSION_ID, session.getSessionId());
         intent.putExtra(BatchOperationConstants.EXTRA_SESSION_STATE, session.getState().name());
-        sendBroadcast(intent);
+        sendBroadcast(intent.setPackage(getPackageName()));
     }
 
     private void closeQuietly(@Nullable InputPathHolder holder) {
