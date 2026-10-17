@@ -210,9 +210,10 @@ public class BatchMediaActionService extends Service {
         }
 
         // Finalize session with completion state
-        if (failed > 0) {
+        if (failed > 0 && completed == 0) {
             session.setState(BatchOperationSessionSnapshot.State.COMPLETED_FAILED);
-        } else if (skipped > 0) {
+        } else if (skipped > 0 || failed > 0) {
+            // Some items made it: partial, not "failed"
             session.setState(BatchOperationSessionSnapshot.State.COMPLETED_PARTIAL);
         } else if (completed > 0) {
             session.setState(BatchOperationSessionSnapshot.State.COMPLETED_SUCCESS);

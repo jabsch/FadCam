@@ -62,9 +62,8 @@ public class StorageSettingsFragment extends Fragment {
                     sendStorageChangedBroadcast();
                 } catch (Exception e) {
                     FLog.e(TAG, "Failed to persist custom storage URI", e);
-                    prefs.setStorageMode(SharedPreferencesManager.STORAGE_MODE_INTERNAL);
-                    prefs.setCustomStorageUri(null);
-                    // Said nothing before; the row just went back to Internal
+                    // Keep the previous folder and mode; resetting here also dropped a working
+                    // custom folder when only the new pick failed.
                     android.widget.Toast.makeText(requireContext(), R.string.storage_folder_access_failed,
                             android.widget.Toast.LENGTH_LONG).show();
                 }

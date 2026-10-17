@@ -2068,7 +2068,7 @@ public class VideoSettingsFragment extends Fragment {
                         (mb == 1024 ? "1 GB" : mb == 2048 ? "2 GB" : mb == 4096 ? "4 GB" : mb + " MB")));
         }
         int current = prefs.getVideoSplitSizeMb();
-        String currentId = null;
+        String currentId = current > 0 ? "custom" : null; // a size that matches no preset is custom
         for (int mb : presetMb) {
             if (mb == current) {
                 currentId = mb == -1 ? null : String.valueOf(mb);

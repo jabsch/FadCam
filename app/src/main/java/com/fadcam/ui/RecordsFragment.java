@@ -687,7 +687,9 @@ public class RecordsFragment extends BaseFragment implements
 
         // Use completedItemCount + 1 for progress display (shows items completed + current being processed)
         // This updates more reliably than currentItemIndex and gives accurate live progress
-        int progressIndex = Math.min(snapshot.completedItemCount + 1, snapshot.totalItemCount);
+        // Failed items are done too; the bar already counts them, so the title must as well
+        int progressIndex = Math.min(snapshot.completedItemCount + snapshot.failedItemCount + 1,
+                snapshot.totalItemCount);
         deletionDockTitle.animateSlot(getRunningTitle(snapshot, progressIndex), 300);
         deletionDockIcon.setImageResource(getRunningIcon(snapshot));
         deletionDockProgress.setProgress(snapshot.getProgressPercent());
@@ -1150,7 +1152,8 @@ public class RecordsFragment extends BaseFragment implements
         }
 
         // Active/running state
-        int progressIndex = Math.min(snapshot.getCompletedItemCount() + 1, snapshot.getTotalItemCount());
+        int progressIndex = Math.min(snapshot.getCompletedItemCount() + snapshot.getFailedItemCount()
+                + snapshot.getSkippedItemCount() + 1, snapshot.getTotalItemCount());
         deletionDockTitle.animateSlot(
                 getString(R.string.records_batch_progress_title, getOperationTypeName(snapshot.getOperationType()), progressIndex, snapshot.getTotalItemCount()), 300);
         deletionDockIcon.setImageResource(getOperationTypeIcon(snapshot.getOperationType()));
@@ -3251,6 +3254,27 @@ public class RecordsFragment extends BaseFragment implements
         updateUiForSelectionMode();
     }
 
+    /**
+     * Drops selected items that are no longer loaded (deleted outside the app, or replaced by a
+     * rescan), so the "N selected" count and select-all stay right.
+     */
+    private void pruneStaleSelection() {
+        if (selectedUris.isEmpty()) return;
+        java.util.Set<Uri> loaded = new java.util.HashSet<>();
+        for (VideoItem item : allLoadedItems) {
+            if (item != null && item.uri != null) loaded.add(item.uri);
+        }
+        if (!selectedUris.retainAll(loaded) || !isInSelectionMode) return;
+        if (selectedUris.isEmpty()) {
+            exitSelectionMode();
+        } else {
+            if (recordsAdapter != null) {
+                recordsAdapter.setSelectionModeActive(true, selectedUris);
+            }
+            updateUiForSelectionMode();
+        }
+    }
+
     /** Exits selection mode, clears selections, and updates adapter/UI. */
     private void exitSelectionMode() {
         if (!isInSelectionMode) return;
@@ -3308,13 +3332,12 @@ public class RecordsFragment extends BaseFragment implements
     // --- UI Updates ---
     /** Calculates total size of selected items */
     private String getSelectedItemsSizeText() {
+        // Set lookup: the nested loop was selected x items Uri.equals calls on every tap
+        java.util.Set<Uri> selected = new java.util.HashSet<>(selectedUris);
         long totalBytes = 0;
-        for (Uri selectedUri : selectedUris) {
-            for (VideoItem item : videoItems) {
-                if (item.uri.equals(selectedUri)) {
-                    totalBytes += item.size;
-                    break;
-                }
+        for (VideoItem item : videoItems) {
+            if (item.uri != null && selected.contains(item.uri)) {
+                totalBytes += item.size;
             }
         }
         return formatFileSize(totalBytes);
@@ -3339,7 +3362,9 @@ public class RecordsFragment extends BaseFragment implements
         if (isInSelectionMode) {
             int count = selectedUris.size();
             String sizeText = count > 0 ? " • " + getSelectedItemsSizeText() : "";
-            String newTitle = count > 0 ? count + " selected" + sizeText : "Select items";
+            String newTitle = count > 0
+                    ? getResources().getQuantityString(R.plurals.records_selected_count, count, count) + sizeText
+                    : getString(R.string.faditor_select_items);
             if (titleText instanceof com.fadcam.ui.utils.AnimatedTextView) {
                 ((com.fadcam.ui.utils.AnimatedTextView) titleText).animateSlot(newTitle, 300);
             } else {
@@ -3635,6 +3660,7 @@ public class RecordsFragment extends BaseFragment implements
         if (recordsAdapter != null) {
             recordsAdapter.updateRecords(videoItems);
         }
+        pruneStaleSelection();
         updateFilterChipLabels();
         updateFilterChipUi();
         updateCameraFilterRowVisibility();
