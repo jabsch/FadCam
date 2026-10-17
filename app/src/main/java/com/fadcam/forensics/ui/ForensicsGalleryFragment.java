@@ -349,6 +349,13 @@ public class ForensicsGalleryFragment extends Fragment {
         invalidationCoordinator.addListener(reason -> requestRealtimeRefresh("coordinator:" + reason));
         invalidationCoordinator.start();
 
+        // Selection is not kept across recreation, so a delete sheet restored after
+        // rotation would confirm nothing; close it instead of leaving a dead button
+        androidx.fragment.app.Fragment staleDelete = getParentFragmentManager().findFragmentByTag(DELETE_SHEET_TAG);
+        if (staleDelete instanceof androidx.fragment.app.DialogFragment) {
+            ((androidx.fragment.app.DialogFragment) staleDelete).dismissAllowingStateLoss();
+        }
+
         loadData(true);
     }
 
@@ -885,9 +892,11 @@ public class ForensicsGalleryFragment extends Fragment {
         // Compute actual file sizes in background to avoid main thread I/O
         executor.execute(() -> {
             adapter.computeTotalImageBytesAsync(null);
-            if (!isAdded()) return;
+            android.app.Activity activity = getActivity();
+            if (activity == null || !isAdded()) return;
             long totalBytes = adapter.getTotalImageBytes();
-            requireActivity().runOnUiThread(() -> {
+            activity.runOnUiThread(() -> {
+                if (!isAdded()) return;
                 if (statSize != null) statSize.setText(Formatter.formatShortFileSize(requireContext(), totalBytes));
                 if (hostSelectionUi != null) {
                     hostSelectionUi.onSummaryChanged(count, totalBytes);
@@ -898,7 +907,7 @@ public class ForensicsGalleryFragment extends Fragment {
 
     private void openViewer(@NonNull ForensicsSnapshotWithMedia row, boolean mediaMissing) {
         if (row.imageUri == null || row.imageUri.isEmpty()) {
-            Toast.makeText(requireContext(), R.string.photo_capture_failed, Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), R.string.records_error_opening_media, Toast.LENGTH_SHORT).show();
             return;
         }
         Intent intent = new Intent(requireContext(), ImageViewerActivity.class);
@@ -968,11 +977,17 @@ public class ForensicsGalleryFragment extends Fragment {
             }
             int finalMoved = movedCount;
             int finalDeleted = deletedRows;
-            if (!isAdded()) return;
-            requireActivity().runOnUiThread(() -> {
+            String deletedMsg = context.getString(R.string.forensics_gallery_deleted_toast, finalMoved, finalDeleted);
+            android.app.Activity activity = getActivity();
+            if (activity == null || !isAdded()) {
+                Toast.makeText(context, deletedMsg, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            activity.runOnUiThread(() -> {
+                Toast.makeText(context, deletedMsg, Toast.LENGTH_SHORT).show();
+                if (!isAdded()) return;
                 adapter.clearSelection();
                 loadData();
-                Toast.makeText(requireContext(), getString(R.string.forensics_gallery_deleted_toast, finalMoved, finalDeleted), Toast.LENGTH_SHORT).show();
             });
         });
     }

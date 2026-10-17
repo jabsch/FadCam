@@ -247,6 +247,12 @@ public class HapticsSettingsFragment extends Fragment {
                 row.setAlpha(alpha);
             }
         }
+        // Row.setEnabled doesn't reach the inline switches, which stay tappable otherwise
+        int[] toggleIds = {R.id.toggle_haptics_ui, R.id.toggle_haptics_picker};
+        for (int id : toggleIds) {
+            View toggle = view.findViewById(id);
+            if (toggle != null) toggle.setEnabled(enabled);
+        }
         View reset = view.findViewById(R.id.row_haptics_reset);
         if (reset != null) {
             reset.setEnabled(enabled);

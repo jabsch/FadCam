@@ -75,13 +75,20 @@ public class ImageViewerActivity extends AppCompatActivity {
                 Constants.PREF_APP_THEME,
                 Constants.DEFAULT_APP_THEME
         );
-        if ("Crimson Bloom".equals(savedTheme)) {
-            setTheme(R.style.Theme_FadCam_Red);
-        } else if ("Faded Night".equals(savedTheme)) {
-            setTheme(R.style.Theme_FadCam_Amoled);
-        } else {
-            setTheme(R.style.Base_Theme_FadCam);
+        if (savedTheme == null) savedTheme = Constants.DEFAULT_APP_THEME;
+        int styleRes;
+        switch (savedTheme) {
+            case "Faded Night":   styleRes = R.style.Theme_FadCam_Amoled;       break;
+            case "Midnight Dusk": styleRes = R.style.Theme_FadCam_MidnightDusk; break;
+            case "Premium Gold":  styleRes = R.style.Theme_FadCam_Gold;         break;
+            case "Silent Forest": styleRes = R.style.Theme_FadCam_SilentForest; break;
+            case "Shadow Alloy":  styleRes = R.style.Theme_FadCam_ShadowAlloy;  break;
+            case "Pookie Pink":   styleRes = R.style.Theme_FadCam_PookiePink;   break;
+            case "Snow Veil":     styleRes = R.style.Theme_FadCam_SnowVeil;     break;
+            case "Crimson Bloom":
+            default:              styleRes = R.style.Theme_FadCam_Red;          break;
         }
+        setTheme(styleRes);
         super.onCreate(savedInstanceState);
         enableEdgeToEdge();
         setContentView(R.layout.activity_image_viewer);
@@ -102,7 +109,7 @@ public class ImageViewerActivity extends AppCompatActivity {
 
         Uri uri = getIntent() != null ? getIntent().getData() : null;
         if (uri == null) {
-            Toast.makeText(this, R.string.photo_capture_failed, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.records_error_opening_media, Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
@@ -116,11 +123,20 @@ public class ImageViewerActivity extends AppCompatActivity {
         itemCategory = getIntent().getStringExtra("item_category");
         itemDisplayName = getIntent().getStringExtra("item_display_name");
 
+        // Plain photos from Records/Trash carry no forensic extras; showing
+        // "EVIDENCE • conf 0.00" and an empty evidence sheet for them is misleading
+        boolean isForensic = !TextUtils.isEmpty(className) || !TextUtils.isEmpty(eventType);
+        boolean isScan = "MINIAPPS".equals(itemCategory);
         if (metaView != null) {
-            metaView.setText(buildInlineMeta());
+            metaView.setText(isForensic ? buildInlineMeta()
+                    : (itemDisplayName != null ? itemDisplayName : String.valueOf(uri.getLastPathSegment())));
         }
         if (more != null) {
-            more.setOnClickListener(v -> showInfoSheet(uri));
+            if (isForensic || isScan) {
+                more.setOnClickListener(v -> showInfoSheet(uri));
+            } else {
+                more.setVisibility(View.GONE);
+            }
         }
 
         Glide.with(this)
@@ -129,7 +145,7 @@ public class ImageViewerActivity extends AppCompatActivity {
                 .listener(new RequestListener<android.graphics.drawable.Drawable>() {
                     @Override
                     public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<android.graphics.drawable.Drawable> target, boolean isFirstResource) {
-                        Toast.makeText(ImageViewerActivity.this, R.string.photo_capture_failed, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(ImageViewerActivity.this, R.string.records_error_opening_media, Toast.LENGTH_SHORT).show();
                         return false;
                     }
 
@@ -276,7 +292,7 @@ public class ImageViewerActivity extends AppCompatActivity {
     private String buildInlineMeta() {
         String classLabel = !TextUtils.isEmpty(className)
                 ? className
-                : (!TextUtils.isEmpty(eventType) ? eventType : "Evidence");
+                : (!TextUtils.isEmpty(eventType) ? eventType : getString(R.string.forensics_evidence_label));
         String when = capturedAt > 0L
                 ? DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Locale.getDefault())
                 .format(new Date(capturedAt))

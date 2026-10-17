@@ -140,26 +140,32 @@ public class DigitalForensicsSettingsFragment extends Fragment {
     }
 
     private void wireListeners(@NonNull View view) {
+        // Result listeners live for the whole view, not per tap, so a picker restored
+        // after rotation still saves its choice
+        registerToggleResult("rk_df_enabled", () -> prefs.isDigitalForensicsEnabled(),
+                value -> prefs.setDigitalForensicsEnabled(value));
+        registerToggleResult("rk_df_evidence_enabled", () -> prefs.isDfEvidenceCollectionEnabled(),
+                value -> prefs.setDfEvidenceCollectionEnabled(value));
+        registerToggleResult("rk_df_overlay", () -> prefs.isDfOverlayEnabled(),
+                value -> prefs.setDfOverlayEnabled(value));
+        getParentFragmentManager().setFragmentResultListener("rk_df_scope", getViewLifecycleOwner(), (key, bundle) -> {
+            String selectedId = bundle.getString(PickerBottomSheetFragment.BUNDLE_SELECTED_ID, prefs.getDfCaptureScope());
+            prefs.setDfCaptureScope(selectedId);
+            bindCurrentValues();
+        });
+
         view.findViewById(R.id.row_df_enabled).setOnClickListener(v -> showTogglePicker(
                 "rk_df_enabled",
                 getString(R.string.digital_forensics_enable),
                 getString(R.string.digital_forensics_enable_helper),
-                prefs.isDigitalForensicsEnabled(),
-                value -> {
-                    prefs.setDigitalForensicsEnabled(value);
-                    bindCurrentValues();
-                }
+                prefs.isDigitalForensicsEnabled()
         ));
 
         view.findViewById(R.id.row_df_evidence_enabled).setOnClickListener(v -> showTogglePicker(
                 "rk_df_evidence_enabled",
                 getString(R.string.digital_forensics_evidence_enable),
                 getString(R.string.digital_forensics_evidence_helper),
-                prefs.isDfEvidenceCollectionEnabled(),
-                value -> {
-                    prefs.setDfEvidenceCollectionEnabled(value);
-                    bindCurrentValues();
-                }
+                prefs.isDfEvidenceCollectionEnabled()
         ));
 
         view.findViewById(R.id.row_df_capture_scope).setOnClickListener(v -> showScopePicker());
@@ -168,11 +174,7 @@ public class DigitalForensicsSettingsFragment extends Fragment {
                 "rk_df_overlay",
                 getString(R.string.digital_forensics_overlay),
                 getString(R.string.digital_forensics_overlay_helper),
-                prefs.isDfOverlayEnabled(),
-                value -> {
-                    prefs.setDfOverlayEnabled(value);
-                    bindCurrentValues();
-                }
+                prefs.isDfOverlayEnabled()
         ));
     }
 
@@ -190,16 +192,11 @@ public class DigitalForensicsSettingsFragment extends Fragment {
                 resultKey,
                 getString(R.string.digital_forensics_scope_picker_helper)
         );
-        getParentFragmentManager().setFragmentResultListener(resultKey, this, (key, bundle) -> {
-            String selectedId = bundle.getString(PickerBottomSheetFragment.BUNDLE_SELECTED_ID, prefs.getDfCaptureScope());
-            prefs.setDfCaptureScope(selectedId);
-            bindCurrentValues();
-        });
         sheet.show(getParentFragmentManager(), resultKey + "_sheet");
     }
 
     private void showTogglePicker(String resultKey, String title, String helper,
-                                  boolean currentValue, ToggleConsumer consumer) {
+                                  boolean currentValue) {
         ArrayList<OptionItem> items = new ArrayList<>();
         PickerBottomSheetFragment sheet = PickerBottomSheetFragment.newInstanceWithSwitch(
                 title,
@@ -210,10 +207,6 @@ public class DigitalForensicsSettingsFragment extends Fragment {
                 getString(R.string.digital_forensics_picker_switch_label),
                 currentValue
         );
-        getParentFragmentManager().setFragmentResultListener(resultKey, this, (key, bundle) -> {
-            boolean enabled = bundle.getBoolean(PickerBottomSheetFragment.BUNDLE_SWITCH_STATE, currentValue);
-            consumer.accept(enabled);
-        });
         sheet.show(getParentFragmentManager(), resultKey + "_sheet");
     }
 
@@ -286,6 +279,14 @@ public class DigitalForensicsSettingsFragment extends Fragment {
 
     private float dp(int value) {
         return value * requireContext().getResources().getDisplayMetrics().density;
+    }
+
+    private void registerToggleResult(String resultKey, java.util.function.BooleanSupplier current,
+                                      ToggleConsumer consumer) {
+        getParentFragmentManager().setFragmentResultListener(resultKey, getViewLifecycleOwner(), (key, bundle) -> {
+            consumer.accept(bundle.getBoolean(PickerBottomSheetFragment.BUNDLE_SWITCH_STATE, current.getAsBoolean()));
+            bindCurrentValues();
+        });
     }
 
     private interface ToggleConsumer {

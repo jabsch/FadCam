@@ -40,6 +40,7 @@ public class ForensicsExportCenterFragment extends Fragment {
     private TextView status;
     private TextView pathText;
     private TextView statsText;
+    private static final String STATE_TARGET_URI = "target_export_uri";
     @Nullable
     private Uri targetExportUri;
     @Nullable
@@ -85,11 +86,33 @@ public class ForensicsExportCenterFragment extends Fragment {
                 createDocumentLauncher.launch(name);
             });
         }
+        if (savedInstanceState != null) {
+            targetExportUri = androidx.core.os.BundleCompat.getParcelable(
+                    savedInstanceState, STATE_TARGET_URI, Uri.class);
+        }
+        if (pathText != null && targetExportUri != null) {
+            pathText.setText(getString(R.string.forensics_export_selected_path, targetExportUri.toString()));
+        }
         if (exportButton != null) {
             exportButton.setOnClickListener(v -> startExport());
-            exportButton.setEnabled(false);
+            exportButton.setEnabled(targetExportUri != null);
         }
         refreshStats();
+    }
+
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putParcelable(STATE_TARGET_URI, targetExportUri);
+    }
+
+    /** Posts to the UI thread and drops the work if the screen was closed meanwhile. */
+    private void runOnUiIfAdded(@NonNull Runnable action) {
+        android.app.Activity activity = getActivity();
+        if (activity == null) return;
+        activity.runOnUiThread(() -> {
+            if (isAdded()) action.run();
+        });
     }
 
     private void refreshStats() {
@@ -109,7 +132,7 @@ public class ForensicsExportCenterFragment extends Fragment {
             if (!isAdded()) {
                 return;
             }
-            requireActivity().runOnUiThread(() -> {
+            runOnUiIfAdded(() -> {
                 if (statsText != null) {
                     statsText.setText(getString(
                             R.string.forensics_export_stats,
@@ -146,7 +169,7 @@ public class ForensicsExportCenterFragment extends Fragment {
                 if (!isAdded()) {
                     return;
                 }
-                requireActivity().runOnUiThread(() -> {
+                runOnUiIfAdded(() -> {
                     if (exportButton != null) {
                         exportButton.setEnabled(true);
                     }
@@ -162,7 +185,7 @@ public class ForensicsExportCenterFragment extends Fragment {
                 if (!isAdded()) {
                     return;
                 }
-                requireActivity().runOnUiThread(() -> {
+                runOnUiIfAdded(() -> {
                     if (exportButton != null) {
                         exportButton.setEnabled(true);
                     }
