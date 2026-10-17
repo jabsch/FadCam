@@ -88,9 +88,10 @@ public class ForensicsGalleryAdapter extends RecyclerView.Adapter<RecyclerView.V
     /** Pre-computed item numbers (1-based). Rebuilt on every rebuildEntries. */
     private int[] itemNumbers;
     /** Cached file sizes: imageUri → bytes. Survives across submits for perf. */
-    private final Map<String, Long> fileSizeCache = new HashMap<>();
+    // Written from bindItem (main) and the size pass (executor)
+    private final Map<String, Long> fileSizeCache = new java.util.concurrent.ConcurrentHashMap<>();
     /** Cached total bytes — computed in background, delivered to UI. */
-    private long cachedTotalBytes = -1L;
+    private volatile long cachedTotalBytes = -1L;
     /** Reusable SimpleDateFormat for month headers. */
     private final SimpleDateFormat monthFormat = new SimpleDateFormat("MMMM yyyy", Locale.getDefault());
     private Listener listener;
@@ -151,9 +152,11 @@ public class ForensicsGalleryAdapter extends RecyclerView.Adapter<RecyclerView.V
 
     public void submit(@Nullable List<ForensicsSnapshotWithMedia> data) {
         List<Entry> oldEntries = new ArrayList<>(entries);
-        rows.clear();
-        if (data != null) {
-            rows.addAll(data);
+        synchronized (this) {
+            rows.clear();
+            if (data != null) {
+                rows.addAll(data);
+            }
         }
         logIdentityIntegrityIfNeeded();
         selectedSnapshotIds.retainAll(currentIds());
@@ -233,7 +236,10 @@ public class ForensicsGalleryAdapter extends RecyclerView.Adapter<RecyclerView.V
      */
     public void computeTotalImageBytesAsync(@Nullable Runnable onComplete) {
         long total = 0L;
-        for (ForensicsSnapshotWithMedia row : rows) {
+        // Snapshot the list: submit() can clear and refill rows on the main thread meanwhile
+        List<ForensicsSnapshotWithMedia> snapshot;
+        synchronized (this) { snapshot = new ArrayList<>(rows); }
+        for (ForensicsSnapshotWithMedia row : snapshot) {
             total += resolveImageSizeCached(row.imageUri);
         }
         cachedTotalBytes = total;
@@ -426,6 +432,8 @@ public class ForensicsGalleryAdapter extends RecyclerView.Adapter<RecyclerView.V
 
         // Classified Mode: hide evidence thumbnail behind redacted overlay
         if (hideThumbnails) {
+            // Cancel any load in flight, or the real image lands on the placeholder
+            Glide.with(holder.image).clear(holder.image);
             holder.image.setImageResource(R.drawable.ic_visibility_off);
             holder.image.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
             holder.image.setBackgroundColor(0xFF1A1A2E);

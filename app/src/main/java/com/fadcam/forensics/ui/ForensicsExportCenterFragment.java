@@ -259,17 +259,26 @@ public class ForensicsExportCenterFragment extends Fragment {
             }
         }
         String name = "snapshots/" + sanitize(row.snapshotUid) + ext;
-        zos.putNextEntry(new ZipEntry(name));
-        try (InputStream in = appContext.getContentResolver().openInputStream(Uri.parse(row.imageUri))) {
-            if (in != null) {
+        // Open before adding the entry: a missing snapshot is skipped instead of
+        // aborting the whole export with a truncated zip
+        InputStream in;
+        try {
+            in = appContext.getContentResolver().openInputStream(Uri.parse(row.imageUri));
+        } catch (java.io.FileNotFoundException | SecurityException e) {
+            return;
+        }
+        if (in == null) return;
+        try (InputStream src = in) {
+            zos.putNextEntry(new ZipEntry(name));
+            try {
                 byte[] buffer = new byte[8192];
                 int read;
-                while ((read = in.read(buffer)) > 0) {
+                while ((read = src.read(buffer)) > 0) {
                     zos.write(buffer, 0, read);
                 }
+            } finally {
+                zos.closeEntry();
             }
-        } finally {
-            zos.closeEntry();
         }
     }
 

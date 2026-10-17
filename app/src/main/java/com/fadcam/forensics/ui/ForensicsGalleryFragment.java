@@ -989,7 +989,7 @@ public class ForensicsGalleryFragment extends Fragment {
                 Toast.makeText(context, deletedMsg, Toast.LENGTH_SHORT).show();
                 if (!isAdded()) return;
                 adapter.clearSelection();
-                loadData();
+                loadData(true); // loadData() skips the reload once data is loaded
             });
         });
     }
@@ -1074,7 +1074,11 @@ public class ForensicsGalleryFragment extends Fragment {
         if (rows.size() < 2) return;
         switch (selectedSort) {
             case "confidence":
-                Collections.sort(rows, (a, b) -> Float.compare(b.confidence, a.confidence));
+                // Month first so each month header appears once, then confidence within it
+                Collections.sort(rows, (a, b) -> {
+                    int m = Integer.compare(monthBucket(b.capturedEpochMs), monthBucket(a.capturedEpochMs));
+                    return m != 0 ? m : Float.compare(b.confidence, a.confidence);
+                });
                 break;
             case "oldest":
                 Collections.sort(rows, Comparator.comparingLong(a -> a.capturedEpochMs));
@@ -1085,13 +1089,21 @@ public class ForensicsGalleryFragment extends Fragment {
         }
     }
 
+    private static int monthBucket(long epochMs) {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.setTimeInMillis(epochMs);
+        return c.get(java.util.Calendar.YEAR) * 12 + c.get(java.util.Calendar.MONTH);
+    }
+
     private void reconcileMediaState(@Nullable List<ForensicsSnapshotWithMedia> rows) {
         if (rows == null || rows.isEmpty() || !isAdded()) return;
         ForensicsDatabase db = ForensicsDatabase.getInstance(requireContext());
         for (ForensicsSnapshotWithMedia row : rows) {
             boolean missing = isMediaMissing(row.mediaUri);
+            boolean changed = row.mediaMissing != missing;
             row.mediaMissing = missing;
-            if (row.mediaUid != null && !row.mediaUid.isEmpty()) {
+            // Only write changes: this ran one UPDATE per row on every refresh
+            if (changed && row.mediaUid != null && !row.mediaUid.isEmpty()) {
                 try { db.aiEventDao().updateMediaMissingByMediaUid(row.mediaUid, missing); } catch (Exception ignored) {}
             }
         }
