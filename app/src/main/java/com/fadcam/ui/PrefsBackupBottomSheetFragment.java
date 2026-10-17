@@ -243,7 +243,9 @@ public class PrefsBackupBottomSheetFragment extends BottomSheetDialogFragment {
             @Override public void onImportConfirmed(JSONObject json) { /* not used in reset mode */ }
             @Override public void onResetConfirmed() {
                 try {
+                    String iconBefore = currentIconKey();
                     PreferencesBackupUtil.resetAll(requireContext());
+                    syncLauncherIcon(iconBefore);
                     Toast.makeText(requireContext(), getString(R.string.prefs_reset_done), Toast.LENGTH_LONG).show();
                     restartAppUI();
                 } catch (Exception e){
@@ -286,13 +288,36 @@ public class PrefsBackupBottomSheetFragment extends BottomSheetDialogFragment {
 
     private void doImport(JSONObject j) {
         try {
+            String iconBefore = currentIconKey();
             boolean storageDropped = PreferencesBackupUtil.applyFromJson(requireContext(), j);
+            syncLauncherIcon(iconBefore);
             Toast.makeText(requireContext(), storageDropped
                     ? getString(R.string.prefs_import_storage_reset)
                     : getString(R.string.prefs_import_success), Toast.LENGTH_LONG).show();
             restartAppUI();
         } catch (Exception ex){
             Toast.makeText(requireContext(), failureText(requireContext(), R.string.prefs_import_failed, ex), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private String currentIconKey(){
+        return com.fadcam.SharedPreferencesManager.getInstance(requireContext()).getCurrentAppIcon();
+    }
+
+    /**
+     * Reset and Import change the saved app icon, but the launcher alias only switched when an
+     * icon was picked in Appearance: a disguised "Calculator" stayed on the home screen while
+     * the app and the Recents cloak showed another icon. Only an actual change touches the
+     * launcher, since toggling the live entry can drop it from the home screen.
+     */
+    private void syncLauncherIcon(String iconBefore){
+        String iconAfter = currentIconKey();
+        if(iconAfter.equals(iconBefore)) return;
+        try {
+            com.fadcam.utils.LauncherIconAliases.apply(requireContext(), iconAfter);
+            new com.fadcam.shortcuts.ShortcutsManager(requireContext()).refreshShortcuts();
+        } catch (Exception e){
+            com.fadcam.FLog.w("PrefsBackup", "Launcher icon sync failed", e);
         }
     }
 
