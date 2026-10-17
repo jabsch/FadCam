@@ -2946,6 +2946,7 @@
         }
 
         let lastRecordingState = false;
+        let lastLatestSequence = null; // detects a new file (split, camera switch) mid-recording
         let hlsLoaded = false;
         let isFirstStatusUpdate = true; // Track first status update to handle page load state
 
@@ -3498,6 +3499,22 @@
                 videoOverlay.classList.remove('hidden');
                 videoOverlay.classList.add('disabled');
                 console.log('[Stream] Restored initial overlay state');
+            }
+
+            // A new output file (video splitting, camera switch) restarts fragment numbering
+            // with a new init segment while isRecording stays true. hls.js kept the old init
+            // and waited for sequence numbers that never came, so the view froze. Treat a
+            // drop in the sequence like a recording restart and rebuild the player.
+            if (status.isRecording && typeof status.latestSequence === 'number') {
+                if (lastLatestSequence !== null && status.latestSequence < lastLatestSequence && hlsLoaded) {
+                    console.log('[Stream] New file mid-recording (sequence ' + lastLatestSequence
+                        + ' -> ' + status.latestSequence + ') - resetting HLS instance');
+                    hlsLoaded = false;
+                    if (hlsService) hlsService.destroy();
+                }
+                lastLatestSequence = status.latestSequence;
+            } else {
+                lastLatestSequence = null;
             }
 
             // AUTO-LOAD STREAM when status becomes ready (manifest available)

@@ -259,51 +259,33 @@ public class RemoteAuthManager {
      * Save active sessions to SharedPreferences
      */
     private void saveSessionsToStorage() {
-        StringBuilder json = new StringBuilder("[");
-        boolean first = true;
-        
+        org.json.JSONArray array = new org.json.JSONArray();
         for (SessionToken session : activeSessions.values()) {
-            if (!first) json.append(",");
-            json.append(session.toJson());
-            first = false;
+            try {
+                array.put(session.toJson());
+            } catch (org.json.JSONException e) {
+                FLog.w(TAG, "Skipping unsaveable session: " + e.getMessage());
+            }
         }
-        
-        json.append("]");
-        prefs.edit().putString(Constants.PREF_REMOTE_AUTH_SESSIONS, json.toString()).apply();
+        prefs.edit().putString(Constants.PREF_REMOTE_AUTH_SESSIONS, array.toString()).apply();
     }
     
     /**
-     * Load sessions from SharedPreferences
+     * Load sessions from SharedPreferences. Parsed with org.json: the old split on "},{"
+     * broke (and dropped every session) when a User-Agent contained quotes or braces.
      */
     private void loadSessionsFromStorage() {
         String json = prefs.getString(Constants.PREF_REMOTE_AUTH_SESSIONS, "[]");
-        
-        if (json.equals("[]")) {
-            return;
-        }
-        
         try {
-            // Simple JSON array parsing
-            json = json.substring(1, json.length() - 1); // Remove [ and ]
-            
-            if (json.trim().isEmpty()) {
-                return;
-            }
-            
-            // Split by },{
-            String[] sessionJsons = json.split("\\},\\{");
-            
-            for (String sessionJson : sessionJsons) {
-                // Add back braces if removed by split
-                if (!sessionJson.startsWith("{")) sessionJson = "{" + sessionJson;
-                if (!sessionJson.endsWith("}")) sessionJson = sessionJson + "}";
-                
-                SessionToken session = SessionToken.fromJson(sessionJson);
+            org.json.JSONArray array = new org.json.JSONArray(json);
+            for (int i = 0; i < array.length(); i++) {
+                org.json.JSONObject o = array.optJSONObject(i);
+                if (o == null) continue;
+                SessionToken session = SessionToken.fromJson(o);
                 if (session != null && session.isValid()) {
                     activeSessions.put(session.getToken(), session);
                 }
             }
-            
             FLog.i(TAG, "Loaded " + activeSessions.size() + " active session(s)");
         } catch (Exception e) {
             FLog.e(TAG, "Failed to load sessions from storage", e);
