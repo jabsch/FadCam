@@ -159,6 +159,11 @@ import fi.iki.elonen.NanoHTTPD;
                 response = handleLogin(session, clientIP);
             } else if ("/auth/logout".equals(uri)) {
                 response = handleLogout(session);
+            } else if ("/auth/logoutAll".equals(uri)) {
+                // Not a public path, so the auth gate already required a valid session
+                RemoteAuthManager.getInstance(context).clearAllSessions();
+                response = jsonResponse(Response.Status.OK,
+                        new com.fadcam.streaming.model.AuthResponse(true, "All sessions logged out").toJson());
             } else if ("/auth/changePassword".equals(uri)) {
                 response = handleChangePassword(session);
             } else if ("/torch/toggle".equals(uri)) {
@@ -638,17 +643,8 @@ import fi.iki.elonen.NanoHTTPD;
             
             android.content.Intent intent = new android.content.Intent(context, com.fadcam.services.RecordingService.class);
             
-            if (isPaused) {
-                // Currently paused - resume recording
-                intent.setAction(com.fadcam.Constants.INTENT_ACTION_RESUME_RECORDING);
-                FLog.d(TAG, "Recording paused - sending RESUME_RECORDING intent");
-                ServiceStartPolicy.startRecordingAction(context, intent);
-                String responseJson = "{\"status\": \"success\", \"action\": \"resume\", \"isRecording\": true, \"isPaused\": false}";
-                Response response = newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", responseJson);
-                response.addHeader("Cache-Control", "no-cache");
-                return response;
-            } else if (isRecording) {
-                // Stop recording
+            if (isRecording || isPaused) {
+                // Stop recording (also when paused: the web card's Stop expects a stop; Resume has /recording/resume)
                 intent.setAction(com.fadcam.Constants.INTENT_ACTION_STOP_RECORDING);
                 FLog.d(TAG, "Recording in progress - sending STOP_RECORDING intent");
             } else {
@@ -660,9 +656,10 @@ import fi.iki.elonen.NanoHTTPD;
             // Start/stop action dispatch via unified policy.
             ServiceStartPolicy.startRecordingAction(context, intent);
             
-            String action = isRecording ? "stop" : "start";
+            boolean stopping = isRecording || isPaused;
+            String action = stopping ? "stop" : "start";
             String responseJson = String.format(java.util.Locale.US, "{\"status\": \"success\", \"action\": \"%s\", \"isRecording\": %s, \"isPaused\": false}", 
-                action, !isRecording);
+                action, !stopping);
             
             FLog.i(TAG, "✅ Recording " + action + " intent sent");
             
@@ -1170,7 +1167,7 @@ import fi.iki.elonen.NanoHTTPD;
             float displayEv = ev * stepValue;
             
             // Return actual display value so web can confirm immediately without unit confusion
-            return jsonResponse(Response.Status.OK, "{\"status\": \"success\", \"ev\": " + ev + ", \"evDisplay\": " + String.format("%.2f", displayEv) + "}");
+            return jsonResponse(Response.Status.OK, "{\"status\": \"success\", \"ev\": " + ev + ", \"evDisplay\": " + String.format(java.util.Locale.US, "%.2f", displayEv) + "}");
         } catch (Exception e) {
             FLog.e(TAG, "❌ [/config/exposure] Exception: " + e.getMessage(), e);
             return jsonResponse(Response.Status.INTERNAL_ERROR,
@@ -1290,6 +1287,12 @@ import fi.iki.elonen.NanoHTTPD;
     }
     
     // START: Authentication Endpoints
+    /** Failed sign-ins per client IP: [failures since last lockout, locked-until elapsedRealtime]. */
+    private static final java.util.concurrent.ConcurrentHashMap<String, long[]> LOGIN_FAILURES =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private static final int LOGIN_MAX_FAILURES = 5;
+    private static final long LOGIN_LOCKOUT_MS = 30_000L;
+
     /**
      * Handle POST /auth/login - Authenticate and return session token
      */
@@ -1332,14 +1335,34 @@ import fi.iki.elonen.NanoHTTPD;
                 return jsonResponse(Response.Status.BAD_REQUEST, authResponse.toJson());
             }
             
+            // Brute-force guard: passwords can be 4 characters and /auth/login is public on the LAN
+            String loginKey = clientIP != null ? clientIP : "unknown";
+            long now = android.os.SystemClock.elapsedRealtime();
+            long[] attempts = LOGIN_FAILURES.get(loginKey);
+            if (attempts != null && attempts[1] > now) {
+                long waitSec = (attempts[1] - now + 999) / 1000;
+                return jsonResponse(Response.Status.UNAUTHORIZED, com.fadcam.streaming.model.AuthResponse
+                        .failure("Too many attempts. Try again in " + waitSec + " s").toJson());
+            }
+
             // Verify password
             if (!authManager.verifyPassword(password)) {
                 FLog.w(TAG, "Invalid login attempt from " + clientIP + " (password mismatch)");
+                if (attempts == null) {
+                    attempts = new long[2];
+                    LOGIN_FAILURES.put(loginKey, attempts);
+                }
+                if (++attempts[0] >= LOGIN_MAX_FAILURES) {
+                    attempts[0] = 0;
+                    attempts[1] = now + LOGIN_LOCKOUT_MS;
+                }
                 com.fadcam.streaming.model.AuthResponse authResponse = 
                     com.fadcam.streaming.model.AuthResponse.invalidCredentials();
                 return jsonResponse(Response.Status.UNAUTHORIZED, authResponse.toJson());
             }
             
+            LOGIN_FAILURES.remove(loginKey);
+
             // Create session
             String userAgent = session.getHeaders().get("user-agent");
             String deviceInfo = clientIP + " - " + (userAgent != null ? userAgent : "unknown");

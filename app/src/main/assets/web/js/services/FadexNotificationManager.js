@@ -24,9 +24,6 @@ class FadexNotificationManager {
         this.currentModalNotification = null; // Track which notification is currently in the modal
 
         this.log('Manager initialized', { cachedNotifications: 0 });
-        
-        // Clean up old cache on init (older than 30 days)
-        this.cleanOldCache();
     }
 
     /**
@@ -41,6 +38,8 @@ class FadexNotificationManager {
 
         // Load cached notifications from localStorage
         this.notificationHistory = this.loadFromCache();
+        // Drop expired entries now that the cache is loaded (the constructor ran this on an empty list)
+        this.cleanOldCache();
 
         // Show badge if there are unread cached notifications
         this.updateNotificationBadge();

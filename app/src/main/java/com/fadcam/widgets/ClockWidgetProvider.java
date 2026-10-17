@@ -215,6 +215,9 @@ public class ClockWidgetProvider extends AppWidgetProvider {
         // Click to open the app at Shortcuts & Widgets screen
         Intent launch = new Intent(context, com.fadcam.MainActivity.class);
         launch.putExtra("open_shortcuts_widgets", true);
+        // Own action: notification PendingIntents for a bare MainActivity intent with request code 0
+        // would otherwise be the same PendingIntent and swap extras with this one
+        launch.setAction("com.fadcam.widgets.OPEN_FROM_CLOCK");
         launch.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent pi = PendingIntent.getActivity(context, 0, launch, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         views.setOnClickPendingIntent(R.id.clock_root, pi);

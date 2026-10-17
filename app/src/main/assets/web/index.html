@@ -3382,6 +3382,11 @@
 
             if (status.state === 'ready' && status.isRecording && !status.isPaused && isRelayFresh) {
                 videoOverlay.classList.remove('disabled', 'loading');
+                // Back from pause with the stream still loaded: playStream() returns early when
+                // hlsLoaded, so hide the overlay here or it covers the video until a reload
+                if (typeof hlsLoaded !== 'undefined' && hlsLoaded) {
+                    videoOverlay.classList.add('hidden');
+                }
                 overlayIcon.style.display = '';
                 overlaySpinner.style.display = 'none';
                 overlayTitle.textContent = 'Stream ready';
@@ -5052,6 +5057,12 @@
                 updateUI(status);
                 
                 // ===== AUTH STATE CHANGE DETECTION =====
+                // A failed poll (401 before sign-in, Wi-Fi blip) emits a stand-in offline status whose
+                // authEnabled is always false; reading that as "auth turned off" hid the lock screen
+                // and logged the user out. Only real phone statuses (with lastUpdated) count.
+                if (status.state === 'offline' && !status.lastUpdated) {
+                    return;
+                }
                 
                 // Check if auth was disabled on server side
                 const lockOverlay = document.getElementById('lockScreenOverlay');
@@ -5077,9 +5088,7 @@
                 
                 // Check auto-lock timeout enforcement
                 if (status.authEnabled && status.authTimeoutMs > 0) {
-                    // Get current token to check if still valid
-                    const token = localStorage.getItem('auth_token');
-                    if (token && !authService.isAuthenticated()) {
+                    if (!authService.isAuthenticated()) {
                         // Already locked, no need to check timeout
                         return;
                     }
@@ -5580,8 +5589,8 @@
         async function logoutAllDevices() {
             try {
                 console.log('[Security] Logging out all devices...');
-                // Call the change password endpoint which clears all sessions
-                const response = await fetch(CONFIG.BASE_URL + '/auth/logout', {
+                // /auth/logout only ends this browser's session; logoutAll clears every device
+                const response = await fetch(CONFIG.BASE_URL + '/auth/logoutAll', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

@@ -38,6 +38,11 @@ public class ArabicDateUtils {
      * @param format "FULL_ARABIC" = all Arabic, "MONTH_ARABIC_NUMBERS_ENGLISH" = Arabic month + English numbers, "FULL_ENGLISH" = all English
      */
     public static String getArabicDate(String format) {
+        // java.time (HijrahDate) only exists on API 26+; on 7.x the NoClassDefFoundError is not an
+        // Exception, so it escaped the catch below and crashed the widget update
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) {
+            return "";
+        }
         try {
             // Get current Gregorian date
             LocalDate gregorianDate = LocalDate.now();

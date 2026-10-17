@@ -306,7 +306,9 @@ class DashboardViewModel {
     async toggleRecording() {
         try {
             // Check if streaming is enabled AND codec is HEVC
-            if (this.statusModel.streaming && this.statusModel.isHevcCodec) {
+            // Only when starting: a stop never needs the HEVC -> H.264 prompt
+            const isStarting = !this.statusModel.isRecording && !this.statusModel.isPaused;
+            if (isStarting && this.statusModel.streaming && this.statusModel.isHevcCodec) {
                 // H.265/HEVC is not browser-compatible for HLS streaming
                 // Show Material Dialog with option to switch to AVC
                 return new Promise((resolve, reject) => {
