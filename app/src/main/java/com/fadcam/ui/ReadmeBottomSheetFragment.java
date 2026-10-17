@@ -160,6 +160,11 @@ public class ReadmeBottomSheetFragment extends BottomSheetDialogFragment {
         try {
             android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url));
             startActivity(intent);
+        } catch (android.content.ActivityNotFoundException e) {
+            // Silently did nothing on phones without a browser
+            if (getContext() != null) {
+                android.widget.Toast.makeText(getContext(), R.string.whats_new_no_browser, android.widget.Toast.LENGTH_SHORT).show();
+            }
         } catch (Exception ignored) { }
     }
 

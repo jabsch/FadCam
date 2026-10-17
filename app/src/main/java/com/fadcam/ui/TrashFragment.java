@@ -807,7 +807,7 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
 
             TextView progressText = dialogView.findViewById(R.id.progress_text);
             if (progressText != null) {
-                progressText.setText("Restoring " + itemCount + " item(s)...");
+                progressText.setText(getResources().getQuantityString(R.plurals.trash_restoring_items, itemCount, itemCount));
 
                 // Set text color based on theme
                 String currentTheme = sharedPreferencesManager.sharedPreferences
@@ -1469,7 +1469,7 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
                     // Show progress notification and start background operation
                     String itemText = selectedItems.size() == 1 ? 
                         selectedItems.get(0).getOriginalDisplayName() : 
-                        selectedItems.size() + " items";
+                        getResources().getQuantityString(R.plurals.trash_item_count, selectedItems.size(), selectedItems.size());
                     Toast.makeText(getContext(), 
                             getString(R.string.background_restore_progress, itemText),
                             Toast.LENGTH_SHORT).show();
@@ -1591,28 +1591,25 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
      */
     private void performDeleteInBackground(List<TrashItem> selectedItems) {
         if (getContext() == null) return;
-        
+        // App context and strings captured up front: getString()/getContext() on the
+        // worker crashed once Trash was left mid-operation
+        final android.content.Context app = requireContext().getApplicationContext();
+        final String doneMsg = getString(R.string.trash_items_deleted_toast, selectedItems.size());
+        final String errorMsg = getString(R.string.trash_error_deleting_items_toast);
+
         // Perform actual operation in background
         if (executorService == null || executorService.isShutdown()) {
             executorService = java.util.concurrent.Executors.newSingleThreadExecutor();
         }
         
         executorService.submit(() -> {
-            boolean success = TrashManager.permanentlyDeleteItems(getContext(), selectedItems);
-            
-            if (getActivity() != null) {
-                getActivity().runOnUiThread(() -> {
-                    if (success) {
-                        Toast.makeText(getContext(),
-                                getString(R.string.trash_items_deleted_toast, selectedItems.size()),
-                                Toast.LENGTH_SHORT).show();
-                        loadTrashItems();
-                    } else {
-                        Toast.makeText(getContext(), getString(R.string.trash_error_deleting_items_toast),
-                                Toast.LENGTH_SHORT).show();
-                    }
-                });
-            }
+            boolean success = TrashManager.permanentlyDeleteItems(app, selectedItems);
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                Toast.makeText(app, success ? doneMsg : errorMsg, Toast.LENGTH_SHORT).show();
+                if (success && isAdded()) {
+                    loadTrashItems();
+                }
+            });
         });
     }
 
@@ -1621,49 +1618,41 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
      */
     private void performRestoreInBackground(List<TrashItem> selectedItems, TrashManager.RestoreDestination destination) {
         if (getContext() == null) return;
-        
+        final android.content.Context app = requireContext().getApplicationContext();
+        String destinationName;
+        switch (destination) {
+            case INTERNAL_STORAGE:
+                destinationName = getString(R.string.restore_destination_internal);
+                break;
+            case SAF_STORAGE:
+                destinationName = getString(R.string.restore_destination_original);
+                break;
+            case DOWNLOADS_FOLDER:
+            default:
+                destinationName = getString(R.string.restore_destination_downloads);
+                break;
+        }
+        final String successMsg = getString(R.string.restore_success_message, selectedItems.size(), destinationName);
+        final String errorMsg = getString(R.string.restore_error_message);
+
         // Perform actual restore operation
         if (executorService == null || executorService.isShutdown()) {
             executorService = java.util.concurrent.Executors.newSingleThreadExecutor();
         }
         
         executorService.submit(() -> {
-            boolean success = TrashManager.restoreItemsFromTrash(getContext(), selectedItems, destination);
-            
-            String destinationName;
-            switch (destination) {
-                case DOWNLOADS_FOLDER:
-                    destinationName = getString(R.string.restore_destination_downloads);
-                    break;
-                case INTERNAL_STORAGE:
-                    destinationName = getString(R.string.restore_destination_internal);
-                    break;
-                case SAF_STORAGE:
-                    destinationName = getString(R.string.restore_destination_original);
-                    break;
-                default:
-                    destinationName = getString(R.string.restore_destination_downloads);
-                    break;
-            }
-            
-            String resultMessage = success
-                    ? getString(R.string.restore_success_message, selectedItems.size(), destinationName)
-                    : getString(R.string.restore_error_message);
-            
-            if (getActivity() != null) {
-                getActivity().runOnUiThread(() -> {
-                    Toast.makeText(getContext(), resultMessage, Toast.LENGTH_LONG).show();
+            boolean success = TrashManager.restoreItemsFromTrash(app, selectedItems, destination);
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                Toast.makeText(app, success ? successMsg : errorMsg, Toast.LENGTH_LONG).show();
+                if (success && isAdded()) {
+                    loadTrashItems(); // Refresh trash list
                     
-                    if (success) {
-                        loadTrashItems(); // Refresh trash list
-                        
-                        // Add a small delay to ensure UI is ready, then refresh Records tab
-                        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                            refreshRecordsFragment();
-                        }, 100);
-                    }
-                });
-            }
+                    // Add a small delay to ensure UI is ready, then refresh Records tab
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        if (isAdded()) refreshRecordsFragment();
+                    }, 100);
+                }
+            });
         });
     }
 
@@ -1701,7 +1690,7 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
                 // When DELETE is typed correctly, proceed with deletion
                 String itemText = selectedItems.size() == 1 ? 
                     selectedItems.get(0).getOriginalDisplayName() : 
-                    selectedItems.size() + " items";
+                    getResources().getQuantityString(R.plurals.trash_item_count, selectedItems.size(), selectedItems.size());
                 Toast.makeText(getContext(),
                         getString(R.string.background_delete_progress, itemText),
                         Toast.LENGTH_SHORT).show();

@@ -4655,6 +4655,7 @@ public class RecordsFragment extends BaseFragment implements
         Toast.makeText(requireContext(),
                 getString(R.string.records_batch_save_queued, requestItems.size()),
                 Toast.LENGTH_SHORT).show();
+        exitSelectionMode(); // like Copy/Move; items stayed checked before
     }
 
     // --- Deletion Logic ---

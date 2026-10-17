@@ -222,6 +222,22 @@ public class WhatsNewActivity extends AppCompatActivity {
                 });
             } catch (Exception e) {
                 FLog.e(TAG, "Error loading changelog", e);
+                // The shimmer loops forever on its own, so say something instead
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    if (shimmerContainer != null) {
+                        shimmerContainer.animate().cancel();
+                        shimmerContainer.setVisibility(View.GONE);
+                    }
+                    if (changelogWebView != null) {
+                        String msg = android.text.TextUtils.htmlEncode(getString(R.string.whats_new_load_failed));
+                        changelogWebView.loadDataWithBaseURL(null,
+                                "<html><body style='color:#E0E0E0;background:transparent;font-family:sans-serif;font-size:12px;padding:0 12px'>"
+                                        + msg + "</body></html>", "text/html", "utf-8", null);
+                        changelogWebView.setVisibility(View.VISIBLE);
+                        changelogWebView.setAlpha(1f);
+                    }
+                });
             }
         }).start();
     }
@@ -281,6 +297,10 @@ public class WhatsNewActivity extends AppCompatActivity {
         // Cancel countdown timer if still running
         if (countdownTimer != null) {
             countdownTimer.cancel();
+        }
+        // Its end action restarts itself while visible
+        if (shimmerContainer != null) {
+            shimmerContainer.animate().cancel();
         }
         
         // Note: Onboarding is now marked complete in navigateToHome() before navigation

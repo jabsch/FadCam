@@ -141,6 +141,8 @@ public class NotificationSettingsFragment extends Fragment {
         View ok = content.findViewById(R.id.button_custom_ok);
         if(ok!=null){ ok.setOnClickListener(v-> dialog.dismiss()); }
         dialog.setOnDismissListener(di -> {
+            // Can fire after the screen is gone (activity finishing); requireActivity() threw
+            if (!isAdded()) return;
             if (requireActivity().getWindow() != null
                     && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP
                     && previousActivityNavBarColor[0] != null) {

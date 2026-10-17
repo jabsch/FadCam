@@ -3352,4 +3352,17 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="annotation_toast_deleted">🗑️ Deleted: %1$s</string>
     <string name="faditor_select_segment_first">Select a segment first</string>
     <string name="universal_retry">Retry</string>
+    <string name="toast_rename_unchanged">Name hasn\'t changed</string>
+    <string name="toast_invalid_video_data">Invalid video data.</string>
+    <string name="whats_new_load_failed">Couldn\'t load the changelog. You can still continue.</string>
+    <string name="storage_folder_access_failed">JaCam couldn\'t keep access to that folder, so recordings stay in internal storage. Try picking the folder again.</string>
+    <string name="storage_picker_unavailable">No folder picker is available on this device.</string>
+    <plurals name="trash_item_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+    <plurals name="trash_restoring_items">
+        <item quantity="one">Restoring %d item…</item>
+        <item quantity="other">Restoring %d items…</item>
+    </plurals>
 </resources>
