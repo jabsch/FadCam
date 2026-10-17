@@ -45,6 +45,7 @@
             android:textAlignment="viewStart"/>
         <com.fadcam.ui.AvatarToggleView
             android:id="@+id/toggle_haptics_master"
+            android:contentDescription="@string/settings_haptics_title"
             android:layout_width="52dp"
             android:layout_height="52dp"/>
     </LinearLayout>
@@ -338,6 +339,7 @@
                     </LinearLayout>
                     <com.fadcam.ui.AvatarToggleView
                         android:id="@+id/toggle_haptics_ui"
+                        android:contentDescription="@string/settings_haptics_ui_title"
                         android:layout_width="52dp"
                         android:layout_height="52dp"/>
                 </LinearLayout>
@@ -380,6 +382,7 @@
                     </LinearLayout>
                     <com.fadcam.ui.AvatarToggleView
                         android:id="@+id/toggle_haptics_picker"
+                        android:contentDescription="@string/settings_haptics_picker_title"
                         android:layout_width="52dp"
                         android:layout_height="52dp"/>
                 </LinearLayout>

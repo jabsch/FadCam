@@ -374,6 +374,7 @@
                 <!-- AvatarToggleView — consistent with all other toggle rows -->
                 <com.fadcam.ui.AvatarToggleView
                     android:id="@+id/iv_preview_toggle"
+                    android:contentDescription="@string/preview_enabled"
                     android:layout_width="52dp"
                     android:layout_height="52dp"
                     android:layout_marginStart="0dp"
@@ -436,6 +437,7 @@
 
                 <com.fadcam.ui.AvatarToggleView
                     android:id="@+id/switch_preview_quick_actions_toggle"
+                    android:contentDescription="@string/preview_quick_actions_title"
                     android:layout_width="52dp"
                     android:layout_height="52dp"
                     android:layout_marginStart="0dp"
@@ -499,6 +501,7 @@
 
                 <com.fadcam.ui.AvatarToggleView
                     android:id="@+id/switch_grid_lines"
+                    android:contentDescription="@string/grid_lines_title"
                     android:layout_width="52dp"
                     android:layout_height="52dp"
                     android:layout_marginStart="0dp"

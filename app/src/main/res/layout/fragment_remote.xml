@@ -373,6 +373,7 @@
 
                 <com.fadcam.ui.AvatarToggleView
                     android:id="@+id/streaming_toggle"
+                    android:contentDescription="@string/stream_start_server"
                     android:layout_width="52dp"
                     android:layout_height="52dp"
                     android:layout_gravity="center_vertical" />
@@ -467,6 +468,7 @@
 
                 <com.fadcam.ui.AvatarToggleView
                     android:id="@+id/cloud_streaming_toggle"
+                    android:contentDescription="@string/cloud_streaming_title"
                     android:layout_width="52dp"
                     android:layout_height="52dp"
                     android:layout_gravity="center_vertical" />
@@ -1373,6 +1375,7 @@
 
                     <com.fadcam.ui.AvatarToggleView
                         android:id="@+id/remote_auth_toggle"
+                        android:contentDescription="@string/remote_security_enable"
                         android:layout_width="52dp"
                         android:layout_height="52dp"
                         android:layout_gravity="center_vertical" />

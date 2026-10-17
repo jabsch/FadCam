@@ -234,6 +234,7 @@
             </LinearLayout>
             <com.fadcam.ui.AvatarToggleView
                 android:id="@+id/row_hide_thumbnails_switch"
+                android:contentDescription="@string/records_hide_thumbnails_row_title"
                 android:layout_width="52dp"
                 android:layout_height="52dp"
                 android:layout_gravity="center_vertical"

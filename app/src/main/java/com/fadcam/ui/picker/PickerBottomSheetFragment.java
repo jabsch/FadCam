@@ -884,6 +884,8 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
                 switchRow.setVisibility(View.VISIBLE);
                 if (switchDivider != null && !items.isEmpty()) switchDivider.setVisibility(View.VISIBLE);
                 switchLabel.setText(switchTitle);
+                // TalkBack read the toggle as just "switch, on" without saying what it controls
+                swc.setContentDescription(switchTitle);
                 swc.setChecked(switchState);
                 boolean swEnabled = getArguments().getBoolean(ARG_SWITCH_ENABLED, true);
                 swc.setEnabled(swEnabled);
@@ -964,6 +966,7 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
                     row.findViewById(R.id.picker_item_switch);
                 row.setTag(item.id); // tag row with its id for dependency handling
                 tvTitle.setText(item.title);
+                if (itemSwitch != null) itemSwitch.setContentDescription(item.title);
                 // Danger styling for destructive actions
                 if ("action_delete".equals(item.id)) {
                     try {
