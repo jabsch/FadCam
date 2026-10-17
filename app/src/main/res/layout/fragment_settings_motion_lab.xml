@@ -614,7 +614,7 @@
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp"
                 android:text="@string/motion_lab_footer"
-                android:textColor="@android:color/darker_gray"
+                android:textColor="?attr/colorTextSubtle"
                 android:textSize="12sp" />
         </LinearLayout>
     </ScrollView>
