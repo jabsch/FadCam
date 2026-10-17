@@ -223,6 +223,9 @@ public class CloudStreamUploader {
             return;
         }
         
+        // A new file's segments must not go up against the previous file's init.mp4:
+        // hold them until this init is uploaded
+        initSegmentUploaded = false;
         FLog.i(TAG, "Uploading init segment: " + initData.length + " bytes");
         uploadBytes(url, initData, MEDIA_TYPE_MP4, new UploadCallback() {
             @Override
