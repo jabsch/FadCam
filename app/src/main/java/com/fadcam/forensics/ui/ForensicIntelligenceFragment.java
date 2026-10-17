@@ -158,6 +158,52 @@ public class ForensicIntelligenceFragment extends Fragment {
         super.onHiddenChanged(hidden);
         ForensicsGalleryFragment gallery = findGallery();
         if (gallery != null) gallery.setHostVisible(!hidden);
+        if (!hidden && isResumed()) checkAppLock();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (!isHidden()) checkAppLock();
+    }
+
+    private boolean unlockDialogShowing;
+
+    /** Tab Lock covers the Lab's snapshots the same way it covers Records. */
+    private void checkAppLock() {
+        android.content.Context ctx = getContext();
+        View content = getView() != null ? getView().findViewById(R.id.forensics_content_container) : null;
+        if (ctx == null || content == null) return;
+        com.fadcam.SharedPreferencesManager spm = com.fadcam.SharedPreferencesManager.getInstance(ctx);
+        boolean locked = spm.isAppLockEnabled() && !spm.isAppLockSessionUnlocked()
+                && com.guardanis.applock.AppLock.isEnrolled(ctx);
+        setSensitiveVisible(!locked);
+        if (!locked || unlockDialogShowing) return;
+        unlockDialogShowing = true;
+        new com.guardanis.applock.dialogs.UnlockDialogBuilder(requireActivity())
+                .onUnlocked(() -> {
+                    unlockDialogShowing = false;
+                    spm.setAppLockSessionUnlocked(true);
+                    setSensitiveVisible(true);
+                })
+                .onCanceled(() -> {
+                    unlockDialogShowing = false;
+                    if (getActivity() instanceof com.fadcam.MainActivity) {
+                        ((com.fadcam.MainActivity) getActivity()).skipNextBackExitHandling();
+                        requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                    }
+                })
+                .show();
+    }
+
+    private void setSensitiveVisible(boolean visible) {
+        View root = getView();
+        if (root == null) return;
+        int vis = visible ? View.VISIBLE : View.INVISIBLE;
+        View content = root.findViewById(R.id.forensics_content_container);
+        if (content != null) content.setVisibility(vis);
+        if (statCountView != null) statCountView.setVisibility(vis);
+        if (statSizeView != null) statSizeView.setVisibility(vis);
     }
 
     private ForensicsGalleryFragment findGallery() {
