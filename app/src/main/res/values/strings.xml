@@ -3299,4 +3299,14 @@ For the smoothest playback experience, you can use an external player like VLC. 
         <item quantity="other">Ready in %d seconds…</item>
     </plurals>
     <string name="whats_new_can_close">You can now close this</string>
+    <string name="widget_date_desc_dmy">day month year</string>
+    <string name="widget_date_desc_mdy">month day year</string>
+    <string name="widget_date_desc_dmy_numeric">day/month/year</string>
+    <string name="widget_date_desc_mdy_numeric">month/day/year</string>
+    <string name="widget_date_desc_full_day">full day name</string>
+    <string name="widget_date_desc_short_day">short day name</string>
+    <string name="location_permission_granted">Location permission granted</string>
+    <string name="bitrate_mode_auto">Auto</string>
+    <string name="bitrate_mode_custom_value">Custom (%1$d Mbps)</string>
+    <string name="bitrate_custom_range">1 - 200 Mbps</string>
 </resources>

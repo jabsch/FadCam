@@ -426,7 +426,7 @@ public class WatermarkSettingsFragment extends Fragment {
             pendingGrantAction.run();
             pendingGrantAction = null;
         }
-        Toast.makeText(requireContext(), R.string.location_permission_title, Toast.LENGTH_SHORT).show();
+        Toast.makeText(requireContext(), R.string.location_permission_granted, Toast.LENGTH_SHORT).show();
     }
 
     private void onPermissionDeniedPostRequest() {

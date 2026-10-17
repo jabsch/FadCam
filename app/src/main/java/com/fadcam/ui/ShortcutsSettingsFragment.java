@@ -834,7 +834,7 @@ public class ShortcutsSettingsFragment extends Fragment {
         items.add(new com.fadcam.ui.picker.OptionItem(
                 "date_format",
                 getString(R.string.widget_date_format_title),
-                prefs.showDate() ? getString(R.string.widget_date_format_sample)
+                prefs.showDate() ? formatToday(prefs.getDateFormat())
                         : getString(R.string.widget_option_disabled),
                 null,
                 R.drawable.ic_calendar,
@@ -887,7 +887,7 @@ public class ShortcutsSettingsFragment extends Fragment {
                 updateAllWidgets();
                 updatePreview();
                 // Show customize sheet again after selection
-                new Handler(Looper.getMainLooper()).postDelayed(() -> showCustomizeSheet(), 200);
+                reopenCustomizeSheetSoon();
             }
         });
 
@@ -895,13 +895,31 @@ public class ShortcutsSettingsFragment extends Fragment {
         String current = prefs.is24HourFormat() ? "24h" : "12h";
 
         java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
-        items.add(new com.fadcam.ui.picker.OptionItem("12h", "12-hour format", "3:30 PM", null, null, null));
-        items.add(new com.fadcam.ui.picker.OptionItem("24h", "24-hour format", "15:30", null, null, null));
+        items.add(new com.fadcam.ui.picker.OptionItem("12h", getString(R.string.widget_time_format_12h), null, null, null, null));
+        items.add(new com.fadcam.ui.picker.OptionItem("24h", getString(R.string.widget_time_format_24h), null, null, null, null));
 
         com.fadcam.ui.picker.PickerBottomSheetFragment sheet = com.fadcam.ui.picker.PickerBottomSheetFragment
                 .newInstance(
-                        "Time Format", items, current, resultKey, null);
+                        getString(R.string.widget_time_format_title), items, current, resultKey, null);
         sheet.show(getParentFragmentManager(), "time_format");
+    }
+
+    /** Reopens the customize sheet after a pick; skipped once the screen is gone (it crashed before). */
+    private void reopenCustomizeSheetSoon() {
+        View root = getView();
+        if (root == null) return;
+        root.postDelayed(() -> {
+            if (isAdded()) showCustomizeSheet();
+        }, 200);
+    }
+
+    /** Today's date in a widget date pattern, for picker labels and the customize row. */
+    private String formatToday(String pattern) {
+        try {
+            return new java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault()).format(new java.util.Date());
+        } catch (IllegalArgumentException e) {
+            return pattern;
+        }
     }
 
     private void showDateFormatSheet() {
@@ -914,7 +932,7 @@ public class ShortcutsSettingsFragment extends Fragment {
                 updateAllWidgets();
                 updatePreview();
                 // Show customize sheet again after selection
-                new Handler(Looper.getMainLooper()).postDelayed(() -> showCustomizeSheet(), 200);
+                reopenCustomizeSheetSoon();
             }
         });
 
@@ -923,22 +941,22 @@ public class ShortcutsSettingsFragment extends Fragment {
 
         java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
         items.add(new com.fadcam.ui.picker.OptionItem(com.fadcam.widgets.WidgetPreferences.DATE_FORMAT_DAY_MONTH_YEAR,
-                "13 Aug 2025", "day month year", null, null, null));
+                formatToday(com.fadcam.widgets.WidgetPreferences.DATE_FORMAT_DAY_MONTH_YEAR), getString(R.string.widget_date_desc_dmy), null, null, null));
         items.add(new com.fadcam.ui.picker.OptionItem(com.fadcam.widgets.WidgetPreferences.DATE_FORMAT_MONTH_DAY_YEAR,
-                "Aug 13, 2025", "month day year", null, null, null));
+                formatToday(com.fadcam.widgets.WidgetPreferences.DATE_FORMAT_MONTH_DAY_YEAR), getString(R.string.widget_date_desc_mdy), null, null, null));
         items.add(new com.fadcam.ui.picker.OptionItem(com.fadcam.widgets.WidgetPreferences.DATE_FORMAT_DMY_NUMERIC,
-                "13/08/2025", "day/month/year", null, null, null));
+                formatToday(com.fadcam.widgets.WidgetPreferences.DATE_FORMAT_DMY_NUMERIC), getString(R.string.widget_date_desc_dmy_numeric), null, null, null));
         items.add(new com.fadcam.ui.picker.OptionItem(com.fadcam.widgets.WidgetPreferences.DATE_FORMAT_MDY_NUMERIC,
-                "08/13/2025", "month/day/year", null, null, null));
+                formatToday(com.fadcam.widgets.WidgetPreferences.DATE_FORMAT_MDY_NUMERIC), getString(R.string.widget_date_desc_mdy_numeric), null, null, null));
         items.add(new com.fadcam.ui.picker.OptionItem(com.fadcam.widgets.WidgetPreferences.DATE_FORMAT_FULL_DAY_NO_YEAR,
-                "Wednesday, 13 Aug", "full day name", null, null, null));
+                formatToday(com.fadcam.widgets.WidgetPreferences.DATE_FORMAT_FULL_DAY_NO_YEAR), getString(R.string.widget_date_desc_full_day), null, null, null));
         items.add(
                 new com.fadcam.ui.picker.OptionItem(com.fadcam.widgets.WidgetPreferences.DATE_FORMAT_SHORT_DAY_NO_YEAR,
-                        "Wed, 13 Aug", "short day name", null, null, null));
+                        formatToday(com.fadcam.widgets.WidgetPreferences.DATE_FORMAT_SHORT_DAY_NO_YEAR), getString(R.string.widget_date_desc_short_day), null, null, null));
 
         com.fadcam.ui.picker.PickerBottomSheetFragment sheet = com.fadcam.ui.picker.PickerBottomSheetFragment
                 .newInstance(
-                        "Date Format", items, current, resultKey, null);
+                        getString(R.string.widget_date_format_title), items, current, resultKey, null);
         sheet.show(getParentFragmentManager(), "date_format");
     }
 
@@ -948,7 +966,7 @@ public class ShortcutsSettingsFragment extends Fragment {
         updateAllWidgets();
         updatePreview();
         // Show customize sheet again after toggle
-        new Handler(Looper.getMainLooper()).postDelayed(() -> showCustomizeSheet(), 200);
+        reopenCustomizeSheetSoon();
     }
 
     private void toggleShowDate() {
@@ -957,7 +975,7 @@ public class ShortcutsSettingsFragment extends Fragment {
         updateAllWidgets();
         updatePreview();
         // Show customize sheet again after toggle
-        new Handler(Looper.getMainLooper()).postDelayed(() -> showCustomizeSheet(), 200);
+        reopenCustomizeSheetSoon();
     }
 
     private void toggleBlackBackground() {
@@ -966,7 +984,7 @@ public class ShortcutsSettingsFragment extends Fragment {
         updateAllWidgets();
         updatePreview();
         // Show customize sheet again after toggle
-        new Handler(Looper.getMainLooper()).postDelayed(() -> showCustomizeSheet(), 200);
+        reopenCustomizeSheetSoon();
     }
 
     private void updateAllWidgets() {
@@ -995,7 +1013,7 @@ public class ShortcutsSettingsFragment extends Fragment {
                 updateAllWidgets();
                 updatePreview();
                 // Show customize sheet again after selection
-                new Handler(Looper.getMainLooper()).postDelayed(() -> showCustomizeSheet(), 200);
+                reopenCustomizeSheetSoon();
             }
         });
 
@@ -1026,7 +1044,7 @@ public class ShortcutsSettingsFragment extends Fragment {
                 .newInstance(
                         getString(R.string.arabic_date_format_title),
                         items,
-                        null,
+                        new com.fadcam.widgets.WidgetPreferences(requireContext()).getArabicDateFormat(),
                         resultKey,
                         getString(R.string.arabic_date_format_description));
         sheet.show(getParentFragmentManager(), "arabic_date_format");
@@ -1051,7 +1069,7 @@ public class ShortcutsSettingsFragment extends Fragment {
         updateAllWidgets();
         updatePreview();
         // Show customize sheet again after toggle
-        new Handler(Looper.getMainLooper()).postDelayed(() -> showCustomizeSheet(), 200);
+        reopenCustomizeSheetSoon();
     }
 
     private String getBrandingDescription(com.fadcam.widgets.WidgetPreferences prefs) {
