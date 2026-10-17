@@ -3296,6 +3296,39 @@ public class AnnotationService extends Service {
         // Use LocalBroadcastManager for guaranteed delivery on Android 12+
         androidx.core.content.ContextCompat.registerReceiver(this, recordingStateReceiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED);
         FLog.d(TAG, "[BROADCAST] Recording state receiver registered via LocalBroadcastManager");
+        syncRecordingStateFromService();
+    }
+
+    /**
+     * The receiver only hears later changes, so an overlay opened during a recording showed
+     * Start with Stop and Pause disabled. Pick up the state the service already saved.
+     */
+    private void syncRecordingStateFromService() {
+        if (sharedPreferencesManager == null) return;
+        com.fadcam.fadrec.ScreenRecordingState saved;
+        try {
+            saved = com.fadcam.fadrec.ScreenRecordingState.valueOf(
+                    sharedPreferencesManager.getScreenRecordingState());
+        } catch (Exception e) {
+            return;
+        }
+        if (saved == com.fadcam.fadrec.ScreenRecordingState.NONE
+                || !com.fadcam.utils.ServiceUtils.isServiceRunning(this,
+                        com.fadcam.fadrec.services.ScreenRecordingService.class)) {
+            // A state left over from a killed process is not a live recording
+            return;
+        }
+        recordingState = saved;
+        if (saved == com.fadcam.fadrec.ScreenRecordingState.IN_PROGRESS) {
+            startRecordingTimer();
+        } else if (saved == com.fadcam.fadrec.ScreenRecordingState.PAUSED) {
+            timerPausedAtMs = SystemClock.elapsedRealtime();
+            if (recordingTimerText != null) {
+                recordingTimerText.setVisibility(View.VISIBLE);
+            }
+            updateTimerDisplay();
+        }
+        updateRecordingButtons();
     }
 
 

@@ -536,8 +536,9 @@ public class ScreenRecordingService extends Service {
         enableAudioForSession = enableAudio;
         boolean initialMuted = sharedPreferencesManager.isScreenRecordingMuted();
         if (prefersAudio && !hasMicPermission) {
-            FLog.w(TAG, "Audio permission missing - forcing muted screen recording (source: " + audioSource + ")");
-            sharedPreferencesManager.setScreenRecordingMuted(true);
+            // enableAudio is already false for this session; saving "muted" as the user's choice
+            // left every later recording silent after the mic was granted
+            FLog.w(TAG, "Audio permission missing - recording this session without audio (source: " + audioSource + ")");
         }
         if (forceNoAudioForThisStart) {
             FLog.d(TAG, "Force-no-audio flag set for this recording session");

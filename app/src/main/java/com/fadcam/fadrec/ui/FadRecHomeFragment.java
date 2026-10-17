@@ -1110,10 +1110,8 @@ public class FadRecHomeFragment extends HomeFragment {
             .setTitle(com.fadcam.R.string.fadrec_mic_permission_needed_title)
             .setMessage(com.fadcam.R.string.fadrec_mic_permission_needed_message)
             .setPositiveButton(com.fadcam.R.string.fadrec_record_muted, (dialog, which) -> {
+                // Only this recording goes without audio; the saved mute choice stays as it was
                 forceMutedNoAudioThisStart = true;
-                if (sharedPreferencesManager != null) {
-                    sharedPreferencesManager.setScreenRecordingMuted(true);
-                }
                 syncMuteUiState();
                 requestScreenCapturePermission();
             })
@@ -1840,12 +1838,7 @@ public class FadRecHomeFragment extends HomeFragment {
         boolean audioAvailable = isAudioEffectivelyAvailable();
 
         if (isRecordingActive && !audioAvailable) {
-            if (sharedPreferencesManager != null && !sharedPreferencesManager.isScreenRecordingMuted()) {
-                sharedPreferencesManager.setScreenRecordingMuted(true);
-                if (mediaProjectionHelper != null) {
-                    mediaProjectionHelper.setScreenRecordingMuted(true);
-                }
-            }
+            // Nothing to mute this session; don't save "muted", or later recordings stay silent
             buttonFadRecMute.setEnabled(false);
             buttonFadRecMute.setAlpha(0.5f);
         } else {
