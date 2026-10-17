@@ -3419,4 +3419,5 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="player_audio_waveform_enable">Enable Audio Waveform</string>
     <string name="trash_open_failed">Could not open trash</string>
     <string name="forensics_evidence_label">Evidence</string>
+    <string name="fix_video_saf_kept">Couldn\'t write to the recordings folder. The repaired copy is saved at %1$s</string>
 </resources>

@@ -585,7 +585,8 @@ public class OnboardingActivity extends AppIntro {
                 }
             });
             listView.setChoiceMode(android.widget.ListView.CHOICE_MODE_SINGLE);
-            listView.setItemChecked(selectedIndex, true);
+            // Read the saved choice each time, so a reopened dialog marks the latest pick.
+            listView.setItemChecked(getLanguageIndex(sharedPreferencesManager.getLanguage()), true);
             final android.app.AlertDialog[] dialogHolder = new android.app.AlertDialog[1];
             listView.setOnItemClickListener((parent, view1, position, id) -> {
                 String newLangCode = getLanguageCode(position);
@@ -696,11 +697,16 @@ public class OnboardingActivity extends AppIntro {
             final int currentPosition = viewPager != null ? viewPager.getCurrentItem() : 0;
 
             // Apply locale change (Locale.forLanguageTag replaces deprecated Locale(String))
-            java.util.Locale locale = java.util.Locale.forLanguageTag(languageCode);
+            // values-zh-rCN holds the Chinese strings
+            java.util.Locale locale = java.util.Locale.forLanguageTag("zh".equals(languageCode) ? "zh-CN" : languageCode);
             java.util.Locale.setDefault(locale);
-            android.content.res.Configuration config = new android.content.res.Configuration();
+            // Update this activity's own resources so the in-place refresh below picks up the new
+            // strings. The old code discarded createConfigurationContext(), so nothing changed
+            // until MainActivity applied the language after onboarding.
+            android.content.res.Configuration config =
+                    new android.content.res.Configuration(getResources().getConfiguration());
             config.setLocale(locale);
-            getApplicationContext().createConfigurationContext(config);
+            getResources().updateConfiguration(config, getResources().getDisplayMetrics());
 
             // IMPORTANT: SKIP RECREATE() WHICH IS CAUSING THE SLIDE ORDERING ISSUES
             // Instead manually update UI elements that need language change
