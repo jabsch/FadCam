@@ -1681,6 +1681,64 @@ public class RecordingService extends Service {
             return START_STICKY;
         } else if (Constants.INTENT_ACTION_START_RECORDING.equals(action)) {
             pendingPreviewOnlyStart = false;
+            // The refusal checks run first: they used to come after GPS, the compass and the
+            // noise monitor were started (left running by a refused start) and after a
+            // preview-only session was torn down.
+            // STREAM ENFORCEMENT GATE: Validate and gate streaming mode
+            boolean streamingEnabled = com.fadcam.streaming.RemoteStreamManager.getInstance().isStreamingEnabled();
+            android.content.SharedPreferences fadcamPrefs = getSharedPreferences("FadCamPrefs", Context.MODE_PRIVATE);
+            String presetName = fadcamPrefs.getString("quality_preset", "HIGH");
+            int presetBitrate = fadcamPrefs.getInt("stream_bitrate", 5_000_000);
+            int presetFps = fadcamPrefs.getInt("stream_fps_cap", 30);
+            
+            if (streamingEnabled) {
+                FLog.i(TAG, "🔴 [STREAM MODE ENFORCED] Starting recording with streaming server ACTIVE");
+                FLog.i(TAG, "   Preset: " + presetName + " | Bitrate: " + (presetBitrate/1_000_000) + " Mbps | FPS cap: " + presetFps + "fps");
+                // Validate preset values were actually stored
+                if (presetBitrate <= 0 || presetFps <= 0) {
+                    FLog.e(TAG, "❌ INVALID STREAM PRESET - bitrate=" + presetBitrate + ", fps=" + presetFps);
+                    mainHandler.post(() -> Toast.makeText(getApplicationContext(), 
+                        R.string.recording_stream_preset_invalid, Toast.LENGTH_SHORT).show());
+                    // Home already flipped to Stop; tell it the real state so it flips back
+                    broadcastOnRecordingStateCallback();
+                    endRefusedStart();
+                    return START_STICKY;
+                }
+            } else {
+                FLog.i(TAG, "📺 [NORMAL RECORDING] Starting recording - streaming server OFF");
+            }
+            
+            // Check for rapid start attempts
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - lastStartAttemptTime < MIN_START_INTERVAL_MS) {
+                FLog.w(TAG, "START_RECORDING rejected - too rapid. Last attempt was " + 
+                      (currentTime - lastStartAttemptTime) + "ms ago");
+                mainHandler.post(() -> {
+                    Toast.makeText(getApplicationContext(),
+                            R.string.recording_start_too_soon,
+                            Toast.LENGTH_SHORT).show();
+                });
+                broadcastOnRecordingStateCallback();
+                endRefusedStart();
+                return START_STICKY;
+            }
+            lastStartAttemptTime = currentTime;
+            
+            // ----- Check for camera resource cooldown -----
+            // Check if camera resources are still being released
+            if (isCameraResourceReleasing) {
+                FLog.w(TAG, "START_RECORDING rejected - camera resources still being released");
+                // Show toast on UI thread
+                mainHandler.post(() -> {
+                    Toast.makeText(getApplicationContext(),
+                            R.string.camera_resources_cooldown,
+                            Toast.LENGTH_LONG).show();
+                });
+                // Don't stop the service yet as FFmpeg might still be running
+                endRefusedStart();
+                return START_STICKY;
+            }
+
             if (previewOnlyActive) {
                 FLog.d(TAG, "Transitioning from preview-only to recording mode");
                 previewOnlyActive = false;
@@ -1729,58 +1787,6 @@ public class RecordingService extends Service {
                 FLog.d(TAG, "WeatherService initialized for recording");
             }
             
-            // STREAM ENFORCEMENT GATE: Validate and gate streaming mode
-            boolean streamingEnabled = com.fadcam.streaming.RemoteStreamManager.getInstance().isStreamingEnabled();
-            android.content.SharedPreferences fadcamPrefs = getSharedPreferences("FadCamPrefs", Context.MODE_PRIVATE);
-            String presetName = fadcamPrefs.getString("quality_preset", "HIGH");
-            int presetBitrate = fadcamPrefs.getInt("stream_bitrate", 5_000_000);
-            int presetFps = fadcamPrefs.getInt("stream_fps_cap", 30);
-            
-            if (streamingEnabled) {
-                FLog.i(TAG, "🔴 [STREAM MODE ENFORCED] Starting recording with streaming server ACTIVE");
-                FLog.i(TAG, "   Preset: " + presetName + " | Bitrate: " + (presetBitrate/1_000_000) + " Mbps | FPS cap: " + presetFps + "fps");
-                // Validate preset values were actually stored
-                if (presetBitrate <= 0 || presetFps <= 0) {
-                    FLog.e(TAG, "❌ INVALID STREAM PRESET - bitrate=" + presetBitrate + ", fps=" + presetFps);
-                    mainHandler.post(() -> Toast.makeText(getApplicationContext(), 
-                        R.string.recording_stream_preset_invalid, Toast.LENGTH_SHORT).show());
-                    // Home already flipped to Stop; tell it the real state so it flips back
-                    broadcastOnRecordingStateCallback();
-                    return START_STICKY;
-                }
-            } else {
-                FLog.i(TAG, "📺 [NORMAL RECORDING] Starting recording - streaming server OFF");
-            }
-            
-            // Check for rapid start attempts
-            long currentTime = System.currentTimeMillis();
-            if (currentTime - lastStartAttemptTime < MIN_START_INTERVAL_MS) {
-                FLog.w(TAG, "START_RECORDING rejected - too rapid. Last attempt was " + 
-                      (currentTime - lastStartAttemptTime) + "ms ago");
-                mainHandler.post(() -> {
-                    Toast.makeText(getApplicationContext(),
-                            R.string.recording_start_too_soon,
-                            Toast.LENGTH_SHORT).show();
-                });
-                broadcastOnRecordingStateCallback();
-                return START_STICKY;
-            }
-            lastStartAttemptTime = currentTime;
-            
-            // ----- Check for camera resource cooldown -----
-            // Check if camera resources are still being released
-            if (isCameraResourceReleasing) {
-                FLog.w(TAG, "START_RECORDING rejected - camera resources still being released");
-                // Show toast on UI thread
-                mainHandler.post(() -> {
-                    Toast.makeText(getApplicationContext(),
-                            R.string.camera_resources_cooldown,
-                            Toast.LENGTH_LONG).show();
-                });
-                // Don't stop the service yet as FFmpeg might still be running
-                return START_STICKY;
-            }
-
             // Reset recording state if it's somehow corrupted or inconsistent
             if (recordingState != RecordingState.NONE && cameraDevice == null) {
                 FLog.w(TAG,
@@ -1856,8 +1862,18 @@ public class RecordingService extends Service {
                 }
                 // run -----------
 
-                // Start foreground service
-                setupRecordingInProgressNotification();
+                // Start foreground service. Android 14+ can refuse it (camera or mic access
+                // while locked or in the background): end the start with a message instead
+                // of the crash an uncaught refusal caused.
+                if (!setupRecordingInProgressNotification()) {
+                    recordingState = RecordingState.NONE;
+                    sharedPreferencesManager.setRecordingInProgress(false);
+                    mainHandler.post(() -> Toast.makeText(getApplicationContext(),
+                            R.string.shortcut_start_failed, Toast.LENGTH_SHORT).show());
+                    broadcastOnRecordingStateCallback();
+                    stopSelf();
+                    return START_NOT_STICKY;
+                }
 
                 // Begin camera/recording setup
                 if (cameraDevice == null) {
@@ -1875,6 +1891,7 @@ public class RecordingService extends Service {
                 // If we're not in NONE state, log a warning and notify the user
                 FLog.w(TAG, "Cannot start recording, already in state: " + recordingState);
                 Toast.makeText(this, getString(R.string.recording_already_active), Toast.LENGTH_SHORT).show();
+                endRefusedStart();
                 return START_STICKY;
             }
         } else if (Constants.INTENT_ACTION_STOP_RECORDING.equals(action)) {
@@ -5860,7 +5877,40 @@ public class RecordingService extends Service {
         }
     };
 
-    private void setupRecordingInProgressNotification() {
+    /**
+     * A refused START_RECORDING. It arrives through startForegroundService(), and returning
+     * without ever calling startForeground() crashed the app ("did not then call
+     * startForeground"), e.g. a toggle pressed again within the 2 s start interval. Does
+     * nothing while a recording or preview already keeps the service in the foreground.
+     */
+    private void endRefusedStart() {
+        if (isWorkingInProgress() || previewOnlyActive) return;
+        try {
+            int type = 0;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                        == PackageManager.PERMISSION_GRANTED) {
+                    type |= ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
+                }
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                        == PackageManager.PERMISSION_GRANTED) {
+                    type |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
+                }
+                if (type == 0) return;
+            }
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setContentTitle(getString(R.string.app_name))
+                    .setSmallIcon(R.drawable.ic_notification_icon)
+                    .setSilent(true);
+            androidx.core.app.ServiceCompat.startForeground(this, NOTIFICATION_ID, builder.build(), type);
+        } catch (RuntimeException e) {
+            FLog.w(TAG, "startForeground refused while ending a refused start", e);
+        }
+        com.fadcam.Utils.stopForegroundCompat(this, true);
+    }
+
+    /** @return false when the foreground start was refused or impossible (the service stops). */
+    private boolean setupRecordingInProgressNotification() {
         if (ActivityCompat.checkSelfPermission(this,
                 android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             FLog.w(TAG, "POST_NOTIFICATIONS permission not granted, skipping notification setup.");
@@ -5895,7 +5945,7 @@ public class RecordingService extends Service {
                 if (foregroundServiceType == 0) {
                     FLog.e(TAG, "Neither CAMERA nor RECORD_AUDIO permission granted, cannot start foreground service");
                     stopSelf();
-                    return;
+                    return false;
                 }
 
                 androidx.core.app.ServiceCompat.startForeground(this, NOTIFICATION_ID,
@@ -5904,8 +5954,9 @@ public class RecordingService extends Service {
             } catch (Exception e) {
                 FLog.e(TAG, "Error starting foreground without notification permission", e);
                 stopSelf();
+                return false;
             }
-            return;
+            return true;
         }
 
         // STEP 1: Show a simple, fast notification immediately to satisfy the OS
@@ -5946,14 +5997,21 @@ public class RecordingService extends Service {
             if (foregroundServiceType == 0) {
                 FLog.e(TAG, "Neither CAMERA nor RECORD_AUDIO permission granted, cannot start foreground service");
                 stopSelf();
-                return;
+                return false;
             }
 
-            startForeground(NOTIFICATION_ID, immediateBuilder.build(), foregroundServiceType);
+            try {
+                startForeground(NOTIFICATION_ID, immediateBuilder.build(), foregroundServiceType);
+            } catch (RuntimeException e) {
+                // SecurityException / ForegroundServiceStartNotAllowedException
+                FLog.e(TAG, "startForeground refused", e);
+                return false;
+            }
         } else {
             startForeground(NOTIFICATION_ID, immediateBuilder.build());
         }
         postFullRecordingNotification();
+        return true;
     }
 
     private void postFullRecordingNotification() {

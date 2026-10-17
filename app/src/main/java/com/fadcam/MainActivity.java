@@ -1376,6 +1376,21 @@ public class MainActivity extends AppCompatActivity {
      * Whether the volume shutter is currently active: home tab visible AND the
      * preference is enabled. Falls back to disabled on any error.
      */
+    /** The resumed MainActivity, for the hardware-button service (same process, main thread). */
+    @androidx.annotation.Nullable
+    private static volatile java.lang.ref.WeakReference<MainActivity> resumedInstance;
+
+    /**
+     * True while the in-app Volume Shutter would act on a volume key. The hardware-button
+     * accessibility service consumes bound keys before this activity sees them, so with a
+     * binding on a volume key the shutter stopped taking photos on the Home tab.
+     */
+    public static boolean volumeShutterWantsKeys() {
+        java.lang.ref.WeakReference<MainActivity> ref = resumedInstance;
+        MainActivity activity = ref != null ? ref.get() : null;
+        return activity != null && !activity.isFinishing() && activity.isVolumeShutterActive();
+    }
+
     private boolean isVolumeShutterActive() {
         if (getCurrentFragmentPosition() != 0) return false;
         // Home opens settings (e.g. Video Settings) as an overlay while the tab stays 0;
@@ -1445,6 +1460,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        resumedInstance = new java.lang.ref.WeakReference<>(this);
         // state)-----------
         applyCloakIfNeeded(false); // hide decoy overlay while active
         try {
@@ -1501,6 +1517,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
      protected void onPause() {
+        resumedInstance = null;
         // Cancel any pending volume-shutter click (e.g. app backgrounded mid double-click)
         cancelPendingVolumeClick();
         volumeShutterActiveKeyCode = 0;

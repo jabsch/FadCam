@@ -75,7 +75,7 @@ public class HardwareButtonAccessibilityService extends AccessibilityService {
         if (detector == null) {
             return false;
         }
-        if (isInCall() || cameraAppHasVolumeKeys()) {
+        if (isInCall() || cameraAppHasVolumeKeys() || inAppShutterHasKey(event.getKeyCode())) {
             detector.finishPending();
             return false;
         }
@@ -87,6 +87,12 @@ public class HardwareButtonAccessibilityService extends AccessibilityService {
             default:
                 return false;
         }
+    }
+
+    /** JaCam's own Volume Shutter on the Home tab gets the volume keys, like a camera app. */
+    private static boolean inAppShutterHasKey(int keyCode) {
+        return (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)
+                && com.fadcam.MainActivity.volumeShutterWantsKeys();
     }
 
     private void runShortcut(String shortcutId) {
