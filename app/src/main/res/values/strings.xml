@@ -3280,4 +3280,23 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="hardware_buttons_camera_apps_helper">When enabled, a camera app on screen (like Pixel Camera) gets every volume key press, so its volume-key shutter and zoom keep working. JaCam\'s button shortcuts pause while it\'s open and work again as soon as you leave it, or with the screen off. When disabled, your shortcuts also run inside camera apps, but their volume-key shutter stops working because a press JaCam catches can\'t be passed back to the camera. No Pixel settings need to change.</string>
     <string name="hardware_buttons_helper">Hold or double-tap a volume key to run the shortcut you assign to it. A short press still changes the volume. Turn on the button service once in Android\'s Accessibility settings so it works from any screen, even with the screen off.</string>
     <string name="hardware_buttons_enable_prompt">Turn on \"JaCam hardware buttons\" so your button shortcuts work</string>
+    <string name="records_batch_done_title">%1$s completed</string>
+    <string name="records_batch_failed_title">%1$s failed</string>
+    <string name="records_batch_progress_title">%1$s %2$d/%3$d</string>
+    <plurals name="records_batch_success_items">
+        <item quantity="one">Successfully processed %d item</item>
+        <item quantity="other">Successfully processed %d items</item>
+    </plurals>
+    <string name="records_batch_partial_items">Processed %1$d, skipped %2$d</string>
+    <plurals name="records_batch_failed_items">
+        <item quantity="one">Failed to process %d item</item>
+        <item quantity="other">Failed to process %d items</item>
+    </plurals>
+    <string name="records_batch_summary_done">Completed: %1$d/%2$d (Failed: %3$d)</string>
+    <string name="records_batch_summary_running">Completed: %1$d, Failed: %2$d</string>
+    <plurals name="whats_new_ready_in">
+        <item quantity="one">Ready in %d second…</item>
+        <item quantity="other">Ready in %d seconds…</item>
+    </plurals>
+    <string name="whats_new_can_close">You can now close this</string>
 </resources>

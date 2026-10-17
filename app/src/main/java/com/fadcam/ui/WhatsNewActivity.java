@@ -235,7 +235,7 @@ public class WhatsNewActivity extends AppCompatActivity {
             public void onTick(long millisUntilFinished) {
                 long secondsLeft = (millisUntilFinished + 999) / 1000;
                 if (countdownText != null) {
-                    countdownText.setText("Ready in " + secondsLeft + " second" + (secondsLeft == 1 ? "" : "s") + "...");
+                    countdownText.setText(getResources().getQuantityString(R.plurals.whats_new_ready_in, (int) secondsLeft, (int) secondsLeft));
                 }
             }
 
@@ -251,7 +251,7 @@ public class WhatsNewActivity extends AppCompatActivity {
                 }
                 
                 if (countdownText != null) {
-                    countdownText.setText("You can now close this");
+                    countdownText.setText(R.string.whats_new_can_close);
                 }
             }
         }.start();
