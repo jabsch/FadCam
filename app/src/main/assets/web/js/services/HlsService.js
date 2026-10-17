@@ -232,11 +232,16 @@ class HlsService {
         switch(data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
                 console.log('[HlsService] Network error detected:', data.details);
-                // Network errors are temporary; HLS.js will retry automatically
+                // A fatal network error stops hls.js loading for good, so reload after a pause
+                // (phone restarting its server, relay 503 past the retry limit)
                 if (data.response?.status === 503) {
                     console.log('[HlsService] 503 Service Unavailable - stream still initializing');
-                } else {
-                    console.log('[HlsService] Network error - HLS.js will retry automatically');
+                }
+                if (!this.networkRetryTimer) {
+                    this.networkRetryTimer = setTimeout(() => {
+                        this.networkRetryTimer = null;
+                        if (this.currentStreamUrl && this.videoElement) this.reloadStream();
+                    }, 3000);
                 }
                 break;
                 
@@ -421,6 +426,10 @@ class HlsService {
      * @param {boolean} full - If true, also clear video element and listeners
      */
     destroy(full = true) {
+        if (full && this.networkRetryTimer) {
+            clearTimeout(this.networkRetryTimer);
+            this.networkRetryTimer = null;
+        }
         if (this.hls) {
             this.hls.destroy();
             this.hls = null;

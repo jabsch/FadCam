@@ -2046,9 +2046,16 @@
             // Fetch monthly usage history from relay
             let currentMb = 0;
             let historyHtml = '<div style="padding:16px;text-align:center;color:#6e7681;">Could not load history</div>';
+            // Without a cloud session there is no relay history: show the phone's own total like the card does
+            let hasRelayHistory = false;
             try {
                 const streamToken = typeof FadCamRemote !== 'undefined' ? FadCamRemote.getStreamToken() : null;
                 const userId = typeof FadCamRemote !== 'undefined' && FadCamRemote.streamContext ? FadCamRemote.streamContext().userId : null;
+                hasRelayHistory = !!(streamToken && userId);
+                if (!hasRelayHistory) {
+                    currentMb = Number(currentStatus.dataTransferredMb) || 0;
+                    historyHtml = '<div style="padding:16px;text-align:center;color:#6e7681;">Monthly history is available in cloud mode</div>';
+                }
                 if (streamToken && userId) {
                     const relayBase = 'https://live.fadseclab.com:8443';
                     const histRes = await fetch(`${relayBase}/api/usage-history?user_id=${userId}`, {
@@ -2081,7 +2088,7 @@
                 <div class="modal-section">
                     <div class="modal-rows-group">
                         <div class="modal-row-container">
-                            <div class="modal-row-label" style="font-weight:700;">This Month</div>
+                            <div class="modal-row-label" style="font-weight:700;">${hasRelayHistory ? 'This Month' : 'Transferred'}</div>
                             <div class="modal-row-value" style="color:#f85149;">${displayCurrent}</div>
                         </div>
                     </div>
@@ -4960,29 +4967,8 @@
             if (durationValueEl) durationValueEl.addEventListener('change', updateDurationDisplay);
             if (durationUnitEl) durationUnitEl.addEventListener('change', updateDurationDisplay);
             
-            const volumePlus = document.getElementById('volumePlus');
-            
-            if (volumeMinus && volumePlus) {
-                console.log('[Volume] Buttons found: YES');
-                
-                volumeMinus.addEventListener('click', () => {
-                    console.log('[Volume] ➖ Minus button pressed');
-                    const currentPercent = currentStatus?.volumePercentage || 0;
-                    const newPercent = Math.max(0, currentPercent - 10);
-                    console.log('[Volume] Current:', currentPercent, '% → New:', newPercent, '%');
-                    setVolume(newPercent);
-                });
-                
-                volumePlus.addEventListener('click', () => {
-                    console.log('[Volume] ➕ Plus button pressed');
-                    const currentPercent = currentStatus?.volumePercentage || 0;
-                    const newPercent = Math.min(100, currentPercent + 10);
-                    console.log('[Volume] Current:', currentPercent, '% → New:', newPercent, '%');
-                    setVolume(newPercent);
-                });
-            } else {
-                console.error('[Volume] ❌ Buttons not found!');
-            }
+            // Volume +/- use their inline onclick (5% steps); a second listener here sent a
+            // conflicting 10% request on every tap
         });
 
         /**
@@ -5150,7 +5136,7 @@
             // Reconnect gracefully when network switches (WiFi → mobile or vice versa)
             window.addEventListener('online', () => {
                 console.log('[Network] 🌐 Connection restored - triggering reconnect');
-                showToast('Connection restored', 'success', 2000);
+                showToast('Connection restored', 2000);
                 if (dashboardViewModel) {
                     // Force immediate status update
                     dashboardViewModel.updateStatus();
@@ -5164,7 +5150,7 @@
             
             window.addEventListener('offline', () => {
                 console.log('[Network] 📴 Connection lost');
-                showToast('Connection lost - waiting for network...', 'warning', 3000);
+                showToast('Connection lost - waiting for network...', 3000);
                 // HLS will auto-buffer and wait, no need to force stop
             });
             
