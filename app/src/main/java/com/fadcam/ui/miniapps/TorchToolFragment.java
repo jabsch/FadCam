@@ -125,6 +125,13 @@ public class TorchToolFragment extends BaseFragment {
             @Override
             public void onError(String message) {
                 FLog.e("TorchToolFragment", "Torch error: " + message);
+                // A failed switch fires no state change, so the switch stayed on over a dark torch
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                    if (!isAdded() || getView() == null) return;
+                    updateTorchState();
+                    android.widget.Toast.makeText(requireContext(), R.string.torch_unavailable,
+                            android.widget.Toast.LENGTH_SHORT).show();
+                });
             }
         });
 

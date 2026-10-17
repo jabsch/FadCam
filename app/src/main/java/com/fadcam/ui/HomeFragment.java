@@ -5535,6 +5535,11 @@ public class HomeFragment extends BaseFragment {
             recordingPermissionLauncher.launch(missing);
             return;
         }
+        if (com.fadcam.services.VoiceRecordingService.isRecording()) {
+            // Both can't use the microphone at once; one file would come out silent
+            Toast.makeText(requireContext(), R.string.video_recording_voice_busy, Toast.LENGTH_LONG).show();
+            return;
+        }
 
         // ── Dual Camera path ──────────────────────────────────────────
         CameraType selectedCam = sharedPreferencesManager.getCameraSelection();
@@ -9749,6 +9754,9 @@ public class HomeFragment extends BaseFragment {
             targetCameraId = getBackCameraIdWithFlash();
         } else if ("front".equals(torchSource)) {
             targetCameraId = getFrontCameraIdWithFlash();
+        } else if (torchSource != null && !torchSource.isEmpty()) {
+            // The torch picker saves camera IDs; only old installs have "back"/"front"
+            targetCameraId = torchSource;
         }
 
         // If no torch source was configured or not found, fall back to current camera
