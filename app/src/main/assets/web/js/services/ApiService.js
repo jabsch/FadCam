@@ -454,6 +454,11 @@ class ApiService {
             }
             
             const responseData = await this._parseJsonResponse(response, endpoint);
+            // Some commands answer 200 with {status:"error"} (e.g. pause when not
+            // recording); treating that as success left an 8 s "Executing" then a timeout
+            if (responseData && responseData.status === 'error') {
+                throw new Error(responseData.message || `${endpoint} failed`);
+            }
             console.log(`✅ [POST] ${endpoint} response:`, responseData);
             return responseData;
         } catch (error) {
