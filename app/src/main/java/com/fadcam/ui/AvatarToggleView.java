@@ -291,6 +291,8 @@ public class AvatarToggleView extends FrameLayout {
      */
     @Override
     public boolean performClick() {
+        // Rows call performClick on their toggle directly, which skipped the disabled state
+        if (!isEnabled()) return false;
         // Gated tick for every avatar-toggle on/off across the app (master +
         // Buttons & controls). performClick is the user-initiated path only.
         try {
@@ -310,6 +312,20 @@ public class AvatarToggleView extends FrameLayout {
         checked = !checked;
         applyState(checked, true);
         if (listener != null) listener.onCheckedChanged(null, checked);
+        sendAccessibilityEvent(android.view.accessibility.AccessibilityEvent.TYPE_VIEW_CLICKED);
+    }
+
+    // TalkBack read every toggle as a plain button with no on/off state
+    @Override
+    public CharSequence getAccessibilityClassName() {
+        return android.widget.Switch.class.getName();
+    }
+
+    @Override
+    public void onInitializeAccessibilityNodeInfo(android.view.accessibility.AccessibilityNodeInfo info) {
+        super.onInitializeAccessibilityNodeInfo(info);
+        info.setCheckable(true);
+        info.setChecked(checked);
     }
 
     /**

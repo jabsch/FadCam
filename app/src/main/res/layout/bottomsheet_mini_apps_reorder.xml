@@ -22,9 +22,12 @@
 
         <ImageView
             android:id="@+id/picker_close_btn"
-            android:layout_width="14dp"
-            android:layout_height="14dp"
-            android:layout_marginEnd="12dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:padding="9dp"
+            android:layout_marginStart="-9dp"
+            android:layout_marginEnd="3dp"
+            android:contentDescription="@string/universal_close"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_close"
             android:tint="?attr/pickerTextSecondary" />

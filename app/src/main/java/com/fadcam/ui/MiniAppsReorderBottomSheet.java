@@ -94,6 +94,7 @@ public class MiniAppsReorderBottomSheet extends BottomSheetDialogFragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        appContext = requireContext().getApplicationContext();
 
         // Apply dynamic gradient background
         View root = view.findViewById(R.id.picker_root);
@@ -237,9 +238,14 @@ public class MiniAppsReorderBottomSheet extends BottomSheetDialogFragment {
         }
     }
 
+    /** Kept so a reorder that finishes after the sheet closes is still saved. */
+    @Nullable
+    private android.content.Context appContext;
+
     private void persist() {
         try {
-            SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(requireContext());
+            if (appContext == null) return;
+            SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(appContext);
             prefs.setSidebarMiniAppsOrder(String.join("|", order));
             prefs.setSidebarMiniAppsCount(count);
         } catch (Exception e) {
@@ -336,7 +342,8 @@ public class MiniAppsReorderBottomSheet extends BottomSheetDialogFragment {
             if (i < order.size() - 1) {
                 View divider = new View(requireContext());
                 divider.setLayoutParams(new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, 1));
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        Math.max(1, Math.round(getResources().getDisplayMetrics().density))));
                 divider.setBackgroundColor(0xFF262626);
                 listContainer.addView(divider);
             }
@@ -386,16 +393,13 @@ public class MiniAppsReorderBottomSheet extends BottomSheetDialogFragment {
                 .setDuration(MOVE_ANIM_MS)
                 .setInterpolator(new DecelerateInterpolator())
                 .withEndAction(() -> {
-                    // Commit: reorder views in the container (row i lives at container index 2*i)
-                    listContainer.removeView(moving);
-                    listContainer.addView(moving, 2 * toIndex);
-                    moving.setTranslationY(0);
-                    for (View v : rowViews) v.setTranslationY(0);
-                    // Commit: update the order list + persist + rebuild
+                    // Commit: update the order list + persist + rebuild (render recreates the rows)
                     String id = order.remove(fromIndex);
                     order.add(toIndex, id);
                     isAnimating = false;
                     persist();
+                    // The sheet can be closed during the slide; render needs a context
+                    if (!isAdded() || getView() == null) return;
                     render();
                 });
 
