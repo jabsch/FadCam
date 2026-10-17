@@ -175,6 +175,10 @@ public class EditorTimelineView extends View {
     private float audioTrimDragX;
     private long audioTrimDragInMs;
     private long audioTrimDragOutMs;
+    // Drag-start anchor: the clip is updated on every MOVE, so deltas must be from the start
+    private float audioTrimStartX;
+    private long audioTrimStartInMs;
+    private long audioTrimStartOutMs;
 
     // ── Touch ────────────────────────────────────────────────────────
     private boolean isScaling = false;
@@ -1817,6 +1821,12 @@ public class EditorTimelineView extends View {
             if (ah != Drag.NONE) {
                 FLog.d(TAG, "onDown: hit audio handle " + ah);
                 activeDrag = ah;
+                AudioClip startClip = audioClips.get(selectedAudioIndex);
+                audioTrimStartX = scrolledX;
+                audioTrimStartInMs = startClip.getInPointMs();
+                audioTrimStartOutMs = startClip.getOutPointMs();
+                audioTrimDragInMs = audioTrimStartInMs;
+                audioTrimDragOutMs = audioTrimStartOutMs;
                 getParent().requestDisallowInterceptTouchEvent(true);
                 return true;
             }
@@ -2085,36 +2095,35 @@ public class EditorTimelineView extends View {
         long srcDur = ac.getSourceDurationMs();
         if (srcDur <= 0) return;
 
-        RectF rect = audioClipRects.get(selectedAudioIndex);
         float pxPerMs = dpPerSecondPx / 1000f;
         long minGap = 500; // minimum 500ms
 
+        // Offset from the drag start: the clip's rect moves with each applied MOVE, so a
+        // delta from the rect edge re-added the whole distance every event
+        long deltaMs = (long) ((x - audioTrimStartX) / pxPerMs);
         boolean isLeft = (activeDrag == Drag.AUDIO_LEFT_HANDLE);
         if (isLeft) {
-            float deltaX = x - rect.left;
-            long deltaMs = (long) (deltaX / pxPerMs);
-            long newIn = Math.max(0, Math.min(ac.getOutPointMs() - minGap, ac.getInPointMs() + deltaMs));
+            long newIn = Math.max(0, Math.min(audioTrimStartOutMs - minGap, audioTrimStartInMs + deltaMs));
             audioTrimDragInMs = newIn;
-            audioTrimDragOutMs = ac.getOutPointMs();
+            audioTrimDragOutMs = audioTrimStartOutMs;
         } else {
-            float deltaX = x - rect.right;
-            long deltaMs = (long) (deltaX / pxPerMs);
-            long newOut = Math.max(ac.getInPointMs() + minGap,
-                    Math.min(srcDur, ac.getOutPointMs() + deltaMs));
-            audioTrimDragInMs = ac.getInPointMs();
+            long newOut = Math.max(audioTrimStartInMs + minGap,
+                    Math.min(srcDur, audioTrimStartOutMs + deltaMs));
+            audioTrimDragInMs = audioTrimStartInMs;
             audioTrimDragOutMs = newOut;
         }
         audioTrimDragX = x;
+
+        // Before the clip changes, so the editor's undo captures the original in/out
+        if (listener != null) {
+            listener.onAudioTrimChanged(selectedAudioIndex, audioTrimDragInMs, audioTrimDragOutMs, isLeft);
+        }
 
         // Apply trim changes immediately for visual feedback
         ac.setInPointMs(audioTrimDragInMs);
         ac.setOutPointMs(audioTrimDragOutMs);
         computeRects();
         invalidate();
-
-        if (listener != null) {
-            listener.onAudioTrimChanged(selectedAudioIndex, audioTrimDragInMs, audioTrimDragOutMs, isLeft);
-        }
     }
     
     /**
