@@ -1893,14 +1893,32 @@ public class RemoteStreamManager {
     }
     
     /**
+     * Free and total bytes of the volume recordings go to: the custom folder's volume
+     * (SD card, USB) when one is set, otherwise internal storage.
+     */
+    private long[] recordingVolumeSpace() {
+        com.fadcam.utils.StorageInfoCache.StorageInfo info =
+                com.fadcam.utils.StorageInfoCache.getCachedStorageInfo();
+        if (info == null && context != null) {
+            info = com.fadcam.utils.StorageInfoCache.calculateAndCacheStorageInfo(
+                    context, com.fadcam.SharedPreferencesManager.getInstance(context));
+        }
+        if (info != null) {
+            return new long[]{info.availableBytes, info.totalBytes};
+        }
+        android.os.StatFs stat = new android.os.StatFs(android.os.Environment.getExternalStorageDirectory().getPath());
+        return new long[]{stat.getAvailableBytes(), stat.getTotalBytes()};
+    }
+
+    /**
      * Get storage info as "used/total GB".
      * Returns the space used (total - available) and total space.
      */
     public String getStorageInfo() {
         try {
-            android.os.StatFs stat = new android.os.StatFs(android.os.Environment.getExternalStorageDirectory().getPath());
-            long availBytes = stat.getAvailableBlocksLong() * stat.getBlockSizeLong();
-            long totalBytes = stat.getBlockCountLong() * stat.getBlockSizeLong();
+            long[] space = recordingVolumeSpace();
+            long availBytes = space[0];
+            long totalBytes = space[1];
             float usedFraction = totalBytes > 0 ? (float) (totalBytes - availBytes) / totalBytes : 0f;
             usedFraction = Math.max(0f, Math.min(1f, usedFraction));
             // Calculate percentage the same way the ring does: Math.round() for consistency
@@ -1920,9 +1938,9 @@ public class RemoteStreamManager {
      */
     public float getStorageAvailableFraction() {
         try {
-            android.os.StatFs stat = new android.os.StatFs(android.os.Environment.getExternalStorageDirectory().getPath());
-            long availBytes = stat.getAvailableBlocksLong() * stat.getBlockSizeLong();
-            long totalBytes = stat.getBlockCountLong() * stat.getBlockSizeLong();
+            long[] space = recordingVolumeSpace();
+            long availBytes = space[0];
+            long totalBytes = space[1];
             if (totalBytes <= 0) return 0f;
             return Math.max(0f, Math.min(1f, (float) availBytes / totalBytes));
         } catch (Exception e) {

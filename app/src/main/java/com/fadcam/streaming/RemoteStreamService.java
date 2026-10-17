@@ -136,6 +136,17 @@ public class RemoteStreamService extends Service {
         return START_STICKY;
     }
     
+    /**
+     * Android 15+ caps dataSync foreground services at 6 hours a day and crashes the app
+     * if the service is still running when it calls this, so stop cleanly instead.
+     */
+    @Override
+    public void onTimeout(int startId, int fgsType) {
+        FLog.w(TAG, "Foreground time limit reached, stopping the stream server");
+        com.fadcam.Utils.stopForegroundCompat(this, true);
+        stopSelf();
+    }
+
     @Override
     public void onDestroy() {
         FLog.i(TAG, "Service stopping");

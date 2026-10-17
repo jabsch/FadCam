@@ -85,6 +85,13 @@ public final class RecordingShortcutDispatcher {
 
     /** Stops whichever recording service owns the live session. */
     public static void stop(Context context) {
+        // Sent from the visible trampoline activity, so the service is already
+        // foreground-eligible; startService avoids FGS-start timeout edge cases.
+        context.startService(stopIntent(context));
+    }
+
+    /** The stop intent for whichever recording service owns the live session. */
+    public static Intent stopIntent(Context context) {
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(context);
         CameraType selected = prefs.getCameraSelection();
         boolean dualRunning = ServiceUtils.isServiceRunning(context, DualCameraRecordingService.class)
@@ -94,8 +101,6 @@ public final class RecordingShortcutDispatcher {
                         .setAction(Constants.INTENT_ACTION_STOP_DUAL_RECORDING)
                 : new Intent(context, RecordingService.class)
                         .setAction(Constants.INTENT_ACTION_STOP_RECORDING);
-        // Sent from the visible trampoline activity, so the service is already
-        // foreground-eligible; startService avoids FGS-start timeout edge cases.
-        context.startService(stopIntent);
+        return stopIntent;
     }
 }

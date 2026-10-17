@@ -130,10 +130,10 @@ public class WatchRemoteFragment extends Fragment {
                     (rawIp >> 16 & 0xff),
                     (rawIp >> 24 & 0xff));
 
-            // Use the port saved by RemoteStreamService (default 8080)
-            int port = com.fadcam.SharedPreferencesManager
-                    .getInstance(requireContext())
-                    .sharedPreferences
+            // Use the port saved by RemoteStreamService (default 8080). It writes to
+            // "FadCamPrefs", not the app prefs, so reading those always gave 8080.
+            int port = requireContext()
+                    .getSharedPreferences("FadCamPrefs", android.content.Context.MODE_PRIVATE)
                     .getInt("stream_server_port", 8080);
 
             return "http://" + ipStr + ":" + port + "/";

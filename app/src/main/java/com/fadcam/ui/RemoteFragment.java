@@ -1135,18 +1135,25 @@ public class RemoteFragment extends BaseFragment {
         
         // Load initial state
         boolean authEnabled = authManager.isAuthEnabled();
+        if (authEnabled && !authManager.hasPassword()) {
+            // Auth without a password rejects every login and locks the web page out
+            authManager.setAuthEnabled(false);
+            authEnabled = false;
+        }
         remoteAuthToggle.setChecked(authEnabled);
         updateSecurityRowsVisibility(authEnabled);
         
         // Auth toggle listener
         remoteAuthToggle.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked && !authManager.hasPassword()) {
+                // First time enabling: auth turns on only once a password is saved, so
+                // closing the sheet can't leave the web page locked with no password
+                remoteAuthToggle.setChecked(false);
+                showSetPasswordSheet(true);
+                return;
+            }
             RemoteAuthManager.getInstance(requireContext()).setAuthEnabled(isChecked);
             updateSecurityRowsVisibility(isChecked);
-            
-            if (isChecked && !authManager.hasPassword()) {
-                // First time enabling - prompt for password
-                showSetPasswordSheet();
-            }
         });
         // Auth enable row click — tapping anywhere on the row triggers the toggle.
         View remoteAuthEnableRow = getView() != null ? getView().findViewById(R.id.remote_auth_enable_row) : null;
@@ -1160,7 +1167,7 @@ public class RemoteFragment extends BaseFragment {
                 Toast.makeText(requireContext(), R.string.remote_security_enable_first, Toast.LENGTH_SHORT).show();
                 return;
             }
-            showSetPasswordSheet();
+            showSetPasswordSheet(false);
         });
         
         // Auto-Lock Timeout row
@@ -1198,7 +1205,7 @@ public class RemoteFragment extends BaseFragment {
     /**
      * Show InputActionBottomSheetFragment for password setting
      */
-    private void showSetPasswordSheet() {
+    private void showSetPasswordSheet(boolean enableAuthWhenSet) {
         RemoteAuthManager authManager = RemoteAuthManager.getInstance(requireContext());
         String initialValue = ""; // Empty, not dots
         String hint = "Enter new password";
@@ -1239,9 +1246,18 @@ public class RemoteFragment extends BaseFragment {
                     return;
                 }
                 
-                // Set password (hashed internally)
-                authManager.setPassword(password);
+                // Set password (hashed internally); it trims, so check what it really saved
+                if (!authManager.setPassword(password)) {
+                    Toast.makeText(requireContext(), R.string.remote_security_password_required, Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 Toast.makeText(requireContext(), R.string.remote_security_password_set, Toast.LENGTH_SHORT).show();
+                if (enableAuthWhenSet && remoteAuthToggle != null) {
+                    // setChecked doesn't call the tap listener, so turn auth on here
+                    authManager.setAuthEnabled(true);
+                    remoteAuthToggle.setChecked(true);
+                    updateSecurityRowsVisibility(true);
+                }
                 
                 // Update password value display
                 remoteAuthPasswordValue.setText("••••••••");
@@ -1720,7 +1736,12 @@ public class RemoteFragment extends BaseFragment {
             }
             // Reset to local mode
             android.content.SharedPreferences prefs = requireContext().getSharedPreferences("FadCamCloudPrefs", Context.MODE_PRIVATE);
+            boolean wasCloud = prefs.getInt(KEY_STREAMING_MODE, MODE_LOCAL) == MODE_CLOUD;
             prefs.edit().putInt(KEY_STREAMING_MODE, MODE_LOCAL).putBoolean("cloud_streaming_enabled", false).apply();
+            if (wasCloud && streamService != null && serviceBound) {
+                // Otherwise a running service stays in cloud mode with no local server
+                streamService.updateStreamingMode();
+            }
         }
         
         // Hide legacy cloud streaming row
