@@ -71,6 +71,7 @@ public class EndpointsBottomSheetFragment extends BottomSheetDialogFragment {
         addEndpoint(postContainer, "Ring Alarm", "/alarm/ring", "POST");
         addEndpoint(postContainer, "Stop Alarm", "/alarm/stop", "POST");
         addEndpoint(postContainer, "Schedule Alarm", "/alarm/schedule", "POST");
+        addEndpoint(postContainer, "Cancel Scheduled Alarm", "/alarm/schedule/cancel", "POST");
     }
 
     private void addEndpoint(LinearLayout container, String label, String endpoint, String method) {

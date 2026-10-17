@@ -185,6 +185,8 @@ import fi.iki.elonen.NanoHTTPD;
                 response = stopAlarm();
             } else if ("/alarm/schedule".equals(uri)) {
                 response = scheduleAlarm(session);
+            } else if ("/alarm/schedule/cancel".equals(uri)) {
+                response = cancelScheduledAlarm();
             } else if ("/camera/switch".equals(uri)) {
                 response = switchCamera(session);
             } else if ("/config/zoom".equals(uri)) {
@@ -1727,6 +1729,35 @@ import fi.iki.elonen.NanoHTTPD;
             FLog.e(TAG, "Error stopping alarm", e);
             return jsonResponse(Response.Status.INTERNAL_ERROR, 
                 "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+        }
+    }
+
+    /**
+     * Cancel the alarm set by scheduleAlarm (the page's Cancel used to clear only
+     * browser storage, so the phone still rang).
+     */
+    private Response cancelScheduledAlarm() {
+        try {
+            android.app.AlarmManager alarmManager = (android.app.AlarmManager) context.getSystemService(android.content.Context.ALARM_SERVICE);
+            android.content.Intent alarmIntent = new android.content.Intent(context, com.fadcam.services.AlarmService.class);
+            alarmIntent.setAction("com.fadcam.action.RING_ALARM");
+            android.app.PendingIntent pendingIntent = android.app.PendingIntent.getService(
+                context,
+                1001, // same id as scheduleAlarm
+                alarmIntent,
+                android.app.PendingIntent.FLAG_NO_CREATE | android.app.PendingIntent.FLAG_IMMUTABLE
+            );
+            if (pendingIntent != null && alarmManager != null) {
+                alarmManager.cancel(pendingIntent);
+                pendingIntent.cancel();
+            }
+            FLog.i(TAG, "Scheduled alarm cancelled via web interface");
+            return jsonResponse(Response.Status.OK,
+                "{\"status\": \"success\", \"message\": \"Scheduled alarm cancelled\"}");
+        } catch (Exception e) {
+            FLog.e(TAG, "Error cancelling scheduled alarm", e);
+            return jsonResponse(Response.Status.INTERNAL_ERROR,
+                "{\"status\": \"error\", \"message\": \"Could not cancel scheduled alarm\"}");
         }
     }
 
