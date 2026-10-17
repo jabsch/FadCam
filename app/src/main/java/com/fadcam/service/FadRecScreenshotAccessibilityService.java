@@ -26,12 +26,19 @@ import com.fadcam.Constants;
 import com.fadcam.R;
 import com.fadcam.utils.PhotoStorageHelper;
 
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class FadRecScreenshotAccessibilityService extends AccessibilityService {
     private static final String TAG = "FadRecScreenshotSvc";
     private static final String PREFS_NAME = "fadrec_screenshot_shortcut";
     private static final String KEY_PENDING_CAPTURE = "pending_capture";
+    // The shortcut sends its trigger twice (a retry for a late-connecting service),
+    // so requests this close together are one screenshot.
+    private static final long DUPLICATE_TRIGGER_WINDOW_MS = 1500L;
+
+    private final ExecutorService screenshotExecutor = Executors.newSingleThreadExecutor();
+    private long lastCaptureRequestMs = 0L;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final BroadcastReceiver triggerReceiver = new BroadcastReceiver() {
@@ -41,6 +48,8 @@ public class FadRecScreenshotAccessibilityService extends AccessibilityService {
                 return;
             }
             FLog.d(TAG, "Trigger broadcast received in accessibility service.");
+            // This trigger is handled now; the pending flag is only for a service that wasn't running
+            consumePendingCapture();
             captureNow();
         }
     };
@@ -100,15 +109,22 @@ public class FadRecScreenshotAccessibilityService extends AccessibilityService {
             }
             receiverRegistered = false;
         }
+        screenshotExecutor.shutdown();
         super.onDestroy();
         FLog.d(TAG, "Accessibility screenshot service destroyed.");
     }
 
     private void captureNow() {
         FLog.d(TAG, "captureNow invoked");
+        long now = android.os.SystemClock.uptimeMillis();
+        if (lastCaptureRequestMs > 0L && now - lastCaptureRequestMs < DUPLICATE_TRIGGER_WINDOW_MS) {
+            FLog.d(TAG, "Duplicate screenshot trigger ignored.");
+            return;
+        }
+        lastCaptureRequestMs = now;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             FLog.d(TAG, "Using takeScreenshot API (R+).");
-            takeScreenshot(Display.DEFAULT_DISPLAY, Executors.newSingleThreadExecutor(),
+            takeScreenshot(Display.DEFAULT_DISPLAY, screenshotExecutor,
                     new TakeScreenshotCallback() {
                         @Override
                         public void onSuccess(@NonNull ScreenshotResult screenshotResult) {
