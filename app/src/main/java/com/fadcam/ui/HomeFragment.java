@@ -7601,16 +7601,9 @@ public class HomeFragment extends BaseFragment {
         
         // Pause background executor for file scanning
         if (executorService != null && !executorService.isShutdown()) {
-            executorService.shutdown();
-            try {
-                if (!executorService.awaitTermination(2, java.util.concurrent.TimeUnit.SECONDS)) {
-                    executorService.shutdownNow();
-                    FLog.w(TAG, "pauseUpdateHandlers: Executor service shutdown timeout");
-                }
-            } catch (InterruptedException e) {
-                executorService.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
+            // No waiting: this runs on the main thread (onPause / tab switch), and waiting
+            // for a running storage scan froze Home for up to 2 s
+            executorService.shutdownNow();
             executorService = null;
         }
     }

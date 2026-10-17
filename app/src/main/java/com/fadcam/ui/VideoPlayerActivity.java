@@ -253,6 +253,13 @@ public class VideoPlayerActivity extends AppCompatActivity {
         10.0f,
     };
     private int currentSpeedIndex = 6; // Index for 1.0x speed in updated speedValues (after adding 0.25x)
+    // Rotation recreates this screen: keep pause state and speed instead of
+    // auto-playing at the default speed (and re-seeking a Forensics jump)
+    private static final String STATE_WAS_PLAYING = "vp_was_playing";
+    private static final String STATE_SPEED = "vp_speed";
+    private boolean restoredFromRecreate = false;
+    private boolean restoredWasPlaying = true;
+    private float restoredSpeed = -1f;
     // Guard to keep single-tap from being treated as part of double-tap or
     // re-triggering control toggles
     private long lastSingleTapTime = 0L;
@@ -285,6 +292,11 @@ public class VideoPlayerActivity extends AppCompatActivity {
 
         super.onCreate(savedInstanceState);
         setContentView(com.fadcam.R.layout.activity_video_player);
+        if (savedInstanceState != null) {
+            restoredFromRecreate = true;
+            restoredWasPlaying = savedInstanceState.getBoolean(STATE_WAS_PLAYING, true);
+            restoredSpeed = savedInstanceState.getFloat(STATE_SPEED, -1f);
+        }
 
         // Sheets restored after rotation lost their result listeners, so picks did nothing
         if (savedInstanceState != null) {
@@ -344,8 +356,16 @@ public class VideoPlayerActivity extends AppCompatActivity {
                     break;
                 }
             }
+            if (restoredSpeed > 0f) {
+                for (int i = 0; i < speedValues.length; i++) {
+                    if (Math.abs(speedValues[i] - restoredSpeed) < 0.001f) {
+                        currentSpeedIndex = i;
+                        break;
+                    }
+                }
+            }
             initializePlayer(videoUri); // Pass the Uri directly
-            if (requestedSeekMs >= 0L && player != null) {
+            if (!restoredFromRecreate && requestedSeekMs >= 0L && player != null) {
                 player.seekTo(requestedSeekMs);
             }
             setupCustomSettingsAction();
@@ -1359,7 +1379,9 @@ public class VideoPlayerActivity extends AppCompatActivity {
                     player.seekTo(savedMs);
                 }
             } catch (Exception ignored) {}
-            if (openPausedFromForensics) {
+            if (restoredFromRecreate) {
+                if (restoredWasPlaying) player.play(); else player.pause();
+            } else if (openPausedFromForensics) {
                 FLog.d(TAG, "Forensics open: keep paused after seek");
                 player.pause();
             } else {
@@ -3518,6 +3540,17 @@ public class VideoPlayerActivity extends AppCompatActivity {
         stopUiTicks();
         // Detach view to let service own playback surface-less
         if (playerView != null) playerView.setPlayer(null);
+    }
+
+    @Override
+    protected void onSaveInstanceState(@androidx.annotation.NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (player != null) {
+            try {
+                outState.putBoolean(STATE_WAS_PLAYING, player.getPlayWhenReady());
+                outState.putFloat(STATE_SPEED, player.getPlaybackParameters().speed);
+            } catch (Exception ignored) {}
+        }
     }
 
     @Override
