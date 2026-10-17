@@ -49,6 +49,9 @@ public final class PreferencesBackupUtil {
         set.add(com.fadcam.Constants.PREF_RECORDING_ACCUMULATED_PAUSED_DURATION);
         // Live remote-access login tokens: never write them into an export file
         set.add(com.fadcam.Constants.PREF_REMOTE_AUTH_SESSIONS);
+        // Unsalted SHA-256 of a short password: an export file would let anyone
+        // brute-force it offline. An import keeps this device's own password.
+        set.add(com.fadcam.Constants.PREF_REMOTE_AUTH_PASSWORD_HASH);
         // Device-local marker of which language was handed to AppCompat (MainActivity)
         set.add("language_applied");
         // Live torch / screen recording / Motion Lab debug state: restoring it showed
@@ -118,13 +121,18 @@ public final class PreferencesBackupUtil {
      */
     public static void writeJsonToUri(Context context, Uri uri, JSONObject json) throws IOException {
         if(uri == null) throw new IOException("Target URI is null");
-        try(OutputStream os = context.getContentResolver().openOutputStream(uri, "wt");
+        try(OutputStream os = requireStream(context.getContentResolver().openOutputStream(uri, "wt"), uri);
             BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(os, StandardCharsets.UTF_8))){
             String pretty;
             try { pretty = json.toString(2); } catch (org.json.JSONException e){ pretty = json.toString(); }
             bw.write(pretty);
             bw.flush();
         }
+    }
+
+    private static <T> T requireStream(T stream, Uri uri) throws IOException {
+        if(stream == null) throw new IOException("Cannot open " + uri);
+        return stream;
     }
 
     /**
@@ -134,7 +142,7 @@ public final class PreferencesBackupUtil {
     public static JSONObject readJsonFromUri(Context context, Uri uri) throws IOException, JSONException {
         if(uri == null) throw new IOException("Source URI is null");
         StringBuilder sb = new StringBuilder();
-        try(InputStream is = context.getContentResolver().openInputStream(uri);
+        try(InputStream is = requireStream(context.getContentResolver().openInputStream(uri), uri);
             BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))){
             String line;
             while((line = br.readLine()) != null){
@@ -157,7 +165,8 @@ public final class PreferencesBackupUtil {
      *    JSON parsers lose type info (org.json represents small numbers as Integer).
      *    This may affect getInt() callers, but it's safer than crashing getLong().
      */
-    public static void applyFromJson(Context context, JSONObject root) throws JSONException {
+    /** @return true when the imported custom storage folder had to be dropped. */
+    public static boolean applyFromJson(Context context, JSONObject root) throws JSONException {
         if(root == null) throw new JSONException("Root JSON null");
         SharedPreferences sp = context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sp.edit();
@@ -261,14 +270,46 @@ public final class PreferencesBackupUtil {
             }
         }
         editor.apply();
+        return dropUnreachableCustomStorage(context);
     }
 
     /**
-     * Clears all preferences (factory defaults will apply next access).
+     * A custom folder's access grant belongs to the install that picked it, so a
+     * backup from another phone or an earlier install names a folder this one
+     * can't write: every recording would fail. Fall back to internal storage.
+     *
+     * @return true when the custom folder was dropped.
+     */
+    public static boolean dropUnreachableCustomStorage(Context context){
+        com.fadcam.SharedPreferencesManager prefs = com.fadcam.SharedPreferencesManager.getInstance(context);
+        if(!com.fadcam.SharedPreferencesManager.STORAGE_MODE_CUSTOM.equals(prefs.getStorageMode())) return false;
+        String uriString = prefs.getCustomStorageUri();
+        if(uriString != null){
+            for(android.content.UriPermission p : context.getContentResolver().getPersistedUriPermissions()){
+                if(p.isWritePermission() && uriString.equals(p.getUri().toString())) return false;
+            }
+        }
+        FLog.w(TAG, "Imported custom storage folder isn't accessible here; using internal storage");
+        prefs.setStorageMode(com.fadcam.SharedPreferencesManager.STORAGE_MODE_INTERNAL);
+        prefs.setCustomStorageUri(null);
+        return true;
+    }
+
+    /**
+     * Restores factory defaults (they apply on next access). Live recording, torch
+     * and session state survives, so a reset mid-recording doesn't orphan it.
      */
     public static void resetAll(Context context){
         SharedPreferences sp = context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE);
-        sp.edit().clear().apply();
+        SharedPreferences.Editor editor = sp.edit();
+        for(String key : sp.getAll().keySet()){
+            boolean factoryReset = Constants.PREF_REMOTE_AUTH_PASSWORD_HASH.equals(key)
+                    || Constants.PREF_REMOTE_AUTH_SESSIONS.equals(key);
+            if(factoryReset || !isTransientKey(key)) editor.remove(key);
+        }
+        editor.apply();
+        // The remote password is gone, so no browser stays signed in with it
+        com.fadcam.streaming.RemoteAuthManager.getInstance(context).clearAllSessions();
     }
 
     /**
