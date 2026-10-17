@@ -68,8 +68,9 @@ public class ClientDataBottomSheet extends BottomSheetDialogFragment {
             CloudStreamUploader.getInstance(requireContext()).isEnabled();
         
         // Get total data
-        long totalMB = manager.getTotalDataTransferred() / (1024 * 1024);
-        totalDataText.setText(totalMB + " MB");
+        // Formatter switches to KB below 1 MB (integer MB showed "0 MB"), like the rows
+        totalDataText.setText(android.text.format.Formatter.formatShortFileSize(
+                requireContext(), manager.getTotalDataTransferred()));
         
         if (isCloudMode) {
             // CLOUD MODE: Show aggregate stats only

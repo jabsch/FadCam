@@ -5584,7 +5584,7 @@ public class RecordingService extends Service {
                 sb.append("\nSpeed: GPS is off");
             } else {
                 float speed = sensorDataProvider.getSpeedKmh();
-                sb.append("\nSpeed: ").append(String.format("%.0f", speed)).append(" km/h");
+                sb.append("\nSpeed: ").append(String.format(Locale.US, "%.0f", speed)).append(" km/h");
             }
         }
 
@@ -5593,7 +5593,7 @@ public class RecordingService extends Service {
                 sb.append("\nAlt: GPS is off");
             } else {
                 double alt = sensorDataProvider.getAltitude();
-                sb.append("\nAlt: ").append(String.format("%.0f", alt)).append("m");
+                sb.append("\nAlt: ").append(String.format(Locale.US, "%.0f", alt)).append("m");
             }
         }
 
@@ -5603,7 +5603,7 @@ public class RecordingService extends Service {
                 sb.append("\nAccuracy: GPS is off");
             } else {
                 float acc = sensorDataProvider.getAccuracy();
-                sb.append("\nAccuracy: ").append(String.format("%.0f", acc)).append("m");
+                sb.append("\nAccuracy: ").append(String.format(Locale.US, "%.0f", acc)).append("m");
             }
         }
 

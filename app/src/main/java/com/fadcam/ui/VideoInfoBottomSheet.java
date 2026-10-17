@@ -286,6 +286,15 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
      */
     private VideoMetadata extractVideoMetadata() {
         VideoMetadata metadata = new VideoMetadata();
+        // Defaults in the UI language: the fallback checks below compare against
+        // getString(video_info_unknown), which never matched the English literals
+        String unknown = getString(R.string.video_info_unknown);
+        metadata.duration = unknown;
+        metadata.resolution = unknown;
+        metadata.frameRate = unknown;
+        metadata.codec = unknown;
+        metadata.bitrate = unknown;
+        metadata.location = getString(R.string.video_info_no_location);
 
         try {
             // Get file path for FFprobe - handle content:// URIs using SAF protocol
@@ -699,6 +708,16 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
         // Fall back to SAF protocol for FFprobeKit
         // Format: saf:<content-uri>
         FLog.d(TAG, "Using SAF protocol for FFprobe: saf:" + videoUri.toString());
+        // "saf:<uri>" is not a protocol FFmpegKit understands (codec/FPS stayed Unknown);
+        // it needs its own registered saf parameter
+        Context ctx = getContext();
+        if (ctx != null) {
+            try {
+                return com.arthenica.ffmpegkit.FFmpegKitConfig.getSafParameterForRead(ctx, videoUri);
+            } catch (Exception e) {
+                FLog.w(TAG, "getSafParameterForRead failed", e);
+            }
+        }
         return "saf:" + videoUri.toString();
     }
     
@@ -768,8 +787,9 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
         long week = day / 7;
         if (week < 5) return week + " week" + (week > 1 ? "s" : "") + " ago";
         long month = day / 30;
-        if (month < 12) return month + " month" + (month > 1 ? "s" : "") + " ago";
-        return day / 365 + " year" + (day > 365 ? "s" : "") + " ago";
+        if (day < 365) return Math.max(1, month) + " month" + (month > 1 ? "s" : "") + " ago";
+        long year = day / 365;
+        return year + " year" + (year > 1 ? "s" : "") + " ago";
     }
 
     private String formatFileSize(long bytes) {

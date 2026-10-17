@@ -95,7 +95,10 @@ public class DualCameraSettingsFragment extends Fragment {
         bindRowHandlers(view);
         setupBanner();
         refreshAllValues();
-        updatePreview();
+        // Before layout the container measures 0 and the PiP falls back to a fixed size
+        if (previewContainer != null) {
+            previewContainer.post(() -> { if (isAdded()) updatePreview(); });
+        }
 
         View back = view.findViewById(R.id.back_button);
         if (back != null) {

@@ -63,7 +63,7 @@ public class NetworkHealthBottomSheet extends BottomSheetDialogFragment {
             
             // Re-enable after 3 seconds
             view.postDelayed(() -> {
-                if (testNowButton != null) {
+                if (testNowButton != null && isAdded()) {
                     testNowButton.setText(getString(R.string.network_test_now));
                     testNowButton.setEnabled(true);
                     loadNetworkData();
