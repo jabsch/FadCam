@@ -162,8 +162,9 @@ public class RemoteFragment extends BaseFragment {
         
         @Override
         public void onServiceDisconnected(ComponentName name) {
+            // The binding stays registered (it reconnects if the service restarts), so
+            // serviceBound stays set and the next unbind still releases it
             streamService = null;
-            serviceBound = false;
             streamStartTime = 0;
             FLog.d(TAG, "Service disconnected");
         }
@@ -328,6 +329,9 @@ public class RemoteFragment extends BaseFragment {
         // Update FPS and resolution display
         updateRequirementsDisplay();
         
+        // updateUI sets the switch from the real server state. A restored checked state after
+        // an activity recreate (locale, font size) fired the listener and restarted the server.
+        streamingToggle.setSaveEnabled(false);
         // Setup toggle listener
         streamingToggle.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
@@ -488,7 +492,7 @@ public class RemoteFragment extends BaseFragment {
         boolean serviceRunning = RemoteStreamManager.getInstance().isStreamingEnabled();
         if (serviceRunning) {
             Intent intent = new Intent(requireContext(), RemoteStreamService.class);
-            requireContext().bindService(intent, serviceConnection, 0);
+            bindStreamService(intent, 0);
             streamStartTime = System.currentTimeMillis();
         }
         
@@ -551,7 +555,7 @@ public class RemoteFragment extends BaseFragment {
         boolean serviceRunning = RemoteStreamManager.getInstance().isStreamingEnabled();
         if (serviceRunning) {
             Intent intent = new Intent(requireContext(), RemoteStreamService.class);
-            requireContext().bindService(intent, serviceConnection, 0);
+            bindStreamService(intent, 0);
             streamStartTime = System.currentTimeMillis();
         }
         
@@ -592,12 +596,23 @@ public class RemoteFragment extends BaseFragment {
         
         Intent intent = new Intent(requireContext(), RemoteStreamService.class);
         requireContext().startForegroundService(intent);
-        requireContext().bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+        bindStreamService(intent, Context.BIND_AUTO_CREATE);
         
         streamStartTime = System.currentTimeMillis();
         Toast.makeText(requireContext(), "Stream server starting...", Toast.LENGTH_SHORT).show();
     }
     
+    /**
+     * serviceBound means "a binding is registered", set when it is requested rather than
+     * when it connects. Set only in onServiceConnected, a stop tapped before the connection
+     * skipped the unbind, so the pending binding kept the service and its port open (and
+     * the UI flipped back to active once it connected).
+     */
+    private void bindStreamService(Intent intent, int flags) {
+        requireContext().bindService(intent, serviceConnection, flags);
+        serviceBound = true;
+    }
+
     private void stopStreaming() {
         FLog.i(TAG, "Stopping streaming");
         
@@ -684,8 +699,9 @@ public class RemoteFragment extends BaseFragment {
                     rootUrlText.setText("https://fadcam.fadseclab.com/...");
                 }
             } else {
-                // Local mode - show local IP
-                String serverUrlWithPort = streamService.getDeviceIpWithPort();
+                // Local mode - show local IP. Cloud mode with an unlinked device lands here
+                // too, before the service has connected.
+                String serverUrlWithPort = streamService != null ? streamService.getDeviceIpWithPort() : null;
                 if (serverUrlWithPort != null) {
                     String rootUrl = "http://" + serverUrlWithPort + "/";
                     rootUrlText.setText(rootUrl);

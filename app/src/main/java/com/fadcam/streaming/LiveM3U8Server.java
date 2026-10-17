@@ -94,6 +94,14 @@ import fi.iki.elonen.NanoHTTPD;
     public Response serve(IHTTPSession session) {
         java.util.Map<String, String> body = new java.util.HashMap<>();
         if (Method.POST.equals(session.getMethod())) {
+            // NanoHTTPD loads the whole body into memory before any auth check: one huge POST
+            // from anyone on the network ran the app out of memory and killed the recording
+            if (!bodySizeAcceptable(session)) {
+                Response tooLarge = newFixedLengthResponse(Response.Status.PAYLOAD_TOO_LARGE,
+                        MIME_PLAINTEXT, "Request body too large");
+                tooLarge.closeConnection(true);
+                return tooLarge;
+            }
             try {
                 session.parseBody(body);
             } catch (Exception e) {
@@ -105,6 +113,20 @@ import fi.iki.elonen.NanoHTTPD;
             return serveRequest(session);
         } finally {
             REQUEST_BODY.remove();
+        }
+    }
+
+    /** Every API body is a small JSON document; anything bigger, or of unknown size, is refused. */
+    private static final long MAX_POST_BODY_BYTES = 64 * 1024;
+
+    private static boolean bodySizeAcceptable(IHTTPSession session) {
+        String length = session.getHeaders().get("content-length");
+        if (length == null) return true; // NanoHTTPD reads no body without a length
+        try {
+            long n = Long.parseLong(length.trim());
+            return n >= 0 && n <= MAX_POST_BODY_BYTES;
+        } catch (NumberFormatException e) {
+            return false;
         }
     }
 
@@ -138,17 +160,13 @@ import fi.iki.elonen.NanoHTTPD;
             }
         }
         
-        // Add CORS headers for web player compatibility
         Response response;
-        
-        // Handle OPTIONS preflight requests for CORS
+
+        // No CORS headers: the dashboard is served from this same server and the cloud one
+        // goes through the relay. "Allow-Origin: *" let any web page open in a browser on the
+        // network read /status and the live video while Remote Security was off.
         if (Method.OPTIONS.equals(method)) {
-            response = newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, "");
-            response.addHeader("Access-Control-Allow-Origin", "*");
-            response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-            response.addHeader("Access-Control-Allow-Headers", "Content-Type, Cache-Control, Pragma, Authorization");
-            response.addHeader("Access-Control-Max-Age", "3600");
-            return response;
+            return newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, "");
         }
         
         // Remote Security: everything except the page itself, its static files and
@@ -246,13 +264,7 @@ import fi.iki.elonen.NanoHTTPD;
         } else {
             response = newFixedLengthResponse(Response.Status.METHOD_NOT_ALLOWED, MIME_PLAINTEXT, "Only GET, POST and OPTIONS requests supported");
         }
-        
-        // Add CORS headers to all responses
-        response.addHeader("Access-Control-Allow-Origin", "*");
-        response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        response.addHeader("Access-Control-Allow-Headers", "Content-Type, Cache-Control, Pragma, Authorization");
-        response.addHeader("Access-Control-Max-Age", "3600");
-        
+
         return response;
     }
     
@@ -359,21 +371,20 @@ import fi.iki.elonen.NanoHTTPD;
             // No per-request logging: players fetch the playlist every couple of seconds.
             Response response = newFixedLengthResponse(
                 Response.Status.OK,
-                "application/vnd.apple.mpegurl",
+                // NanoHTTPD writes this as the Content-Type; adding another header sent two
+                "application/vnd.apple.mpegurl; charset=utf-8",
                 m3u8.toString()
             );
             
             // ULTRA-AGGRESSIVE cache prevention for HLS playlist
             // Prevents browser/HLS.js from serving stale playlists with old fragment numbers
-            response.addHeader("Content-Type", "application/vnd.apple.mpegurl; charset=utf-8");
             response.addHeader("Content-Disposition", "inline");
             response.addHeader("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0, s-maxage=0");
             response.addHeader("Pragma", "no-cache");
             response.addHeader("Expires", "0");
             response.addHeader("ETag", String.valueOf(System.currentTimeMillis())); // Force unique response each time
             response.addHeader("Last-Modified", new java.text.SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", java.util.Locale.US).format(new java.util.Date()));
-            response.addHeader("Access-Control-Allow-Origin", "*");
-            
+
             return response;
             
         } finally {
@@ -1978,37 +1989,51 @@ import fi.iki.elonen.NanoHTTPD;
      * Proxy GitHub notification file fetch to avoid browser CORS issues
      * GET /api/github/notification - Fetches JSONC from GitHub and returns as JSON
      */
+    /** Unauthenticated endpoint: without a cache anyone on the network made the phone fetch on demand. */
+    private static final long GITHUB_NOTIFICATION_CACHE_MS = 10 * 60 * 1000L;
+    private static volatile String cachedGitHubNotification;
+    private static volatile long cachedGitHubNotificationAt;
+
     private Response fetchGitHubNotification() {
+        String cached = cachedGitHubNotification;
+        if (cached != null && System.currentTimeMillis() - cachedGitHubNotificationAt < GITHUB_NOTIFICATION_CACHE_MS) {
+            return jsonResponse(Response.Status.OK, cached);
+        }
+        java.net.HttpURLConnection conn = null;
         try {
             String githubUrl = "https://raw.githubusercontent.com/jabsch/FadCam/master/app/src/main/assets/web/fadex/pushnotification.jsonc";
             
             // Create URL connection
             java.net.URL url = new java.net.URL(githubUrl);
-            java.net.URLConnection conn = url.openConnection();
+            conn = (java.net.HttpURLConnection) url.openConnection();
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(5000);
             conn.setRequestProperty("User-Agent", "FadCam-NotificationManager");
             
-            // Read response
-            java.io.BufferedReader reader = new java.io.BufferedReader(
-                new java.io.InputStreamReader(conn.getInputStream(), "UTF-8"));
+            // Read response (closed on failure too, which leaked a socket per error)
             StringBuilder response = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                response.append(line).append("\n");
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(conn.getInputStream(), "UTF-8"))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    response.append(line).append("\n");
+                }
             }
-            reader.close();
             
             String jsonc = response.toString();
             
             // Parse JSONC (strip comments) to JSON
             String json = parseJSONCToJSON(jsonc);
+            cachedGitHubNotification = json;
+            cachedGitHubNotificationAt = System.currentTimeMillis();
             
             return jsonResponse(Response.Status.OK, json);
         } catch (Exception e) {
             FLog.e(TAG, "❌ Error fetching GitHub notification", e);
             return jsonResponse(Response.Status.INTERNAL_ERROR, 
                 errorJson(e.getMessage()));
+        } finally {
+            if (conn != null) conn.disconnect();
         }
     }
 
