@@ -129,6 +129,8 @@ public class HomeFragment extends BaseFragment {
 
     private static final String TAG = "HomeFragment";
     private static final long UPDATE_CHECK_INTERVAL_MS = 60L * 60L * 1000L;
+    private static final String PREF_UPDATE_AVAILABLE = "update_available_cached";
+    private static final String PREF_LAST_PROMPTED_UPDATE = "last_prompted_update_version";
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 100;
     private static final String ELAPSED_ALIGNMENT_RESULT_KEY = "home_elapsed_alignment_picker";
     private static final String ELAPSED_DISPLAY_RESULT_KEY = "home_elapsed_display_picker";
@@ -1543,6 +1545,11 @@ public class HomeFragment extends BaseFragment {
                         if (now - sharedPreferencesManager.getLong(
                                 Constants.LAST_UPDATE_CHECK_KEY, 0L)
                                 < UPDATE_CHECK_INTERVAL_MS) {
+                            // Keep the badge across cold starts between checks
+                            final boolean savedHasUpdate = sharedPreferencesManager.sharedPreferences
+                                    .getBoolean(PREF_UPDATE_AVAILABLE, false);
+                            android.app.Activity act = getActivity();
+                            if (act != null) act.runOnUiThread(() -> updateUpdateBadge(savedHasUpdate));
                             return;
                         }
                         String currentVersion = getAppVersionForUpdates();
@@ -1572,8 +1579,21 @@ public class HomeFragment extends BaseFragment {
                                 + " stable=" + result.stableVersion + "(" + result.hasStable + ")"
                                 + " beta=" + result.betaVersion + "(" + result.hasBeta + ")"
                                 + " pro=" + result.proVersion + "(" + result.hasPro + ")");
-                        if ((isBetaApp && result.hasBeta) || (!isBetaApp && result.hasStable)) {
-                            requireActivity().runOnUiThread(() -> {
+                        sharedPreferencesManager.sharedPreferences.edit()
+                                .putBoolean(PREF_UPDATE_AVAILABLE, result.hasAnyUpdate()).apply();
+                        // Pop once per new version; the badge stays until it's installed
+                        final String promptVersion = isBetaApp && result.hasBeta
+                                ? result.betaVersion : result.stableVersion;
+                        final boolean alreadyPrompted = promptVersion != null
+                                && promptVersion.equals(sharedPreferencesManager.sharedPreferences
+                                        .getString(PREF_LAST_PROMPTED_UPDATE, null));
+                        // A newer stable also pops on the beta app when no newer beta exists
+                        android.app.Activity hostActivity = getActivity();
+                        if (hostActivity != null && !alreadyPrompted
+                                && ((isBetaApp && result.hasBeta) || result.hasStable)) {
+                            sharedPreferencesManager.sharedPreferences.edit()
+                                    .putString(PREF_LAST_PROMPTED_UPDATE, promptVersion).apply();
+                            hostActivity.runOnUiThread(() -> {
                                 if (isAdded() && !isDetached()
                                         && getActivity() != null
                                         && !getActivity().isFinishing()) {
@@ -1598,7 +1618,10 @@ public class HomeFragment extends BaseFragment {
                         }
 
                         // Update hamburger badge — show when update available, hide when not
-                        requireActivity().runOnUiThread(() -> updateUpdateBadge(result.hasAnyUpdate()));
+                        android.app.Activity badgeActivity = getActivity();
+                        if (badgeActivity != null) {
+                            badgeActivity.runOnUiThread(() -> updateUpdateBadge(result.hasAnyUpdate()));
+                        }
 
                     } catch (Exception e) {
                         FLog.e(TAG, "Update check failed", e);

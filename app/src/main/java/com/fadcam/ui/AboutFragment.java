@@ -307,7 +307,7 @@ public class AboutFragment extends BaseFragment {
                     .append("<font color='" + answerColorHex + "'>").append(answers[i]).append("</font><br><br>");
         }
         privacyInfoContent.setText(Html.fromHtml(qnaContent.toString(), Html.FROM_HTML_MODE_LEGACY));
-        sourceCodeButton.setOnClickListener(v -> openUrl("https://github.com/fadsec-lab/"));
+        sourceCodeButton.setOnClickListener(v -> openUrl("https://github.com/jabsch/FadCam"));
         donateButton.setOnClickListener(v -> {
             KoFiSupportBottomSheet bottomSheet = new KoFiSupportBottomSheet();
             bottomSheet.show(getParentFragmentManager(), "KoFiSupportBottomSheet");

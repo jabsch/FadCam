@@ -1039,6 +1039,7 @@ public class OnboardingActivity extends AppIntro {
         // Skip WhatsNewActivity on Wear OS: WebView is not supported
         if (!com.fadcam.utils.RuntimeCompat.isWatchDevice(this)) {
             Intent intent = new Intent(this, WhatsNewActivity.class);
+            intent.putExtra(WhatsNewActivity.EXTRA_START_HOME, true);
             startActivity(intent);
         }
         finish();

@@ -450,6 +450,7 @@ public class MainActivity extends AppCompatActivity {
                 // Skip WhatsNewActivity on Wear OS: WebView is not supported
                 if (!RuntimeCompat.isWatchDevice(this)) {
                     Intent intent = new Intent(this, com.fadcam.ui.WhatsNewActivity.class);
+                    intent.putExtra(com.fadcam.ui.WhatsNewActivity.EXTRA_START_HOME, true);
                     startActivity(intent);
                     finish();
                     return;

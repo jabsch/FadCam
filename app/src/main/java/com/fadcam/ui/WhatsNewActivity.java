@@ -35,6 +35,8 @@ import com.google.android.material.button.MaterialButton;
  */
 public class WhatsNewActivity extends AppCompatActivity {
     private static final String TAG = "WhatsNewActivity";
+    /** Set by onboarding and MainActivity, which finish themselves before showing this screen. */
+    public static final String EXTRA_START_HOME = "com.fadcam.extra.WHATS_NEW_START_HOME";
     private static final long COUNTDOWN_DURATION = 5000; // 5 seconds in milliseconds
     
     private WebView changelogWebView;
@@ -148,6 +150,11 @@ public class WhatsNewActivity extends AppCompatActivity {
         SharedPreferencesManager.getInstance(this).setShowOnboarding(false);
         FLog.d(TAG, "navigateToHome: Onboarding marked as complete");
         
+        if (!getIntent().getBooleanExtra(EXTRA_START_HOME, false)) {
+            // Opened from the sidebar: the app is still underneath, so just close
+            finish();
+            return;
+        }
         FLog.d(TAG, "navigateToHome: Starting navigation to MainActivity");
         Intent intent = new Intent(this, com.fadcam.MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

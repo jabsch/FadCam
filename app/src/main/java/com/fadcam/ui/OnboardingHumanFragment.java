@@ -154,18 +154,29 @@ public class OnboardingHumanFragment extends Fragment {
         SpannableString spannableString = new SpannableString(fullText);
         
         // Find "Privacy Policy" in the text
-        String privacyPolicyText = "Privacy Policy";
+        String privacyPolicyText = getString(R.string.onboarding_privacy_policy_link);
         int startIndex = fullText.indexOf(privacyPolicyText);
-        if (startIndex >= 0) {
-            int endIndex = startIndex + privacyPolicyText.length();
+        int endIndex = startIndex + privacyPolicyText.length();
+        if (startIndex < 0) {
+            // Translation doesn't contain the phrase: link the whole line so the policy
+            // can still be opened before agreeing to it
+            startIndex = 0;
+            endIndex = fullText.length();
+        }
+        {
             
             // Create clickable span for Privacy Policy
             ClickableSpan clickableSpan = new ClickableSpan() {
                 @Override
                 public void onClick(View widget) {
                     // Open privacy policy in external browser
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/anonfaded/FadCam/blob/master/PRIVACY.md"));
-                    startActivity(intent);
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/jabsch/FadCam/blob/master/PRIVACY.md"));
+                    try {
+                        startActivity(intent);
+                    } catch (android.content.ActivityNotFoundException e) {
+                        android.widget.Toast.makeText(widget.getContext(), R.string.whats_new_no_browser,
+                                android.widget.Toast.LENGTH_SHORT).show();
+                    }
                 }
             };
             
