@@ -84,6 +84,10 @@ public class MotionStateMachine {
 
             case POST_ROLL:
                 if (triggered) {
+                    // Any motion keeps the post-roll open, so slow or on-and-off movement
+                    // that never passes the debounce doesn't pause mid-activity
+                    postRollUntilMs = Math.max(postRollUntilMs,
+                            signal.getTimestampMs() + settings.getPostRollMs());
                     // Apply debounceMs to POST_ROLL → RECORDING to prevent rapid
                     // state toggling from brief motion false-positives while recording
                     // is paused.
@@ -113,6 +117,21 @@ public class MotionStateMachine {
             default:
                 return TransitionAction.NONE;
         }
+    }
+
+    /**
+     * The user resumed by hand: treat it as recording so a still scene runs into
+     * post-roll and pauses again, instead of recording until motion comes and goes.
+     */
+    public void forceRecording(long nowMs) {
+        if (state == MotionSessionState.RECORDING) return;
+        state = MotionSessionState.RECORDING;
+        recordingStartedAtMs = nowMs;
+        pendingSinceMs = -1L;
+        pendingLastTriggeredAtMs = -1L;
+        postRollUntilMs = -1L;
+        postRollTriggeredSinceMs = -1L;
+        recordingLossSinceMs = -1L;
     }
 
     public void resetToIdle() {
