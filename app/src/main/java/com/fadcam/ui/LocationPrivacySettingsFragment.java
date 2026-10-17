@@ -33,14 +33,15 @@ public class LocationPrivacySettingsFragment extends Fragment {
     private SharedPreferencesManager prefs;
     private TextView valueEmbed;
 
-    private ActivityResultLauncher<String> permissionLauncher;
+    private ActivityResultLauncher<String[]> permissionLauncher;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         // Registered once in onCreate so a grant that lands after recreation still reaches us
-        permissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
-            if(granted){ onPermissionGrantedPostRequest(); } else { onPermissionDeniedPostRequest(); }
+        // Android 12+ ignores a request for precise location on its own; ask for both
+        permissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+            if(Boolean.TRUE.equals(result.get(Manifest.permission.ACCESS_FINE_LOCATION))){ onPermissionGrantedPostRequest(); } else { onPermissionDeniedPostRequest(); }
         });
     }
 
@@ -96,7 +97,7 @@ public class LocationPrivacySettingsFragment extends Fragment {
                 .setTitle(R.string.location_permission_title)
                 .setMessage(R.string.location_permission_description)
                 .setPositiveButton(R.string.grant_permission_button, (d,w)->{
-                    permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
+                    permissionLauncher.launch(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION});
                 })
                 .setNegativeButton(R.string.universal_cancel, (d,w)->{})
                 .show();

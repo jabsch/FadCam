@@ -5485,6 +5485,37 @@ public class HomeFragment extends BaseFragment {
         }
     }
 
+    private final androidx.activity.result.ActivityResultLauncher<String[]> recordingPermissionLauncher =
+            registerForActivityResult(
+                    new androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions(),
+                    result -> {
+                        if (!isAdded()) return;
+                        String[] stillMissing = missingRecordingPermissions();
+                        if (stillMissing.length == 0) {
+                            startRecording();
+                        } else {
+                            com.fadcam.utils.PermissionSettings.showDenied(this, stillMissing[0],
+                                    R.string.toast_permissions_required);
+                        }
+                    });
+
+    @NonNull
+    private String[] missingRecordingPermissions() {
+        Context ctx = getContext();
+        if (ctx == null) return new String[0];
+        java.util.ArrayList<String> missing = new java.util.ArrayList<>();
+        if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            missing.add(Manifest.permission.CAMERA);
+        }
+        if (sharedPreferencesManager.isRecordAudioEnabled()
+                && ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+            missing.add(Manifest.permission.RECORD_AUDIO);
+        }
+        return missing.toArray(new String[0]);
+    }
+
     private void startRecording() {
         if (getContext() == null) {
             FLog.e(TAG, "Context is null, cannot start recording.");
@@ -5496,7 +5527,14 @@ public class HomeFragment extends BaseFragment {
         }
         // Start vibration is fired by the recording service / start receivers —
         // not here, to avoid a double vibration.
-        // Permission checks removed; handled by onboarding
+        // Onboarding asks once, but Android can reset or the user can revoke
+        // permissions later; without CAMERA (and the mic when audio is on) the service
+        // stops before going foreground, which crashes the app.
+        String[] missing = missingRecordingPermissions();
+        if (missing.length > 0) {
+            recordingPermissionLauncher.launch(missing);
+            return;
+        }
 
         // ── Dual Camera path ──────────────────────────────────────────
         CameraType selectedCam = sharedPreferencesManager.getCameraSelection();

@@ -35,7 +35,11 @@ public class ScreenShotCaptureActivity extends ComponentActivity {
             Toast.makeText(this, R.string.screenshot_accessibility_enable_needed, Toast.LENGTH_LONG).show();
             Intent settingsIntent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
             settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(settingsIntent);
+            try {
+                startActivity(settingsIntent);
+            } catch (android.content.ActivityNotFoundException e) {
+                startActivity(new Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            }
             finishNow();
             return;
         }

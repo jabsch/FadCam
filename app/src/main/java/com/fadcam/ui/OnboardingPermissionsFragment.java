@@ -42,10 +42,21 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
     private TextView permissionStatusText; // Text view to show status instead of toasts
     private boolean statusToastShown = false; // Flag to prevent multiple toasts
 
+    private boolean requestedOnce = false;
+    private boolean requiredGranted = false;
+
     private final androidx.activity.result.ActivityResultLauncher<String[]> permissionLauncher =
             registerForActivityResult(
                     new androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions(),
-                    result -> checkPermissionsAndUpdateUI());
+                    result -> {
+                        requestedOnce = true;
+                        checkPermissionsAndUpdateUI();
+                        // A denied permission that no longer shows a dialog needs Settings;
+                        // otherwise Grant kept relaunching a request answered with nothing
+                        if (!requiredGranted && isAnyPermissionPermanentlyDenied()) {
+                            showManualPermissionDialog();
+                        }
+                    });
 
     @Nullable
     @Override
@@ -63,8 +74,11 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
                 // Do nothing, or optionally show a toast
                 showPermissionStatus(R.string.permissions_granted, true);
             } else {
-                // Always show the runtime permission dialog, even if permanently denied
-                requestAllPermissionsAlways();
+                if (requestedOnce && isAnyPermissionPermanentlyDenied()) {
+                    showManualPermissionDialog();
+                } else {
+                    requestAllPermissionsAlways();
+                }
             }
         });
         checkPermissionsAndUpdateUI();
@@ -97,7 +111,17 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
             batteryOptButton.setOnClickListener(v3 -> {
                 Intent intent = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
                 intent.setData(android.net.Uri.parse("package:" + requireContext().getPackageName()));
-                startActivity(intent);
+                try {
+                    startActivity(intent);
+                } catch (android.content.ActivityNotFoundException e) {
+                    // Some builds (TV, Wear, a few OEMs) have no such screen
+                    try {
+                        startActivity(new Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+                    } catch (android.content.ActivityNotFoundException e2) {
+                        android.widget.Toast.makeText(requireContext(), R.string.open_settings,
+                                android.widget.Toast.LENGTH_SHORT).show();
+                    }
+                }
             });
         }
         return view;
@@ -180,6 +204,8 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
                 || (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
                 && ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
                 && ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED));
+        // Notifications are asked for but optional: recording works without them
+        requiredGranted = permissionsGranted;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissionsGranted = permissionsGranted && ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
         }
@@ -214,8 +240,8 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
 
     @Override
     public boolean isPolicyRespected() {
-        // Only allow Done if all permissions are granted
-        return permissionsGranted;
+        // Only allow Done once camera, mic and storage are granted
+        return requiredGranted;
     }
 
     @Override
