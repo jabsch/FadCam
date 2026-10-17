@@ -10313,7 +10313,7 @@ public class HomeFragment extends BaseFragment {
                         );
                         Toast.makeText(
                             getContext(),
-                            "Error opening trash (container not found).",
+                            getString(R.string.trash_open_failed),
                             Toast.LENGTH_SHORT
                         ).show();
                         return true; // Consume click but don't proceed
@@ -10329,7 +10329,7 @@ public class HomeFragment extends BaseFragment {
                     FLog.e(TAG, "Manual navigation to TrashFragment failed.", e);
                     Toast.makeText(
                         getContext(),
-                        "Error opening trash.",
+                        getString(R.string.trash_open_failed),
                         Toast.LENGTH_SHORT
                     ).show();
                 }
