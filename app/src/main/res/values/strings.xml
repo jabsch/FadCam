@@ -2411,7 +2411,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="automation_row_subtitle">Button mapping, Bluetooth remotes, volume keys</string>
     <string name="setting_volume_shutter_title">Volume Shutter</string>
     <string name="setting_volume_shutter_summary">Volume keys act as a camera shutter on the home tab</string>
-    <string name="setting_volume_shutter_footer">Volume keys become your shutter on the home tab:\n• Tap — snap a photo\n• Double-tap — flip the camera\n• Hold — start or stop recording\n\nBluetooth remote shutters work too, triggering the same actions. Buttons work while the FadCam home tab is open — future versions will let any button trigger FadCam intents, even in the background.\n\nFor now, use MacroDroid to map FadCam\u2019s shortcuts — find them in Settings → Shortcuts &amp; Widgets.</string>
+    <string name="setting_volume_shutter_footer">Volume keys become your shutter on the home tab:\n• Tap — snap a photo\n• Double-tap — flip the camera\n• Hold — start or stop recording\n\nBluetooth remote shutters work too, triggering the same actions. The shutter works while the JaCam home tab is open, and there it keeps the volume keys even if they also have a hardware-button shortcut.\n\nTo use the buttons when JaCam isn\'t open, bind them in Settings → Shortcuts &amp; Widgets → Hardware buttons.</string>
 
     <!-- Thermal Guardian - coming soon -->
     <string name="thermal_guardian_title">Thermal Guardian</string>
