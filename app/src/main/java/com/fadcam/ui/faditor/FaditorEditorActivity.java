@@ -109,6 +109,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     exportService = binder.getService();
                     exportServiceBound = true;
                     exportService.setServiceListener(exportServiceListener);
+                    // The first export starts before this bind completes, so its
+                    // onExportStarted went to no listener: show the overlay now.
+                    if (exportService.isExporting()) {
+                        exportStartTimeMs = System.currentTimeMillis();
+                        showExportProgress();
+                    }
                     FLog.d(TAG, "ExportService bound");
                 }
 

@@ -188,6 +188,7 @@ public class WatchVideoPlayerActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         uiHandler.removeCallbacks(hideControlsRunnable);
+        uiHandler.removeCallbacks(positionUpdateRunnable);
         releasePlayer();
         super.onDestroy();
     }
@@ -247,19 +248,23 @@ public class WatchVideoPlayerActivity extends AppCompatActivity {
             });
 
             // Update position label every 500 ms
-            uiHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    updatePositionLabel();
-                    if (!seekBarDragging) updateSeekBar();
-                    uiHandler.postDelayed(this, 500);
-                }
-            });
+            uiHandler.removeCallbacks(positionUpdateRunnable);
+            uiHandler.post(positionUpdateRunnable);
         } catch (Exception e) {
             FLog.e(TAG, "Failed to initialize player: " + e.getMessage(), e);
             throw e;
         }
     }
+
+    private final Runnable positionUpdateRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (player == null) return;
+            updatePositionLabel();
+            if (!seekBarDragging) updateSeekBar();
+            uiHandler.postDelayed(this, 500);
+        }
+    };
 
     private void releasePlayer() {
         if (player != null) {
