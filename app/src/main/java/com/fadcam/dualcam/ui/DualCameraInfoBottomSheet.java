@@ -75,7 +75,7 @@ public class DualCameraInfoBottomSheet extends BottomSheetDialogFragment {
         // Android Version
         TextView androidVal = view.findViewById(R.id.info_android_value);
         if (androidVal != null) {
-            androidVal.setText("Android " + Build.VERSION.RELEASE);
+            androidVal.setText(getString(R.string.dual_cam_info_android_version, Build.VERSION.RELEASE));
         }
 
         // API Level
@@ -118,7 +118,7 @@ public class DualCameraInfoBottomSheet extends BottomSheetDialogFragment {
         if (reasonText != null && !supported) {
             String reason = capability.getUnsupportedReason();
             if (reason != null) {
-                reasonText.setText("Reason: " + reason);
+                reasonText.setText(getString(R.string.dual_cam_info_reason, reason));
                 reasonText.setVisibility(View.VISIBLE);
             }
         }
