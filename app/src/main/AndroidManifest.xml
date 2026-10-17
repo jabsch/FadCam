@@ -476,10 +476,10 @@
         <!-- Privacy Black Screen Activity -->
         <activity android:name=".ui.PrivacyBlackActivity" android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:screenOrientation="portrait" android:excludeFromRecents="true" android:exported="false" />
 
-        <service android:name=".services.TorchService" android:foregroundServiceType="camera" android:exported="true">
+        <service android:name=".services.TorchService" android:foregroundServiceType="camera" android:exported="false">
         </service>
         
-        <service android:name=".services.AlarmService" android:foregroundServiceType="mediaPlayback" android:exported="true">
+        <service android:name=".services.AlarmService" android:foregroundServiceType="mediaPlayback" android:exported="false">
         </service>
         
         <receiver android:name=".receivers.TorchToggleReceiver" android:exported="true">

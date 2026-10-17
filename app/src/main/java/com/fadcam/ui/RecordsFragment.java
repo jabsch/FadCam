@@ -2069,8 +2069,11 @@ public class RecordsFragment extends BaseFragment implements
         int colorButton = resolveThemeColor(R.attr.colorToggle);
         if (fabDeleteSelected != null) {
             fabDeleteSelected.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorButton));
-            fabDeleteSelected.setIconTint(android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE));
-            fabDeleteSelected.setTextColor(android.graphics.Color.WHITE);
+            // Dark label on light accents (Snow Veil), white elsewhere
+            int fabFg = androidx.core.graphics.ColorUtils.calculateLuminance(colorButton) > 0.5
+                    ? android.graphics.Color.BLACK : android.graphics.Color.WHITE;
+            fabDeleteSelected.setIconTint(android.content.res.ColorStateList.valueOf(fabFg));
+            fabDeleteSelected.setTextColor(fabFg);
         }
         // RecordsFragment -----
         registerRecordingCompleteReceiver();

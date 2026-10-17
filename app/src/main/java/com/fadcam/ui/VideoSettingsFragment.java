@@ -2217,27 +2217,19 @@ public class VideoSettingsFragment extends Fragment {
      * Creates dynamic helper text for zoom ratio explaining auto-selection behavior
      */
     private String createZoomHelperText(CameraType cameraType) {
-        StringBuilder helper = new StringBuilder();
-        
         // Get the default zoom ratio for this camera type
         float defaultZoom = prefs.getSpecificZoomRatio(cameraType);
-        
-        helper.append("Zoom ratio controls the field of view. ");
-        helper.append("Default is ").append(String.format(Locale.getDefault(), "%.1fx", defaultZoom));
-        
+        String zoomLabel = String.format(Locale.getDefault(), "%.1fx", defaultZoom);
+
         // Add information about auto-selection for wide-angle cameras
         if (cameraType == CameraType.BACK) {
             String selectedCameraId = prefs.getSelectedBackCameraId();
-            if (selectedCameraId != null && !selectedCameraId.equals(Constants.DEFAULT_BACK_CAMERA_ID)) {
-                // Check if this is a wide-angle camera
-                if (isWideAngleCamera(selectedCameraId)) {
-                    helper.append(" (auto-selected 0.5x for wide-angle lens to show full field of view)");
-                }
+            if (selectedCameraId != null && !selectedCameraId.equals(Constants.DEFAULT_BACK_CAMERA_ID)
+                    && isWideAngleCamera(selectedCameraId)) {
+                return getString(R.string.zoom_helper_text_wide, zoomLabel);
             }
         }
-        
-        helper.append(". Lower values = wider view, higher values = more zoomed in.");
-        return helper.toString();
+        return getString(R.string.zoom_helper_text, zoomLabel);
     }
     
     /**

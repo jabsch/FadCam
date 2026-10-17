@@ -151,8 +151,22 @@ public class AppearanceSettingsFragment extends Fragment {
                 Constants.PREF_APP_THEME,
                 Constants.DEFAULT_APP_THEME
             );
-        value.setText(currentTheme);
+        value.setText(themeLabelFor(currentTheme));
         row.setOnClickListener(v -> showThemePicker(value));
+    }
+
+    /** Same label the theme picker shows, so the row matches the picked option. */
+    private String themeLabelFor(String id) {
+        if (id == null) return "";
+        switch (id) {
+            case "Crimson Bloom": return getString(R.string.theme_red);
+            case "Premium Gold": return getString(R.string.theme_gold);
+            case "Silent Forest": return getString(R.string.theme_silentforest);
+            case "Shadow Alloy": return getString(R.string.theme_shadowalloy);
+            case "Pookie Pink": return getString(R.string.theme_pookiepink);
+            case "Snow Veil": return getString(R.string.theme_snowveil);
+            default: return id;
+        }
     }
 
     private void showThemePicker(TextView value) {
@@ -189,7 +203,7 @@ public class AppearanceSettingsFragment extends Fragment {
                                 )
                                 .apply();
                             // Update visible value text now
-                            value.setText(id);
+                            value.setText(themeLabelFor(id));
                             // Defer activity recreate until after sheet dismissal animation finishes to preserve
                             // correct checkmark animation & keep user on Appearance screen.
                             View root = getView();

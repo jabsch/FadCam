@@ -71,7 +71,7 @@ public class ReadmeBottomSheetFragment extends BottomSheetDialogFragment {
                 LinearLayout.LayoutParams divLp1 = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
                 divLp1.setMargins(0, dp(2), 0, dp(2));
                 divider1.setLayoutParams(divLp1);
-                divider1.setBackgroundColor(0x33FFFFFF);
+                divider1.setBackgroundColor(dividerColor());
                 linksCard.addView(divider1);
 
                 // GitHub row (second)
@@ -84,7 +84,7 @@ public class ReadmeBottomSheetFragment extends BottomSheetDialogFragment {
                 LinearLayout.LayoutParams divLp2 = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
                 divLp2.setMargins(0, dp(2), 0, dp(2));
                 divider2.setLayoutParams(divLp2);
-                divider2.setBackgroundColor(0x33FFFFFF);
+                divider2.setBackgroundColor(dividerColor());
                 linksCard.addView(divider2);
 
                 // Discord row (third)
@@ -182,5 +182,12 @@ public class ReadmeBottomSheetFragment extends BottomSheetDialogFragment {
             }
         });
         return dialog;
+    }
+
+    /** Faint divider that follows the theme's text color so it shows on light themes too. */
+    private int dividerColor() {
+        int text = com.google.android.material.color.MaterialColors.getColor(
+                requireContext(), android.R.attr.textColorPrimary, 0xFFFFFFFF);
+        return androidx.core.graphics.ColorUtils.setAlphaComponent(text, 0x33);
     }
 }

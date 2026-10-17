@@ -3368,4 +3368,20 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="camera_switched_front">Switched to front camera</string>
     <string name="camera_switched_rear">Switched to rear camera</string>
     <string name="universal_grant">Grant</string>
+    <string name="zoom_helper_text">Zoom ratio controls the field of view. Default is %1$s. Lower values = wider view, higher values = more zoomed in.</string>
+    <string name="zoom_helper_text_wide">Zoom ratio controls the field of view. Default is %1$s (auto-selected 0.5x for wide-angle lens to show full field of view). Lower values = wider view, higher values = more zoomed in.</string>
+    <string name="watermark_interval_minimum">1 second (minimum, respects the Nominatim API rate limit)</string>
+    <string name="watermark_interval_default">%1$s (Default)</string>
+    <plurals name="watermark_interval_seconds">
+        <item quantity="one">%d second</item>
+        <item quantity="other">%d seconds</item>
+    </plurals>
+    <plurals name="watermark_interval_minutes">
+        <item quantity="one">%d minute</item>
+        <item quantity="other">%d minutes</item>
+    </plurals>
+    <plurals name="watermark_interval_hours">
+        <item quantity="one">%d hour</item>
+        <item quantity="other">%d hours</item>
+    </plurals>
 </resources>
