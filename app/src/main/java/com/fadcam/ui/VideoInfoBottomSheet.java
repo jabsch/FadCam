@@ -457,7 +457,10 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
                 metadata.location = extractLocationData(retriever);
             } catch (Exception e) {
                 FLog.w(TAG, "Could not extract data with MediaMetadataRetriever", e);
-                if (getString(R.string.video_info_unknown).equals(metadata.location) || metadata.location == null) {
+                // The location starts as "No location", so that is what an unread geotag looks like
+                if (metadata.location == null
+                        || getString(R.string.video_info_no_location).equals(metadata.location)
+                        || getString(R.string.video_info_unknown).equals(metadata.location)) {
                     // MediaMetadataRetriever rejects JPEGs, so photos read their geotag from EXIF
                     metadata.location = extractLocationFromExif();
                 }

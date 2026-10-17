@@ -1800,9 +1800,19 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                         String sanitizedBaseName = newNameBase
                                 // Only characters file systems forbid; letters in any script stay
                                 .replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_")
-                                .replaceAll("\\s+", "_")
+                                .replaceAll("\\s+", " ")
                                 .replaceAll("_+", "_")
-                                .replaceAll("^_|_$", "");
+                                .replaceAll("^[_ ]+|[_ ]+$", "");
+                        // The scanners skip temp_ files as unfinished recordings, so the
+                        // renamed file would vanish from Records
+                        while (sanitizedBaseName.regionMatches(true, 0, "temp_", 0, 5))
+                            sanitizedBaseName = sanitizedBaseName.substring(5);
+                        // File names are capped at 255 bytes, which CJK or emoji names reach early
+                        int maxBaseBytes = 255 - 8 - originalExtension.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+                        while (sanitizedBaseName.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > maxBaseBytes)
+                            sanitizedBaseName = sanitizedBaseName.substring(0,
+                                    sanitizedBaseName.offsetByCodePoints(sanitizedBaseName.length(), -1));
+                        sanitizedBaseName = sanitizedBaseName.trim();
 
                         if (sanitizedBaseName.isEmpty())
                             sanitizedBaseName = "renamed_video";
@@ -1852,7 +1862,11 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     throw new IOException("Cannot get parent directory for file URI");
                 
                 // Generate unique filename to prevent overwriting existing files
-                String uniqueName = getUniqueFileNameInDirectory(parentDir, newFullName);
+                // Shared storage ignores letter case, so a case-only rename would find
+                // the file itself and get a " (1)" suffix
+                String uniqueName = newFullName.equalsIgnoreCase(oldFile.getName())
+                        ? newFullName
+                        : getUniqueFileNameInDirectory(parentDir, newFullName);
                 File newFile = new File(parentDir, uniqueName);
                 
                 FLog.d(TAG, "Original name: " + newFullName + ", Unique name: " + uniqueName);
@@ -1944,6 +1958,9 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 }
 
                 evictRenameCaches(videoItem.uri, finalNewUri);
+                // The NEW badge is keyed by URI, so carry the watched state over
+                if (sharedPreferencesManager.isVideoOpened(videoItem.uri.toString()))
+                    sharedPreferencesManager.addOpenedVideoUri(finalNewUri.toString());
 
                 if (context instanceof Activity) {
                     ((Activity) context).runOnUiThread(() -> {
