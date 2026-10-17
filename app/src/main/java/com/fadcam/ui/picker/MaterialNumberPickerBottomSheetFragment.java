@@ -39,6 +39,15 @@ import com.google.android.material.chip.Chip;
  */
 public class MaterialNumberPickerBottomSheetFragment extends BottomSheetDialogFragment {
 
+    /** True when the system recreated this sheet (process death, or an undeclared config change). */
+    private boolean restoredFromState;
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        restoredFromState = savedInstanceState != null;
+    }
+
     public static final String ARG_MODE = "mode";
     public static final int MODE_INT = 0;
     public static final int MODE_TIME_HMS = 1;
@@ -220,6 +229,13 @@ public class MaterialNumberPickerBottomSheetFragment extends BottomSheetDialogFr
     @Override
     public void onStart() {
         super.onStart();
+        // Hosts register their result listener when the row is tapped, so after recreation
+        // nothing listens: a pick here was lost, then applied silently on the row's next tap.
+        // Close instead and let the user reopen the picker.
+        if (restoredFromState) {
+            dismissAllowingStateLoss();
+            return;
+        }
         Dialog dialog = getDialog();
         if (dialog != null && dialog.getWindow() != null) {
             dialog.getWindow().setDimAmount(0.5f);

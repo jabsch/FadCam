@@ -28,6 +28,15 @@ import java.util.List;
  */
 public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
 
+    /** True when the system recreated this sheet (process death, or an undeclared config change). */
+    private boolean restoredFromState;
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        restoredFromState = savedInstanceState != null;
+    }
+
     public static final String ARG_TITLE = "title";
     public static final String ARG_ITEMS = "items"; // ArrayList<OptionItem>
     public static final String ARG_SELECTED_ID = "selected_id";
@@ -1824,6 +1833,13 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
     @Override
     public void onStart() {
         super.onStart();
+        // Hosts register their result listener when the row is tapped, so after recreation
+        // nothing listens: a pick here was lost, then applied silently on the row's next tap.
+        // Close instead and let the user reopen the picker.
+        if (restoredFromState) {
+            dismissAllowingStateLoss();
+            return;
+        }
         if (getActivity() != null && getActivity().getWindow() != null
                 && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
             android.view.Window window = getActivity().getWindow();
