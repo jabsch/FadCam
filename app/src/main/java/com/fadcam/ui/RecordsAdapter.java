@@ -397,7 +397,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         final boolean isCurrentlySelected = this.currentSelectedUris.contains(videoUri);
         final boolean isProcessing = this.currentlyProcessingUris.contains(videoUri);
 
-        final boolean isOpened = sharedPreferencesManager.getOpenedVideoUris().contains(uriString);
+        final boolean isOpened = sharedPreferencesManager.isVideoOpened(uriString);
         final boolean showNewBadge = !isOpened && !isProcessing;
         final boolean allowGeneralInteractions = !isProcessing;
         final boolean allowMenuClick = allowGeneralInteractions && !this.isSelectionModeActive;

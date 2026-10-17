@@ -255,8 +255,10 @@ public class TrashAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
                     android.text.format.DateUtils.FORMAT_ABBREV_RELATIVE);
             tvDateTrashed.setText(relativeDate);
 
-            // Compute file size from disk
-            if (tvFileSize != null && context != null) {
+            // Size saved with the trash entry; only older entries without it stat the file
+            if (tvFileSize != null && context != null && item.getSizeBytes() > 0) {
+                tvFileSize.setText(android.text.format.Formatter.formatShortFileSize(context, item.getSizeBytes()));
+            } else if (tvFileSize != null && context != null) {
                 File trashDirectory = TrashManager.getTrashDirectory(context);
                 if (trashDirectory != null && item.getTrashFileName() != null) {
                     File trashedFile = new File(trashDirectory, item.getTrashFileName());
