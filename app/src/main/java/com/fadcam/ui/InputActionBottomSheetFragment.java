@@ -58,6 +58,25 @@ public class InputActionBottomSheetFragment extends BottomSheetDialogFragment {
         this.callbacks = cb;
     }
 
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        restoredWithoutCallbacks = savedInstanceState != null;
+    }
+
+    /** True when the system recreated this sheet: its callbacks are gone. */
+    private boolean restoredWithoutCallbacks;
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        // After a rotation or process death nothing is listening, so Import or
+        // Reset would close the sheet and do nothing. Close it so the user retries.
+        if (restoredWithoutCallbacks && callbacks == null) {
+            dismissAllowingStateLoss();
+        }
+    }
+
     /** Styles a confirm sheet's action as a normal (non-destructive) action. */
     public InputActionBottomSheetFragment withNeutralConfirm() {
         Bundle args = getArguments();

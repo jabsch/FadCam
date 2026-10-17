@@ -247,8 +247,10 @@ public class PrefsBackupBottomSheetFragment extends BottomSheetDialogFragment {
 
     private void doImport(JSONObject j) {
         try {
-            PreferencesBackupUtil.applyFromJson(requireContext(), j);
-            Toast.makeText(requireContext(), getString(R.string.prefs_import_success), Toast.LENGTH_SHORT).show();
+            boolean storageDropped = PreferencesBackupUtil.applyFromJson(requireContext(), j);
+            Toast.makeText(requireContext(), storageDropped
+                    ? getString(R.string.prefs_import_storage_reset)
+                    : getString(R.string.prefs_import_success), Toast.LENGTH_LONG).show();
             restartAppUI();
         } catch (Exception ex){
             Toast.makeText(requireContext(), getString(R.string.prefs_import_failed)+": "+ex.getMessage(), Toast.LENGTH_LONG).show();
