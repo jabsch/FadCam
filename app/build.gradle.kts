@@ -34,8 +34,8 @@ android {
         minSdk = 24
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 220
-        versionName = "4.0.167"
+        versionCode = 221
+        versionName = "4.0.168"
         vectorDrawables.useSupportLibrary = true
         
         // Fix 16KB native library alignment for Android 15
