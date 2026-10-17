@@ -335,8 +335,12 @@ class HlsService {
         // Restore listeners for the new instance
         this.listeners = savedListeners;
         
-        // Wait a bit then reload
-        setTimeout(() => {
+        // Wait a bit then reload. Tracked so destroy() can cancel it: an untracked timer
+        // brought a player back after the recording had stopped and kept polling.
+        if (this.reloadTimer) clearTimeout(this.reloadTimer);
+        this.reloadTimer = setTimeout(() => {
+            this.reloadTimer = null;
+            if (!this.currentStreamUrl || this.currentStreamUrl !== url) return;
             console.log('[HlsService] 🎬 Creating new HLS instance...');
             this.load(url, videoElement);
             // Auto-play after reload (e.g., after E2E key unlock)
@@ -426,6 +430,10 @@ class HlsService {
      * @param {boolean} full - If true, also clear video element and listeners
      */
     destroy(full = true) {
+        if (full && this.reloadTimer) {
+            clearTimeout(this.reloadTimer);
+            this.reloadTimer = null;
+        }
         if (full && this.networkRetryTimer) {
             clearTimeout(this.networkRetryTimer);
             this.networkRetryTimer = null;

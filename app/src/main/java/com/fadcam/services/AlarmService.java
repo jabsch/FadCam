@@ -96,6 +96,14 @@ public class AlarmService extends Service {
                     createNotification(soundFile, durationMs),
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
                 
+                // Every path (instant ring, scheduled alarm, cloud) reports ringing here.
+                // A scheduled alarm used to show as idle on the Remote page while it rang.
+                if (streamManager != null) {
+                    streamManager.setSelectedAlarmSound(soundFile);
+                    streamManager.setAlarmDurationMs(durationMs);
+                    streamManager.setAlarmRinging(true);
+                }
+
                 // Now start audio playback in background to avoid blocking
                 handler.post(() -> startAlarmPlayback(soundFile, durationMs));
             } else {

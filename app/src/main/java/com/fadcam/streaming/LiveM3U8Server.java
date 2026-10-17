@@ -77,8 +77,38 @@ import fi.iki.elonen.NanoHTTPD;
         return response;
     }
     
+    /**
+     * The current POST request's body, read once at the start of {@link #serve}. NanoHTTPD
+     * 2.3.1 never drains an unread body, so a handler that ignored it (toggle, pause, stop
+     * alarm...) left "{}" in the keep-alive stream and the next request on it failed with 400.
+     */
+    private static final ThreadLocal<java.util.Map<String, String>> REQUEST_BODY = new ThreadLocal<>();
+
+    @NonNull
+    private static java.util.Map<String, String> postBody() {
+        java.util.Map<String, String> body = REQUEST_BODY.get();
+        return body != null ? body : java.util.Collections.emptyMap();
+    }
+
     @Override
     public Response serve(IHTTPSession session) {
+        java.util.Map<String, String> body = new java.util.HashMap<>();
+        if (Method.POST.equals(session.getMethod())) {
+            try {
+                session.parseBody(body);
+            } catch (Exception e) {
+                FLog.w(TAG, "Failed to read request body: " + e.getMessage());
+            }
+        }
+        REQUEST_BODY.set(body);
+        try {
+            return serveRequest(session);
+        } finally {
+            REQUEST_BODY.remove();
+        }
+    }
+
+    private Response serveRequest(IHTTPSession session) {
         String uri = session.getUri();
         Method method = session.getMethod();
         String clientIP = session.getRemoteIpAddress();
@@ -560,7 +590,7 @@ import fi.iki.elonen.NanoHTTPD;
             
             // Parse JSON body
             java.util.Map<String, String> files = new java.util.HashMap<>();
-            session.parseBody(files);
+            files.putAll(postBody());
             
             String postData = files.get("postData");
             if (postData == null || postData.isEmpty()) {
@@ -745,14 +775,8 @@ import fi.iki.elonen.NanoHTTPD;
     private Response setRecordingMode(IHTTPSession session) {
         try {
             // Parse JSON body
-            int contentLength = 0;
-            java.io.InputStream inputStream = session.getInputStream();
-            if (inputStream != null) {
-                contentLength = inputStream.available();
-            }
-            
             java.util.Map<String, String> files = new java.util.HashMap<>();
-            session.parseBody(files);
+            files.putAll(postBody());
             
             String body = files.get("postData");
             if (body == null || body.isEmpty()) {
@@ -805,7 +829,7 @@ import fi.iki.elonen.NanoHTTPD;
         try {
             // Parse JSON body
             java.util.Map<String, String> files = new java.util.HashMap<>();
-            session.parseBody(files);
+            files.putAll(postBody());
             
             String body = files.get("postData");
             if (body == null || body.isEmpty()) {
@@ -851,7 +875,7 @@ import fi.iki.elonen.NanoHTTPD;
         try {
             // Parse JSON body
             java.util.Map<String, String> files = new java.util.HashMap<>();
-            session.parseBody(files);
+            files.putAll(postBody());
             
             String body = files.get("postData");
             if (body == null || body.isEmpty()) {
@@ -904,7 +928,7 @@ import fi.iki.elonen.NanoHTTPD;
         try {
             // Parse JSON body
             java.util.Map<String, String> files = new java.util.HashMap<>();
-            session.parseBody(files);
+            files.putAll(postBody());
             
             String body = files.get("postData");
             if (body == null || body.isEmpty()) {
@@ -970,7 +994,7 @@ import fi.iki.elonen.NanoHTTPD;
 
             // Parse optional body for explicit "to" target
             java.util.Map<String, String> files = new java.util.HashMap<>();
-            try { session.parseBody(files); } catch (Exception ignored) {}
+            files.putAll(postBody());
             String body = files.get("postData");
 
             com.fadcam.CameraType target;
@@ -1032,7 +1056,7 @@ import fi.iki.elonen.NanoHTTPD;
     private Response setZoom(IHTTPSession session) {
         try {
             java.util.Map<String, String> files = new java.util.HashMap<>();
-            session.parseBody(files);
+            files.putAll(postBody());
             String body = files.get("postData");
             if (body == null || body.isEmpty()) {
                 return jsonResponse(Response.Status.BAD_REQUEST, "{\"error\": \"No body\"}");
@@ -1113,7 +1137,7 @@ import fi.iki.elonen.NanoHTTPD;
     private Response setExposure(IHTTPSession session) {
         try {
             java.util.Map<String, String> files = new java.util.HashMap<>();
-            session.parseBody(files);
+            files.putAll(postBody());
             String body = files.get("postData");
             if (body == null || body.isEmpty()) {
                 FLog.w(TAG, "❌ [/config/exposure] Empty or missing body");
@@ -1184,7 +1208,7 @@ import fi.iki.elonen.NanoHTTPD;
 
             boolean enabled;
             java.util.Map<String, String> files = new java.util.HashMap<>();
-            try { session.parseBody(files); } catch (Exception ignored) {}
+            files.putAll(postBody());
             String body = files.get("postData");
 
             if (body != null && !body.isEmpty()) {
@@ -1231,7 +1255,7 @@ import fi.iki.elonen.NanoHTTPD;
             // CRITICAL: Consume the POST body to keep HTTP stream clean
             // Without this, the next request may fail with 400 Bad Request
             java.util.Map<String, String> files = new java.util.HashMap<>();
-            try { session.parseBody(files); } catch (Exception ignored) {}
+            files.putAll(postBody());
             
             com.fadcam.SharedPreferencesManager spManager =
                     com.fadcam.SharedPreferencesManager.getInstance(context);
@@ -1310,7 +1334,7 @@ import fi.iki.elonen.NanoHTTPD;
             
             // Parse JSON body
             java.util.Map<String, String> files = new java.util.HashMap<>();
-            session.parseBody(files);
+            files.putAll(postBody());
             String body = files.get("postData");
             
             if (body == null || body.isEmpty()) {
@@ -1338,6 +1362,9 @@ import fi.iki.elonen.NanoHTTPD;
             // Brute-force guard: passwords can be 4 characters and /auth/login is public on the LAN
             String loginKey = clientIP != null ? clientIP : "unknown";
             long now = android.os.SystemClock.elapsedRealtime();
+            // One lock around check, verify and count: NanoHTTPD runs a thread per
+            // connection, so parallel guesses all passed the check before any was counted
+            synchronized (LOGIN_FAILURES) {
             long[] attempts = LOGIN_FAILURES.get(loginKey);
             if (attempts != null && attempts[1] > now) {
                 long waitSec = (attempts[1] - now + 999) / 1000;
@@ -1362,6 +1389,7 @@ import fi.iki.elonen.NanoHTTPD;
             }
             
             LOGIN_FAILURES.remove(loginKey);
+            }
 
             // Create session
             String userAgent = session.getHeaders().get("user-agent");
@@ -1451,7 +1479,7 @@ import fi.iki.elonen.NanoHTTPD;
             
             // Parse JSON body
             java.util.Map<String, String> files = new java.util.HashMap<>();
-            session.parseBody(files);
+            files.putAll(postBody());
             String body = files.get("postData");
             
             if (body == null || body.isEmpty()) {
@@ -1673,7 +1701,7 @@ import fi.iki.elonen.NanoHTTPD;
             
             // Parse JSON body
             java.util.Map<String, String> files = new java.util.HashMap<>();
-            session.parseBody(files);
+            files.putAll(postBody());
             
             String postData = files.get("postData");
             if (postData == null || postData.isEmpty()) {
@@ -1793,7 +1821,7 @@ import fi.iki.elonen.NanoHTTPD;
             
             // Parse JSON body
             java.util.Map<String, String> files = new java.util.HashMap<>();
-            session.parseBody(files);
+            files.putAll(postBody());
             
             String postData = files.get("postData");
             if (postData == null || postData.isEmpty()) {
@@ -1878,23 +1906,12 @@ import fi.iki.elonen.NanoHTTPD;
      */
     private Response handleNotifications(IHTTPSession session) {
         try {
-            int contentLength = Integer.parseInt(session.getHeaders().getOrDefault("content-length", "0"));
-            if (contentLength == 0) {
-                return jsonResponse(Response.Status.BAD_REQUEST, 
+            // Read once (and in full) by serve()
+            String body = postBody().get("postData");
+            if (body == null || body.isEmpty()) {
+                return jsonResponse(Response.Status.BAD_REQUEST,
                     "{\"status\": \"error\", \"message\": \"Empty request body\"}");
             }
-
-            byte[] buffer = new byte[Math.min(contentLength, 1024 * 1024)]; // Max 1MB
-            // One read() returns only what has arrived so far, so a larger history was cut
-            // off and failed to parse: read until the whole body is in
-            java.io.InputStream in = session.getInputStream();
-            int bytesRead = 0;
-            while (bytesRead < buffer.length) {
-                int n = in.read(buffer, bytesRead, buffer.length - bytesRead);
-                if (n < 0) break;
-                bytesRead += n;
-            }
-            String body = new String(buffer, 0, bytesRead, "UTF-8");
 
             org.json.JSONObject request = new org.json.JSONObject(body);
             String action = request.optString("action");
@@ -1962,7 +1979,7 @@ import fi.iki.elonen.NanoHTTPD;
      */
     private Response fetchGitHubNotification() {
         try {
-            String githubUrl = "https://raw.githubusercontent.com/anonfaded/FadCam/master/app/src/main/assets/web/fadex/pushnotification.jsonc";
+            String githubUrl = "https://raw.githubusercontent.com/jabsch/FadCam/master/app/src/main/assets/web/fadex/pushnotification.jsonc";
             
             // Create URL connection
             java.net.URL url = new java.net.URL(githubUrl);
