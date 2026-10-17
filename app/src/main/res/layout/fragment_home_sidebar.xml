@@ -162,7 +162,7 @@
                                 android:layout_weight="1"
                                 android:text="@string/sidebar_stable_release" android:textColor="#FFFFFF"
                                 android:textStyle="bold" android:textSize="12sp"/>
-                            <TextView android:layout_width="wrap_content" android:layout_height="16dp"
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="16dp"
                                 android:layout_marginStart="6dp" android:paddingHorizontal="6dp"
                                 android:text="@string/badge_new" android:textColor="#FFFFFF"
                                 android:textSize="8sp" android:textStyle="bold"
@@ -220,7 +220,7 @@
                                 android:layout_weight="1"
                                 android:text="@string/sidebar_beta_release" android:textColor="#FFFFFF"
                                 android:textStyle="bold" android:textSize="12sp"/>
-                            <TextView android:layout_width="wrap_content" android:layout_height="16dp"
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="16dp"
                                 android:layout_marginStart="6dp" android:paddingHorizontal="6dp"
                                 android:text="@string/badge_new" android:textColor="#FFFFFF"
                                 android:textSize="8sp" android:textStyle="bold"
@@ -278,7 +278,7 @@
                                 android:layout_weight="1"
                                 android:text="@string/sidebar_fadcam_pro" android:textColor="#FFFFFF"
                                 android:textStyle="bold" android:textSize="12sp"/>
-                             <TextView android:layout_width="wrap_content" android:layout_height="16dp"
+                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="16dp"
                                 android:layout_marginStart="6dp" android:paddingHorizontal="6dp"
                                 android:text="@string/badge_new" android:textColor="#1A1A1A"
                                 android:textSize="8sp" android:textStyle="bold"
@@ -746,7 +746,7 @@
                         <TextView
                             android:id="@+id/badge_compass_coming_soon"
                             android:layout_width="wrap_content"
-                            android:layout_height="16dp"
+                            android:layout_height="wrap_content" android:minHeight="16dp"
                             android:paddingHorizontal="6dp"
                             android:text="@string/mini_app_coming_soon"
                             android:textColor="@android:color/white"
@@ -839,7 +839,7 @@
                         <TextView
                             android:id="@+id/badge_sound_meter_coming_soon"
                             android:layout_width="wrap_content"
-                            android:layout_height="16dp"
+                            android:layout_height="wrap_content" android:minHeight="16dp"
                             android:paddingHorizontal="6dp"
                             android:text="@string/mini_app_coming_soon"
                             android:textColor="@android:color/white"
@@ -932,7 +932,7 @@
                         <TextView
                             android:id="@+id/badge_sensor_dashboard_coming_soon"
                             android:layout_width="wrap_content"
-                            android:layout_height="16dp"
+                            android:layout_height="wrap_content" android:minHeight="16dp"
                             android:paddingHorizontal="6dp"
                             android:text="@string/mini_app_coming_soon"
                             android:textColor="@android:color/white"
@@ -1414,7 +1414,7 @@
                         <TextView
                             android:id="@+id/badge_whats_new"
                             android:layout_width="wrap_content"
-                            android:layout_height="16dp"
+                            android:layout_height="wrap_content" android:minHeight="16dp"
                             android:paddingHorizontal="6dp"
                             android:text="@string/badge_new"
                             android:textColor="@android:color/white"

@@ -636,7 +636,7 @@ public class FaditorMiniFragment extends BaseFragment {
         // Cache icon (drawable matching Records tab)
         ImageView cacheIcon = new ImageView(requireContext());
         cacheIcon.setImageResource(R.drawable.database_24px);
-        cacheIcon.setColorFilter(0xFF666666, android.graphics.PorterDuff.Mode.SRC_IN);
+        cacheIcon.setColorFilter(0xFF9E9E9E, android.graphics.PorterDuff.Mode.SRC_IN); // gray500: readable on the dark row
         LinearLayout.LayoutParams cacheIconLp = new LinearLayout.LayoutParams(
                 (int) (12 * dp), (int) (12 * dp));
         cacheIconLp.setMarginEnd((int) (4 * dp));
@@ -647,7 +647,7 @@ public class FaditorMiniFragment extends BaseFragment {
         TextView cacheSize = new TextView(requireContext());
         String cacheSizeText = getCacheSizeText(summary);
         cacheSize.setText(cacheSizeText);
-        cacheSize.setTextColor(0xFF666666);
+        cacheSize.setTextColor(0xFF9E9E9E);
         cacheSize.setTextSize(12);
         cacheSize.setTypeface(null, Typeface.BOLD);
         cacheSize.setMaxLines(1);
@@ -662,7 +662,7 @@ public class FaditorMiniFragment extends BaseFragment {
             TextView arrow = new TextView(requireContext());
             arrow.setTypeface(iconFont);
             arrow.setText("chevron_right");
-            arrow.setTextColor(0xFF444444);
+            arrow.setTextColor(0xFF9E9E9E);
             arrow.setTextSize(18);
             arrow.setGravity(Gravity.CENTER);
             LinearLayout.LayoutParams arrowLp = new LinearLayout.LayoutParams(

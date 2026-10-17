@@ -338,9 +338,9 @@
                             android:id="@+id/usage_warning_test_link"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Retry"
+                            android:text="@string/universal_retry"
                             android:textSize="10sp"
-                            android:textColor="#0066CC"
+                            android:textColor="#58A6FF"
                             android:layout_marginTop="1dp"
                             android:clickable="true"
                             android:focusable="true" />

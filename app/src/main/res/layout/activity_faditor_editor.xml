@@ -905,7 +905,7 @@
                 android:id="@+id/export_eta_text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="#666666"
+                android:textColor="@color/gray_text_light"
                 android:textSize="13sp"
                 android:layout_marginTop="8dp"
                 android:visibility="gone" />
@@ -915,7 +915,7 @@
                 android:id="@+id/export_info_text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="#555555"
+                android:textColor="@color/gray500"
                 android:textSize="12sp"
                 android:gravity="center"
                 android:layout_marginTop="12dp"
