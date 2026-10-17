@@ -1209,7 +1209,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
             updateZoomHudUi(pinchZoomRatio);
             updateMirrorButtonVisibilityAndState();
             Toast.makeText(this,
-                    "Switched to " + (targetType == CameraType.FRONT ? "front" : "rear") + " camera",
+                    targetType == CameraType.FRONT ? R.string.camera_switched_front : R.string.camera_switched_rear,
                     Toast.LENGTH_SHORT).show();
             return;
         }
@@ -1220,7 +1220,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
         startService(switchIntent);
 
         Toast.makeText(this,
-                "Switching to " + (targetType == CameraType.FRONT ? "front" : "rear") + " camera...",
+                targetType == CameraType.FRONT ? R.string.home_toast_switching_front : R.string.home_toast_switching_rear,
                 Toast.LENGTH_SHORT).show();
         updateMirrorButtonVisibilityAndState();
         rootLayout.postDelayed(this::updateMirrorButtonVisibilityAndState, 700);
