@@ -321,7 +321,7 @@ public class SettingsHomeFragment extends Fragment {
         addViewAnim(viewAnims, groupAudioQuick, showAudio);
         addViewAnim(viewAnims, dividerAfterAudio, showAudio);
         addViewAnim(viewAnims, groupWatermarkFrame, showWatermark);
-        addViewAnim(viewAnims, groupWatermarkBadge, showWatermark);
+        addViewAnim(viewAnims, groupWatermarkBadge, showWatermark && !hasSeenWatermark());
         addViewAnim(viewAnims, dividerAfterWatermark, showWatermark);
         addViewAnim(viewAnims, groupScreenRecording, showScreenRec);
         addViewAnim(viewAnims, dividerBeforeScreenRec, showScreenRec);
@@ -476,7 +476,10 @@ public class SettingsHomeFragment extends Fragment {
         // App section rows (onboarding/auto-update/debug) are wired in wireAppInlineRows()
         setupMiniAppCards(root);
         equalizeMiniCardRows(root);
-        bindRow(root, R.id.group_watermark_quick, () -> openSubFragment(new WatermarkSettingsFragment()));
+        bindRow(root, R.id.group_watermark_quick, () -> {
+            markWatermarkSeen();
+            openSubFragment(new WatermarkSettingsFragment());
+        });
         bindRow(root, R.id.group_about, () -> openSubFragment(new AboutFragment()));
         bindRow(root, R.id.group_review, () -> launchReview());
         bindRow(root, R.id.group_readme, () -> openReadmeDialog());
@@ -752,12 +755,24 @@ public class SettingsHomeFragment extends Fragment {
         try {
             TextView watermarkBadge = root.findViewById(R.id.watermark_new_badge);
             if (watermarkBadge != null) {
-                android.content.SharedPreferences prefs = requireContext()
-                        .getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE);
-                boolean hasSeen = prefs.getBoolean("seen_watermark", false);
-                watermarkBadge.setVisibility(hasSeen ? View.GONE : View.VISIBLE);
+                watermarkBadge.setVisibility(hasSeenWatermark() ? View.GONE : View.VISIBLE);
             }
         } catch (Exception ignore) {}
+    }
+
+    private boolean hasSeenWatermark() {
+        android.content.Context ctx = getContext();
+        return ctx != null && ctx.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                .getBoolean("seen_watermark", false);
+    }
+
+    /** The NEW badge goes away once the Watermark screen has been opened. */
+    private void markWatermarkSeen() {
+        android.content.Context ctx = getContext();
+        if (ctx == null) return;
+        ctx.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                .edit().putBoolean("seen_watermark", true).apply();
+        if (groupWatermarkBadge != null) groupWatermarkBadge.setVisibility(View.GONE);
     }
 
     /**

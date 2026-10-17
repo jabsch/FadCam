@@ -3433,4 +3433,5 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="camera_switch_failed_reason">Camera switch failed: %1$s</string>
     <string name="delete_all_videos_subtitle_count">Moves the %1$d items shown in this view to Trash</string>
     <string name="widget_preview_date">Wed, 13 Aug</string>
+    <string name="app_icon_black">Black</string>
 </resources>
