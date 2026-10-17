@@ -3401,4 +3401,9 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="shortcut_badge_screenshot">Screenshot</string>
     <string name="shortcut_badge_voice">Voice</string>
     <string name="shortcut_badge_default">Shortcut</string>
+    <string name="torch_toggled_notification">Torch toggled</string>
+    <string name="video_split_custom_option">Custom…</string>
+    <string name="fadrec_audio_source_mic_desc">Record audio from the device microphone</string>
+    <string name="fadrec_audio_source_internal_desc">Record internal device audio</string>
+    <string name="fadrec_audio_source_none_desc">No audio will be recorded</string>
 </resources>

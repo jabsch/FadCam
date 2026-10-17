@@ -337,13 +337,16 @@ public class ScreenRecordingSettingsFragment extends Fragment {
         ArrayList<OptionItem> items = new ArrayList<>();
         items.add(new OptionItem(Constants.AUDIO_SOURCE_MIC,
                 getString(R.string.fadrec_audio_source_mic),
-                "Record audio from the device microphone"));
-        items.add(new OptionItem(Constants.AUDIO_SOURCE_INTERNAL,
-                getString(R.string.fadrec_audio_source_internal),
-                "Record internal device audio (Android 10+)"));
+                getString(R.string.fadrec_audio_source_mic_desc)));
+        // Internal audio capture needs AudioPlaybackCapture (Android 10+); older versions would record the mic instead
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            items.add(new OptionItem(Constants.AUDIO_SOURCE_INTERNAL,
+                    getString(R.string.fadrec_audio_source_internal),
+                    getString(R.string.fadrec_audio_source_internal_desc)));
+        }
         items.add(new OptionItem(Constants.AUDIO_SOURCE_NONE,
                 getString(R.string.fadrec_audio_source_none),
-                "No audio will be recorded"));
+                getString(R.string.fadrec_audio_source_none_desc)));
 
         final String resultKey = "picker_result_screen_audio_source";
         getParentFragmentManager().setFragmentResultListener(resultKey, getViewLifecycleOwner(), (key, bundle) -> {
@@ -505,17 +508,22 @@ public class ScreenRecordingSettingsFragment extends Fragment {
         boolean enabled = prefs.isVideoSplittingEnabled();
         int mb = prefs.getVideoSplitSizeMb();
         String sizeLabel;
-        if (mb == 500) sizeLabel = "500 MB";
-        else if (mb == 1024) sizeLabel = "1 GB";
-        else if (mb == 2048) sizeLabel = "2 GB";
-        else if (mb == 4096) sizeLabel = "4 GB";
-        else sizeLabel = "Custom (" + mb + " MB)";
+        if (mb == 500) sizeLabel = getString(R.string.video_split_size_500mb);
+        else if (mb == 1024) sizeLabel = getString(R.string.video_split_size_1gb);
+        else if (mb == 2048) sizeLabel = getString(R.string.video_split_size_2gb);
+        else if (mb == 4096) sizeLabel = getString(R.string.video_split_size_4gb);
+        else sizeLabel = getString(R.string.video_split_size_custom_format, mb);
 
         ArrayList<OptionItem> items = new ArrayList<>();
-        items.add(new OptionItem("size", "Change Split Size (Current: " + sizeLabel + ")"));
+        items.add(new OptionItem("size", getString(R.string.video_split_change_format, sizeLabel)));
 
         final String resultKey = "picker_result_screen_split";
         getParentFragmentManager().setFragmentResultListener(resultKey, getViewLifecycleOwner(), (key, bundle) -> {
+            // The sheet only reports the switch when its title is video_splitting_title
+            if (bundle.containsKey(PickerBottomSheetFragment.BUNDLE_SWITCH_STATE)) {
+                prefs.setVideoSplittingEnabled(bundle.getBoolean(PickerBottomSheetFragment.BUNDLE_SWITCH_STATE));
+                refreshValues();
+            }
             String sel = bundle.getString(PickerBottomSheetFragment.BUNDLE_SELECTED_ID);
             if (sel == null) return;
 
@@ -525,9 +533,9 @@ public class ScreenRecordingSettingsFragment extends Fragment {
         });
 
         PickerBottomSheetFragment sheet = PickerBottomSheetFragment.newInstanceWithSwitchDependencies(
-                "Video Splitting", items, null, resultKey,
+                getString(R.string.video_splitting_title), items, null, resultKey,
                 getString(R.string.video_splitting_description),
-                "Video Splitting",
+                getString(R.string.video_splitting_title),
                 enabled, new java.util.ArrayList<String>(java.util.Arrays.asList("size")));
         sheet.show(getParentFragmentManager(), "screen_video_splitting_picker");
     }
@@ -540,10 +548,11 @@ public class ScreenRecordingSettingsFragment extends Fragment {
         ArrayList<OptionItem> items = new ArrayList<>();
         for (int mb : presetMb) {
             if (mb == -1) {
-                items.add(new OptionItem("custom", "Custom..."));
+                items.add(new OptionItem("custom", getString(R.string.video_split_custom_option)));
             } else {
                 items.add(new OptionItem(String.valueOf(mb),
-                        (mb == 1024 ? "1 GB" : mb == 2048 ? "2 GB" : mb == 4096 ? "4 GB" : mb + " MB")));
+                        (mb == 1024 ? getString(R.string.video_split_size_1gb) : mb == 2048 ? getString(R.string.video_split_size_2gb)
+                                : mb == 4096 ? getString(R.string.video_split_size_4gb) : getString(R.string.video_split_size_500mb))));
             }
         }
 
@@ -593,7 +602,7 @@ public class ScreenRecordingSettingsFragment extends Fragment {
         });
 
         MaterialNumberPickerBottomSheetFragment sheet = MaterialNumberPickerBottomSheetFragment.newInstance(
-                "Custom Split Size (MB)", 10, 102400, current, "10 - 102400", 0, 0,
+                getString(R.string.video_split_custom_title), 10, 102400, current, "10 - 102400", 0, 0,
                 null, null, resultKey);
         sheet.show(getParentFragmentManager(), "screen_split_custom_input");
     }
