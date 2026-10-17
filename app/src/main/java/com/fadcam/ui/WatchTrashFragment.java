@@ -57,7 +57,11 @@ public class WatchTrashFragment extends Fragment {
     private final List<TrashItem> items = new ArrayList<>();
     private WatchTrashAdapter adapter;
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    // Recreated per view: onDestroyView shuts it down, and a fragment coming back from the
+    // back stack gets a new view, so a final executor rejected every later load/delete.
+    private ExecutorService executor;
+    // Workers outlive the view; requireContext() threw once the overlay was closed mid-load
+    private android.content.Context appCtx;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     // -------------------------------------------------------------------------
@@ -75,6 +79,8 @@ public class WatchTrashFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        appCtx = requireContext().getApplicationContext();
+        executor = Executors.newSingleThreadExecutor();
 
         recyclerView  = view.findViewById(R.id.rv_watch_trash);
         tvEmpty       = view.findViewById(R.id.tv_watch_trash_empty);
@@ -117,7 +123,7 @@ public class WatchTrashFragment extends Fragment {
     private void loadItems() {
         FLog.d(TAG, "Loading trash items...");
         executor.execute(() -> {
-            final List<TrashItem> loaded = TrashManager.loadTrashMetadata(requireContext());
+            final List<TrashItem> loaded = TrashManager.loadTrashMetadata(appCtx);
             FLog.d(TAG, "Loaded " + (loaded != null ? loaded.size() : 0) + " trash items");
             if (loaded != null) {
                 for (TrashItem item : loaded) {
@@ -125,6 +131,7 @@ public class WatchTrashFragment extends Fragment {
                 }
             }
             mainHandler.post(() -> {
+                if (!isAdded() || getView() == null) return;
                 items.clear();
                 if (loaded != null) items.addAll(loaded);
                 updateEmptyState();
@@ -151,7 +158,7 @@ public class WatchTrashFragment extends Fragment {
             boolean ok = false;
             try {
                 // Locate the trashed file
-                final File trashDir = TrashManager.getTrashDirectory(requireContext());
+                final File trashDir = TrashManager.getTrashDirectory(appCtx);
                 if (trashDir == null) throw new IllegalStateException("Trash dir unavailable");
                 final File trashFile = new File(trashDir, item.getTrashFileName());
 
@@ -187,7 +194,7 @@ public class WatchTrashFragment extends Fragment {
 
                     if (ok) {
                         // Remove entry from trash metadata
-                        final List<TrashItem> meta = TrashManager.loadTrashMetadata(requireContext());
+                        final List<TrashItem> meta = TrashManager.loadTrashMetadata(appCtx);
                         final java.util.Iterator<TrashItem> it = meta.iterator();
                         while (it.hasNext()) {
                             if (it.next().getTrashFileName().equals(item.getTrashFileName())) {
@@ -195,13 +202,13 @@ public class WatchTrashFragment extends Fragment {
                                 break;
                             }
                         }
-                        TrashManager.saveTrashMetadata(requireContext(), meta);
+                        TrashManager.saveTrashMetadata(appCtx, meta);
                     }
                 } else {
                     // Fallback: use the generic TrashManager restore (goes to Downloads/FadCam)
                     final List<TrashItem> single = new ArrayList<>();
                     single.add(item);
-                    ok = TrashManager.restoreItemsFromTrash(requireContext(), single);
+                    ok = TrashManager.restoreItemsFromTrash(appCtx, single);
                 }
 
             } catch (Exception e) {
@@ -210,10 +217,14 @@ public class WatchTrashFragment extends Fragment {
 
             final boolean finalOk = ok;
             mainHandler.post(() -> {
-                if (!isAdded()) return;
+                if (!isAdded() || getView() == null) return;
                 if (finalOk) {
-                    items.remove(position);
-                    adapter.notifyItemRemoved(position);
+                    // onResume reloads the list, so the tapped index can be stale by now
+                    final int idx = items.indexOf(item);
+                    if (idx >= 0) {
+                        items.remove(idx);
+                        adapter.notifyItemRemoved(idx);
+                    }
                     updateEmptyState();
                     Toast.makeText(requireContext(),
                             getString(R.string.trash_restore_success_toast, 1),
@@ -254,11 +265,14 @@ public class WatchTrashFragment extends Fragment {
         executor.execute(() -> {
             final List<TrashItem> single = new ArrayList<>();
             single.add(item);
-            TrashManager.permanentlyDeleteItems(requireContext(), single);
+            TrashManager.permanentlyDeleteItems(appCtx, single);
             mainHandler.post(() -> {
-                if (!isAdded()) return;
-                items.remove(position);
-                adapter.notifyItemRemoved(position);
+                if (!isAdded() || getView() == null) return;
+                final int idx = items.indexOf(item);
+                if (idx >= 0) {
+                    items.remove(idx);
+                    adapter.notifyItemRemoved(idx);
+                }
                 updateEmptyState();
                 Toast.makeText(requireContext(),
                         getString(R.string.trash_items_deleted_toast, 1),
@@ -270,9 +284,9 @@ public class WatchTrashFragment extends Fragment {
     private void deleteAll() {
         if (items.isEmpty()) return;
         executor.execute(() -> {
-            TrashManager.emptyAllTrash(requireContext());
+            TrashManager.emptyAllTrash(appCtx);
             mainHandler.post(() -> {
-                if (!isAdded()) return;
+                if (!isAdded() || getView() == null) return;
                 final int count = items.size();
                 items.clear();
                 adapter.notifyDataSetChanged();
@@ -354,7 +368,7 @@ public class WatchTrashFragment extends Fragment {
                     Bitmap bmp = null;
                     android.media.MediaMetadataRetriever retriever = null;
                     try {
-                        final File trashDir = TrashManager.getTrashDirectory(requireContext());
+                        final File trashDir = TrashManager.getTrashDirectory(appCtx);
                         if (trashDir != null) {
                             final File videoFile = new File(trashDir, trashFileName);
                             FLog.d(TAG, "Loading trash thumbnail: " + videoFile.getAbsolutePath());

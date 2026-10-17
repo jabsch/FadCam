@@ -141,7 +141,7 @@ public class WatchVideoPlayerActivity extends AppCompatActivity {
         final String uriString = getIntent().getStringExtra(EXTRA_URI);
         if (uriString == null || uriString.isEmpty()) {
             FLog.e(TAG, "No URI to play — finishing");
-            Toast.makeText(this, "No video URI", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.watch_player_no_uri, Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
@@ -159,7 +159,7 @@ public class WatchVideoPlayerActivity extends AppCompatActivity {
             initPlayer(Uri.parse(uriString));
         } catch (Exception e) {
             FLog.e(TAG, "Failed to initialize player: " + e.getMessage(), e);
-            Toast.makeText(this, "Cannot play video: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.watch_play_failed, String.valueOf(e.getMessage())), Toast.LENGTH_LONG).show();
             finish();
         }
 
@@ -242,7 +242,7 @@ public class WatchVideoPlayerActivity extends AppCompatActivity {
                 public void onPlayerError(@NonNull androidx.media3.common.PlaybackException error) {
                     FLog.e(TAG, "Player error: " + error.getMessage() + ", errorCode: " + error.errorCode);
                     Toast.makeText(WatchVideoPlayerActivity.this, 
-                        "Playback error: " + error.getMessage(), 
+                        getString(R.string.watch_player_error, String.valueOf(error.getMessage())), 
                         Toast.LENGTH_LONG).show();
                 }
             });
@@ -313,6 +313,7 @@ public class WatchVideoPlayerActivity extends AppCompatActivity {
     private void updatePlayPauseButton(boolean playing) {
         if (ivPlayPause == null) return;
         ivPlayPause.setImageResource(playing ? R.drawable.ic_pause : R.drawable.ic_play);
+        ivPlayPause.setContentDescription(getString(playing ? R.string.watch_player_pause : R.string.watch_player_play));
     }
 
     private void updatePositionLabel() {

@@ -1037,7 +1037,7 @@ public class OnboardingActivity extends AppIntro {
         // Show What's New screen if onboarding display is enabled (which it should be on first install)
         // This ensures the What's New screen appears right after onboarding completes
         // Skip WhatsNewActivity on Wear OS: WebView is not supported
-        if (!com.fadcam.utils.RuntimeCompat.isWatchDevice(this)) {
+        if (!com.fadcam.utils.RuntimeCompat.shouldUseWatchUi(this)) {
             Intent intent = new Intent(this, WhatsNewActivity.class);
             intent.putExtra(WhatsNewActivity.EXTRA_START_HOME, true);
             startActivity(intent);

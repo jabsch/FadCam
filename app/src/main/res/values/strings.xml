@@ -3470,4 +3470,12 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="fadrec_mute_picker_title">Audio control</string>
     <string name="fadrec_mute_picker_helper">Mute or unmute audio during recording</string>
     <string name="fadrec_mute_toggle_desc">Toggle mute</string>
+    <string name="watch_storage_free">%s free</string>
+    <string name="watch_play_failed">Cannot play: %s</string>
+    <string name="watch_save_failed">Save failed: %s</string>
+    <string name="watch_player_no_uri">No video to play</string>
+    <string name="watch_player_error">Playback error: %s</string>
+    <string name="watch_player_play">Play</string>
+    <string name="watch_player_pause">Pause</string>
+    <string name="watch_record_toggle_desc">Start or stop recording</string>
 </resources>

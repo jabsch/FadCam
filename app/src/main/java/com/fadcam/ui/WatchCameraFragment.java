@@ -456,7 +456,7 @@ public class WatchCameraFragment extends Fragment {
         try {
             final File path = Environment.getExternalStorageDirectory();
             final long freeBytes = path.getUsableSpace();
-            final String text = formatBytes(freeBytes) + " free";
+            final String text = getString(R.string.watch_storage_free, formatBytes(freeBytes));
             tvWatchStorage.setText(text);
         } catch (Exception e) {
             FLog.w(TAG, "refreshStorage: " + e.getMessage());

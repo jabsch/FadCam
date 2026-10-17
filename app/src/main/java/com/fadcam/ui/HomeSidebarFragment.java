@@ -339,7 +339,11 @@ public class HomeSidebarFragment extends DialogFragment {
 
         // See all mini apps -> Settings tab, scrolled to the Mini Apps section
         View seeAllRow = view.findViewById(R.id.row_mini_apps_see_all);
-        if (seeAllRow != null) {
+        // Only MainActivity has the Settings tab it jumps to; on the watch UI the tap
+        // closed the sidebar and did nothing
+        if (seeAllRow != null && !(getActivity() instanceof MainActivity)) {
+            seeAllRow.setVisibility(View.GONE);
+        } else if (seeAllRow != null) {
             seeAllRow.setOnClickListener(v -> {
                 try {
                     SettingsHomeFragment.sScrollToMiniApps = true;
@@ -637,7 +641,7 @@ public class HomeSidebarFragment extends DialogFragment {
     private void openWhatsNew() {
         // WhatsNewActivity uses WebView which is not supported on Wear OS — skip on watch.
         try {
-            if (com.fadcam.utils.RuntimeCompat.isWatchDevice(requireContext())) return;
+            if (com.fadcam.utils.RuntimeCompat.shouldUseWatchUi(requireContext())) return;
         } catch (Exception ignored) {}
         android.content.Intent intent = new android.content.Intent(requireContext(), com.fadcam.ui.WhatsNewActivity.class);
         startActivity(intent);

@@ -386,6 +386,15 @@ public class MainActivity extends AppCompatActivity {
             FLog.w("UpdateCheck", "App identity log failed: " + e.getMessage());
         }
         super.onCreate(savedInstanceState);
+        // The alternative launcher icons (activity-alias) and shortcuts open MainActivity
+        // directly, skipping SplashActivity's routing, so a watch got the phone dashboard.
+        if (RuntimeCompat.shouldUseWatchUi(this)) {
+            Intent watchIntent = new Intent(getIntent()).setComponent(null)
+                    .setClass(this, com.fadcam.ui.WatchMainActivity.class);
+            startActivity(watchIntent);
+            finish();
+            return;
+        }
         swipeTouchSlop = ViewConfiguration.get(this).getScaledTouchSlop();
 
         // Install splash screen (shows the themed windowSplashScreenAnimatedIcon)
@@ -448,7 +457,7 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 // User HAS completed onboarding - show What's New screen instead
                 // Skip WhatsNewActivity on Wear OS: WebView is not supported
-                if (!RuntimeCompat.isWatchDevice(this)) {
+                if (!RuntimeCompat.shouldUseWatchUi(this)) {
                     Intent intent = new Intent(this, com.fadcam.ui.WhatsNewActivity.class);
                     intent.putExtra(com.fadcam.ui.WhatsNewActivity.EXTRA_START_HOME, true);
                     startActivity(intent);
