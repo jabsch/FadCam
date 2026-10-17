@@ -54,6 +54,13 @@ public class SharedPreferencesManager {
         );
     }
 
+    /** Read-only check without copying the whole set (runs on every Records card bind). */
+    public boolean isVideoOpened(String uriString) {
+        if (uriString == null) return false;
+        Set<String> opened = sharedPreferences.getStringSet(Constants.PREF_OPENED_VIDEO_URIS, null);
+        return opened != null && opened.contains(uriString);
+    }
+
     public void addOpenedVideoUri(String uriString) {
         if (uriString == null || uriString.isEmpty()) return;
         Set<String> openedUris = getOpenedVideoUris(); // Get current set (returns a copy)

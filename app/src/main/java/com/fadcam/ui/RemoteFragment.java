@@ -155,6 +155,8 @@ public class RemoteFragment extends BaseFragment {
             serviceBound = true;
             streamStartTime = System.currentTimeMillis();
             updateUI();
+            // Health may be on its slow server-off cadence; switch to 1 s now
+            if (!isHidden()) restartRemoteUpdateLoops();
             FLog.d(TAG, "Service connected");
         }
         
@@ -408,14 +410,19 @@ public class RemoteFragment extends BaseFragment {
             @Override
             public void run() {
                 updateServerHealth();
-                healthUpdateHandler.postDelayed(this, 1000);
+                // Battery, memory and storage barely move while the server is off,
+                // so poll them every 5 s then instead of every second
+                boolean serverOn = RemoteStreamManager.getInstance().isStreamingEnabled();
+                healthUpdateHandler.postDelayed(this, serverOn ? 1000 : 5000);
             }
         };
         
         // Set up cloud status error listener to show auth errors to user
+        final android.content.Context appContext = requireContext().getApplicationContext();
         CloudStatusManager.getInstance(requireContext()).setAuthErrorListener(reason -> {
             FLog.e(TAG, "Cloud auth error: " + reason);
-            Toast.makeText(requireContext(), "⚠️ " + reason, Toast.LENGTH_LONG).show();
+            // The manager outlives this screen: requireContext() threw once it was gone
+            Toast.makeText(appContext, "⚠️ " + reason, Toast.LENGTH_LONG).show();
         });
     }
     
@@ -485,18 +492,27 @@ public class RemoteFragment extends BaseFragment {
             streamStartTime = System.currentTimeMillis();
         }
         
-        if (statusUpdateHandler != null && statusUpdateRunnable != null) {
-            statusUpdateHandler.post(statusUpdateRunnable);
-        }
-        
-        if (healthUpdateHandler != null && healthUpdateRunnable != null) {
-            healthUpdateHandler.post(healthUpdateRunnable);
-        }
+        restartRemoteUpdateLoops();
         
         updateUI();
         updateModeDisplay();
     }
     
+    /**
+     * (Re)starts the status and health loops. Removing first keeps a resume that
+     * follows a tab switch from running a second copy of each loop.
+     */
+    private void restartRemoteUpdateLoops() {
+        if (statusUpdateHandler != null && statusUpdateRunnable != null) {
+            statusUpdateHandler.removeCallbacks(statusUpdateRunnable);
+            statusUpdateHandler.post(statusUpdateRunnable);
+        }
+        if (healthUpdateHandler != null && healthUpdateRunnable != null) {
+            healthUpdateHandler.removeCallbacks(healthUpdateRunnable);
+            healthUpdateHandler.post(healthUpdateRunnable);
+        }
+    }
+
     /** Pause streaming update handlers and unbind service. */
     private void pauseRemoteUpdates() {
         cancelStatusPulse();
@@ -539,13 +555,7 @@ public class RemoteFragment extends BaseFragment {
             streamStartTime = System.currentTimeMillis();
         }
         
-        if (statusUpdateHandler != null && statusUpdateRunnable != null) {
-            statusUpdateHandler.post(statusUpdateRunnable);
-        }
-        
-        if (healthUpdateHandler != null && healthUpdateRunnable != null) {
-            healthUpdateHandler.post(healthUpdateRunnable);
-        }
+        restartRemoteUpdateLoops();
         
         updateUI();
         updateModeDisplay(); // Refresh mode display in case web client changed it
