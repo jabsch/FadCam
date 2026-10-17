@@ -86,16 +86,16 @@ public class CloudAccountActivity extends AppCompatActivity {
         // Apply window insets for proper edge-to-edge layout with notch/gesture support
         android.view.View headerBar = findViewById(R.id.cloud_header_bar);
         
+        // Base padding captured once: insets are re-applied on rotation and IME changes
+        final int baseLeft = headerBar.getPaddingLeft();
+        final int baseRight = headerBar.getPaddingRight();
+        final int baseTop = Math.round(16 * getResources().getDisplayMetrics().density);
         ViewCompat.setOnApplyWindowInsetsListener(headerBar, (v, insets) -> {
             androidx.core.graphics.Insets sb = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars());
-            int systemInsetTop = sb.top;
-            int systemInsetLeft = sb.left;
-            int systemInsetRight = sb.right;
-            
             v.setPadding(
-                systemInsetLeft + v.getPaddingStart(),
-                systemInsetTop + 16,  // 16dp + status bar height
-                systemInsetRight + v.getPaddingEnd(),
+                baseLeft + sb.left,
+                baseTop + sb.top,  // 16dp + status bar height
+                baseRight + sb.right,
                 v.getPaddingBottom()
             );
             return insets;
@@ -153,7 +153,10 @@ public class CloudAccountActivity extends AppCompatActivity {
                     android.webkit.WebResourceError error) {
                 super.onReceivedError(view, request, error);
                 FLog.e(TAG, "WebView error: " + (error != null ? error.getDescription() : "unknown"));
-                statusText.setText(R.string.cloud_account_link_failed);
+                // Sub-resource failures (favicon, analytics) don't mean the link page failed
+                if (request == null || request.isForMainFrame()) {
+                    statusText.setText(R.string.cloud_account_link_failed);
+                }
             }
         });
         

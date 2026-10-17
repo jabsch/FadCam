@@ -32,6 +32,9 @@ public class MotionPolicy {
     public float stopThresholdFromSensitivity(int sensitivity) {
         // Hysteresis: keep some separation from start threshold, but not so low that
         // quiet-scene noise keeps sessions stuck in RECORDING.
-        return Math.max(0.12f, startThresholdFromSensitivity(sensitivity) - 0.05f);
+        // Never above the start threshold: at sensitivity 95+ the 0.12 floor inverted the
+        // hysteresis and sessions flapped between PENDING and IDLE
+        float start = startThresholdFromSensitivity(sensitivity);
+        return Math.min(start, Math.max(0.12f, start - 0.05f));
     }
 }

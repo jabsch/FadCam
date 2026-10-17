@@ -1595,6 +1595,12 @@ public class RemoteFragment extends BaseFragment {
      * Show the cloud account info picker (after sync)
      */
     private void showCloudAccountPicker() {
+        // The sync above can take up to 20 s: skip if the screen went away, state is saved
+        // (show() would throw) or a second tap already opened the sheet
+        if (!isAdded() || isHidden() || getChildFragmentManager().isStateSaved()
+                || getChildFragmentManager().findFragmentByTag("cloud_account_info") != null) {
+            return;
+        }
         String email = cloudAuthManager.getUserEmail();
         String deviceName = cloudAuthManager.getDeviceName();
         String deviceId = cloudAuthManager.getShortDeviceId();
