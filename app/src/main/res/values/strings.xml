@@ -2171,6 +2171,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
 
     <!-- Tips Navigation Strings -->
     <string name="close">Close</string>
+    <string name="remote_copy_url">Copy dashboard address</string>
     <string name="previous">Previous</string>
     <string name="next">Next</string>
     <string name="done">Done</string>

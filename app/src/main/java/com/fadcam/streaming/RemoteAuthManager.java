@@ -28,6 +28,8 @@ public class RemoteAuthManager {
     private final Map<String, SessionToken> activeSessions;
     private final SecureRandom secureRandom;
     private volatile boolean sessionsJustCleared = false;
+    /** Last request per token, in memory only (a restart counts as fresh use). */
+    private final Map<String, Long> lastUsedMs = new ConcurrentHashMap<>();
     
     private RemoteAuthManager(Context context) {
         this.context = context.getApplicationContext();
@@ -162,7 +164,19 @@ public class RemoteAuthManager {
         if (session.isExpired()) {
             FLog.d(TAG, "Token expired");
             activeSessions.remove(token);
+            lastUsedMs.remove(token);
             saveSessionsToStorage();
+            return null;
+        }
+
+        // Auto-lock was only enforced by the open dashboard tab, so a token from a closed
+        // tab (or a copied one) kept working for the full 24 h after going idle
+        long now = System.currentTimeMillis();
+        int timeoutMinutes = getAutoLockTimeout();
+        Long last = lastUsedMs.put(token, now);
+        if (timeoutMinutes > 0 && last != null && now - last > timeoutMinutes * 60_000L) {
+            FLog.d(TAG, "Token idle past the auto-lock timeout");
+            revokeSession(token);
             return null;
         }
         
@@ -173,6 +187,7 @@ public class RemoteAuthManager {
      * Invalidate specific session
      */
     public void revokeSession(String token) {
+        lastUsedMs.remove(token);
         if (activeSessions.remove(token) != null) {
             saveSessionsToStorage();
             FLog.i(TAG, "Session revoked");
@@ -185,6 +200,7 @@ public class RemoteAuthManager {
     public void clearAllSessions() {
         int count = activeSessions.size();
         activeSessions.clear();
+        lastUsedMs.clear();
         saveSessionsToStorage();
         sessionsJustCleared = true;  // Set flag for real-time detection
         FLog.i(TAG, "Cleared " + count + " session(s)");
@@ -215,9 +231,17 @@ public class RemoteAuthManager {
      * Get auto-lock timeout in minutes (0 = never)
      */
     public int getAutoLockTimeout() {
-        // An old-format backup restored after a reset can store this as a Long
-        Object v = prefs.getAll().get(Constants.PREF_REMOTE_AUTH_AUTO_LOCK_TIMEOUT);
-        return v instanceof Number ? ((Number) v).intValue() : 0;
+        // An old-format backup restored after a reset can store this as a Long. Read without
+        // getAll(), which copies every pref: this now runs on each authenticated request.
+        try {
+            return prefs.getInt(Constants.PREF_REMOTE_AUTH_AUTO_LOCK_TIMEOUT, 0);
+        } catch (ClassCastException e) {
+            try {
+                return (int) prefs.getLong(Constants.PREF_REMOTE_AUTH_AUTO_LOCK_TIMEOUT, 0L);
+            } catch (ClassCastException ignored) {
+                return 0;
+            }
+        }
     }
     
     /**
@@ -260,7 +284,9 @@ public class RemoteAuthManager {
     /**
      * Save active sessions to SharedPreferences
      */
-    private void saveSessionsToStorage() {
+    // Synchronized: two saves racing could apply() an older copy last and bring back a
+    // revoked session after a restart
+    private synchronized void saveSessionsToStorage() {
         org.json.JSONArray array = new org.json.JSONArray();
         for (SessionToken session : activeSessions.values()) {
             try {

@@ -120,8 +120,11 @@ public class RemoteStreamService extends Service {
             activePort = -1;
         }
         
-        // Enable streaming in RemoteStreamManager
-        RemoteStreamManager.getInstance().setStreamingEnabled(true);
+        // Enable streaming in RemoteStreamManager. Only on the first start: a repeat start
+        // (the watch remote, a sticky restart) reset the uptime and wiped the client list.
+        if (!RemoteStreamManager.getInstance().isStreamingEnabled()) {
+            RemoteStreamManager.getInstance().setStreamingEnabled(true);
+        }
         
         // Start cloud status manager (handles status push and command poll)
         // This works independently of video streaming - just needs service to be on
@@ -164,11 +167,8 @@ public class RemoteStreamService extends Service {
         RemoteStreamManager.getInstance().setStreamingEnabled(false);
         
         // Cancel notification when service stops
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            stopForeground(android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MANIFEST);
-        } else {
-            com.fadcam.Utils.stopForegroundCompat(this, true);
-        }
+        // (The Q+ branch passed FOREGROUND_SERVICE_TYPE_MANIFEST as the flags argument.)
+        com.fadcam.Utils.stopForegroundCompat(this, true);
         
         super.onDestroy();
     }

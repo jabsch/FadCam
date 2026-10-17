@@ -1146,12 +1146,19 @@ public class CloudStatusManager {
                 }
 
             } else if ("config_exposure".equals(action)) {
-                // Set exposure compensation – dispatched live to RecordingService.
-                // CONTROL_AE_EXPOSURE_COMPENSATION range is device-dependent; clamp −5…+5.
+                // Set exposure compensation – dispatched live to RecordingService. Clamped,
+                // saved and broadcast like the LAN /config/exposure handler: the cloud path
+                // clamped to ±5 steps, saved nothing, and the status showed the old value.
                 if (command.has("params")) {
                     org.json.JSONObject params = command.getJSONObject("params");
-                    int ev = params.optInt("ev", 0);
-                    ev = Math.max(-5, Math.min(5, ev));
+                    int ev = Math.max(spManager.getExposureCompensationMin(),
+                            Math.min(spManager.getExposureCompensationMax(), params.optInt("ev", 0)));
+                    spManager.setSavedExposureCompensation(ev);
+                    android.content.Intent exposureBroadcast = new android.content.Intent(
+                            com.fadcam.Constants.BROADCAST_ON_EXPOSURE_CHANGED);
+                    exposureBroadcast.putExtra(com.fadcam.Constants.EXTRA_BROADCAST_EXPOSURE_COMPENSATION, ev);
+                    context.sendBroadcast(exposureBroadcast.setPackage(context.getPackageName()));
+                    RemoteStreamManager.getInstance().invalidateStatusCache();
 
                     android.content.Intent evIntent = new android.content.Intent(
                             context, com.fadcam.services.RecordingService.class);
@@ -1175,6 +1182,9 @@ public class CloudStatusManager {
                 } else {
                     enabled = !spManager.isFrontVideoMirrorEnabled();
                 }
+                // Saved like the LAN handler, or the next toggle sent the same value again
+                spManager.setFrontVideoMirrorEnabled(enabled);
+                RemoteStreamManager.getInstance().invalidateStatusCache();
 
                 android.content.Intent mirrorIntent = new android.content.Intent(
                         context, com.fadcam.services.RecordingService.class);
@@ -1187,6 +1197,10 @@ public class CloudStatusManager {
                 // Toggle AE lock on/off.
                 boolean currentLocked = spManager.isAeLockedSaved();
                 boolean newLocked = !currentLocked;
+                // Nothing saved it, so every press sent "lock" again and AE lock could never
+                // be turned off from the cloud dashboard
+                spManager.setSavedAeLock(newLocked);
+                RemoteStreamManager.getInstance().invalidateStatusCache();
                 android.content.Intent aeLockIntent = new android.content.Intent(
                         context, com.fadcam.services.RecordingService.class);
                 aeLockIntent.setAction(com.fadcam.Constants.INTENT_ACTION_TOGGLE_AE_LOCK);
