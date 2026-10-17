@@ -503,7 +503,7 @@ import fi.iki.elonen.NanoHTTPD;
             return jsonResponse(Response.Status.OK, responseJson);
         } catch (Exception e) {
             FLog.e(TAG, "Error toggling torch", e);
-            return jsonResponse(Response.Status.INTERNAL_ERROR, "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+            return jsonResponse(Response.Status.INTERNAL_ERROR, errorJson(e.getMessage()));
         }
     }
 
@@ -540,7 +540,7 @@ import fi.iki.elonen.NanoHTTPD;
         } catch (Exception e) {
             FLog.e(TAG, "Error getting volume", e);
             return jsonResponse(Response.Status.INTERNAL_ERROR, 
-                "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                errorJson(e.getMessage()));
         }
     }
 
@@ -615,11 +615,11 @@ import fi.iki.elonen.NanoHTTPD;
         } catch (org.json.JSONException e) {
             FLog.e(TAG, "Invalid JSON in volume request", e);
             return jsonResponse(Response.Status.BAD_REQUEST, 
-                "{\"status\": \"error\", \"message\": \"Invalid JSON: " + e.getMessage() + "\"}");
+                errorJson("Invalid JSON: " + e.getMessage()));
         } catch (Exception e) {
             FLog.e(TAG, "Error setting volume", e);
             return jsonResponse(Response.Status.INTERNAL_ERROR, 
-                "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                errorJson(e.getMessage()));
         }
     }
 
@@ -672,7 +672,7 @@ import fi.iki.elonen.NanoHTTPD;
         } catch (Exception e) {
             FLog.e(TAG, "Error toggling recording", e);
             return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json; charset=utf-8", 
-                "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                errorJson(e.getMessage()));
         }
     }
 
@@ -705,7 +705,7 @@ import fi.iki.elonen.NanoHTTPD;
         } catch (Exception e) {
             FLog.e(TAG, "Error pausing recording", e);
             return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json; charset=utf-8",
-                "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                errorJson(e.getMessage()));
         }
     }
 
@@ -737,7 +737,7 @@ import fi.iki.elonen.NanoHTTPD;
         } catch (Exception e) {
             FLog.e(TAG, "Error resuming recording", e);
             return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json; charset=utf-8",
-                "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                errorJson(e.getMessage()));
         }
     }
 
@@ -796,7 +796,7 @@ import fi.iki.elonen.NanoHTTPD;
             return response;
         } catch (Exception e) {
             FLog.e(TAG, "Error setting recording mode", e);
-            return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json; charset=utf-8", "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+            return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json; charset=utf-8", errorJson(e.getMessage()));
         }
     }
 
@@ -827,7 +827,7 @@ import fi.iki.elonen.NanoHTTPD;
             
             // Convert string to preset and apply
             try {
-                StreamQuality.Preset preset = StreamQuality.Preset.valueOf(quality.toUpperCase());
+                StreamQuality.Preset preset = StreamQuality.Preset.valueOf(quality.trim().toUpperCase(java.util.Locale.ROOT));
                 streamManager.setStreamQuality(preset, context);
             } catch (IllegalArgumentException e) {
                 FLog.e(TAG, "Invalid stream quality preset: " + quality);
@@ -842,7 +842,7 @@ import fi.iki.elonen.NanoHTTPD;
             return response;
         } catch (Exception e) {
             FLog.e(TAG, "Error setting stream quality", e);
-            return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json; charset=utf-8", "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+            return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json; charset=utf-8", errorJson(e.getMessage()));
         }
     }
 
@@ -896,7 +896,7 @@ import fi.iki.elonen.NanoHTTPD;
             return response;
         } catch (Exception e) {
             FLog.e(TAG, "Error setting battery warning", e);
-            return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json; charset=utf-8", "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+            return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json; charset=utf-8", errorJson(e.getMessage()));
         }
     }
 
@@ -958,7 +958,7 @@ import fi.iki.elonen.NanoHTTPD;
         } catch (Exception e) {
             FLog.e(TAG, "Error setting video codec", e);
             return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json; charset=utf-8", 
-                "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                errorJson(e.getMessage()));
         }
     }
     // END: VideoCodec Config Endpoint
@@ -1026,7 +1026,7 @@ import fi.iki.elonen.NanoHTTPD;
         } catch (Exception e) {
             FLog.e(TAG, "Error switching camera", e);
             return jsonResponse(Response.Status.INTERNAL_ERROR,
-                    "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                    errorJson(e.getMessage()));
         }
     }
 
@@ -1107,7 +1107,7 @@ import fi.iki.elonen.NanoHTTPD;
         } catch (Exception e) {
             FLog.e(TAG, "Error setting zoom", e);
             return jsonResponse(Response.Status.INTERNAL_ERROR,
-                    "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                    errorJson(e.getMessage()));
         }
     }
 
@@ -1174,7 +1174,7 @@ import fi.iki.elonen.NanoHTTPD;
         } catch (Exception e) {
             FLog.e(TAG, "❌ [/config/exposure] Exception: " + e.getMessage(), e);
             return jsonResponse(Response.Status.INTERNAL_ERROR,
-                    "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                    errorJson(e.getMessage()));
         }
     }
 
@@ -1223,7 +1223,7 @@ import fi.iki.elonen.NanoHTTPD;
         } catch (Exception e) {
             FLog.e(TAG, "Error setting mirror", e);
             return jsonResponse(Response.Status.INTERNAL_ERROR,
-                    "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                    errorJson(e.getMessage()));
         }
     }
 
@@ -1274,7 +1274,7 @@ import fi.iki.elonen.NanoHTTPD;
         } catch (Exception e) {
             FLog.e(TAG, "❌ [/config/aeLock] Exception: " + e.getMessage(), e);
             return jsonResponse(Response.Status.INTERNAL_ERROR,
-                    "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                    errorJson(e.getMessage()));
         }
     }
 
@@ -1600,7 +1600,7 @@ import fi.iki.elonen.NanoHTTPD;
                     "<html><head><title>Error</title></head><body>\n" +
                     "<h1>Error Loading Player</h1>\n" +
                     "<p>Failed to load index.html from assets/web folder.</p>\n" +
-                    "<p>Error: " + e.getMessage() + "</p>\n" +
+                    "<p>Error: " + android.text.TextUtils.htmlEncode(String.valueOf(e.getMessage())) + "</p>\n" +
                     "<p>Stream URL: <a href=\"/live.m3u8\">/live.m3u8</a></p>\n" +
                     "</body></html>";
             Response response = newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/html", html);
@@ -1696,12 +1696,12 @@ import fi.iki.elonen.NanoHTTPD;
             }
             
             return jsonResponse(Response.Status.OK, 
-                "{\"status\": \"success\", \"message\": \"Alarm ringing\", \"sound\": \"" + soundFile + "\", \"duration_ms\": " + durationMs + "}");
+                "{\"status\": \"success\", \"message\": \"Alarm ringing\", \"sound\": " + org.json.JSONObject.quote(soundFile) + ", \"duration_ms\": " + durationMs + "}");
             
         } catch (Exception e) {
             FLog.e(TAG, "Error ringing alarm", e);
             return jsonResponse(Response.Status.INTERNAL_ERROR, 
-                "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                errorJson(e.getMessage()));
         }
     }
 
@@ -1728,7 +1728,7 @@ import fi.iki.elonen.NanoHTTPD;
         } catch (Exception e) {
             FLog.e(TAG, "Error stopping alarm", e);
             return jsonResponse(Response.Status.INTERNAL_ERROR, 
-                "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                errorJson(e.getMessage()));
         }
     }
 
@@ -1839,13 +1839,13 @@ import fi.iki.elonen.NanoHTTPD;
                 " (in " + (delayMs / 1000) + " seconds)");
             
             return jsonResponse(Response.Status.OK, 
-                "{\"status\": \"success\", \"message\": \"Alarm scheduled\", \"sound\": \"" + soundFile + 
-                "\", \"duration_ms\": " + durationMs + ", \"scheduled_for\": " + scheduledTime + "}");
+                "{\"status\": \"success\", \"message\": \"Alarm scheduled\", \"sound\": " + org.json.JSONObject.quote(soundFile) +
+                ", \"duration_ms\": " + durationMs + ", \"scheduled_for\": " + scheduledTime + "}");
             
         } catch (Exception e) {
             FLog.e(TAG, "Error scheduling alarm", e);
             return jsonResponse(Response.Status.INTERNAL_ERROR, 
-                "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                errorJson(e.getMessage()));
         }
     }
 
@@ -1880,8 +1880,16 @@ import fi.iki.elonen.NanoHTTPD;
 
             if ("save".equals(action)) {
                 // Save notification history
-                String history = request.optString("history", "[]");
-                prefs.saveNotificationHistory(history);
+                // Only a real JSON array is stored, since GET splices it into its response
+                Object raw = request.opt("history");
+                org.json.JSONArray history;
+                try {
+                    history = raw instanceof org.json.JSONArray ? (org.json.JSONArray) raw
+                            : new org.json.JSONArray(raw == null ? "[]" : raw.toString());
+                } catch (org.json.JSONException bad) {
+                    return jsonResponse(Response.Status.BAD_REQUEST, errorJson("history must be a JSON array"));
+                }
+                prefs.saveNotificationHistory(history.toString());
                 FLog.d(TAG, "✅ Notification history saved from JS");
                 return jsonResponse(Response.Status.OK, 
                     "{\"status\": \"success\", \"message\": \"Notifications saved\"}");
@@ -1898,7 +1906,7 @@ import fi.iki.elonen.NanoHTTPD;
         } catch (Exception e) {
             FLog.e(TAG, "Error handling notifications", e);
             return jsonResponse(Response.Status.INTERNAL_ERROR, 
-                "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                errorJson(e.getMessage()));
         }
     }
 
@@ -1910,13 +1918,18 @@ import fi.iki.elonen.NanoHTTPD;
         try {
             com.fadcam.SharedPreferencesManager prefs = com.fadcam.SharedPreferencesManager.getInstance(context);
             String history = prefs.getNotificationHistory();
+            try {
+                history = new org.json.JSONArray(history == null ? "[]" : history).toString();
+            } catch (org.json.JSONException bad) {
+                history = "[]"; // an older bad save would otherwise break every GET
+            }
             
             return jsonResponse(Response.Status.OK, 
                 "{\"status\": \"success\", \"history\": " + history + "}");
         } catch (Exception e) {
             FLog.e(TAG, "Error getting notifications", e);
             return jsonResponse(Response.Status.INTERNAL_ERROR, 
-                "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                errorJson(e.getMessage()));
         }
     }
 
@@ -1954,7 +1967,7 @@ import fi.iki.elonen.NanoHTTPD;
         } catch (Exception e) {
             FLog.e(TAG, "❌ Error fetching GitHub notification", e);
             return jsonResponse(Response.Status.INTERNAL_ERROR, 
-                "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}");
+                errorJson(e.getMessage()));
         }
     }
 
@@ -2015,5 +2028,10 @@ import fi.iki.elonen.NanoHTTPD;
         String finalCleaned = result.toString().replaceAll(",\\s*([}\\]])", "$1");
         
         return finalCleaned.trim();
+    }
+
+    /** Error body with the message JSON-escaped (exception text can quote the bad input). */
+    private static String errorJson(String message) {
+        return "{\"status\": \"error\", \"message\": " + org.json.JSONObject.quote(String.valueOf(message)) + "}";
     }
 }

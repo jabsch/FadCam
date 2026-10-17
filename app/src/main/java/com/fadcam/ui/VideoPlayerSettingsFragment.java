@@ -823,11 +823,11 @@ public class VideoPlayerSettingsFragment extends Fragment {
                             com.fadcam.ui.picker.MaterialNumberPickerBottomSheetFragment.newInstance(
                                 getString(R.string.timer_custom_title),
                                 1,
-                                86400,
+                                1440, // minutes: 24 h, as the hint says
                                 60,
                                 getString(R.string.universal_enter_number),
                                 5,
-                                3600,
+                                360,
                                 getString(R.string.timer_custom_low_hint),
                                 getString(R.string.timer_custom_high_hint),
                                 RK_NUM

@@ -68,6 +68,8 @@ public class FadRecHomeFragment extends HomeFragment {
     
     // Screen recording state
     private ScreenRecordingState screenRecordingState = ScreenRecordingState.NONE;
+    // elapsedRealtime when the pause broadcast arrived; the service only shifts the start time on resume
+    private long screenPausedAtElapsed = 0L;
     private boolean isScreenPreviewEnabled = false;
     private boolean isScreenPreviewOnlyActive = false;
     private boolean pendingPreviewOnlyPermission = false;
@@ -1243,6 +1245,7 @@ public class FadRecHomeFragment extends HomeFragment {
                         case Constants.BROADCAST_ON_SCREEN_RECORDING_PAUSED:
                             timerHandler.removeCallbacks(pendingStopStateReconcileRunnable);
                             screenRecordingState = ScreenRecordingState.PAUSED;
+                            screenPausedAtElapsed = SystemClock.elapsedRealtime();
                             isScreenPreviewOnlyActive = false;
                             persistRecordingState(screenRecordingState);
                             updateUIForRecordingState();
@@ -1971,7 +1974,10 @@ public class FadRecHomeFragment extends HomeFragment {
                 || screenRecordingState == ScreenRecordingState.PAUSED;
             long elapsedTime = 0;
             if (screenStartTime > 0 && isActive) {
-                elapsedTime = Math.max(0, SystemClock.elapsedRealtime() - screenStartTime);
+                // Frozen while paused, so paused time isn't counted (or deducted from storage)
+                long now = screenRecordingState == ScreenRecordingState.PAUSED && screenPausedAtElapsed > 0
+                    ? screenPausedAtElapsed : SystemClock.elapsedRealtime();
+                elapsedTime = Math.max(0, now - screenStartTime);
             }
 
             // ── Storage deduction & remaining time ───────────────────────────────────
@@ -2073,7 +2079,10 @@ public class FadRecHomeFragment extends HomeFragment {
             android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
             com.fadcam.Utils.getRealDisplayMetrics(requireContext(), dm);
             long pixels   = (long) dm.widthPixels * dm.heightPixels;
-            long fps       = Constants.DEFAULT_SCREEN_RECORDING_FPS;
+            // Manual bitrate wins, as in the service
+            int userBitrate = sharedPreferencesManager.getScreenRecordingBitrate();
+            if (userBitrate > 0) return userBitrate;
+            long fps       = sharedPreferencesManager.getScreenRecordingFrameRate();
             long bitrate   = (long) (pixels * fps * 0.07);
             return Math.max(2_000_000L, Math.min(16_000_000L, bitrate));
         } catch (Exception e) {

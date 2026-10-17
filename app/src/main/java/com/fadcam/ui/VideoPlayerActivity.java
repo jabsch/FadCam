@@ -2332,13 +2332,13 @@ public class VideoPlayerActivity extends AppCompatActivity {
                                                     R.string.timer_custom_title
                                                 ),
                                                 1,
-                                                86400,
+                                                1440, // minutes: 24 h, as the hint says
                                                 60,
                                                 getString(
                                                     R.string.timer_custom_placeholder
                                                 ),
                                                 5,
-                                                3600,
+                                                360,
                                                 getString(
                                                     R.string.timer_custom_low_hint
                                                 ),
@@ -2374,18 +2374,6 @@ public class VideoPlayerActivity extends AppCompatActivity {
                                             getString(R.string.background_playback_timer_footer)
                                         );
                                         num.setArguments(_b);
-                                        // Add seek-specific description
-                                        android.os.Bundle _nb =
-                                            num.getArguments() != null
-                                                ? num.getArguments()
-                                                : new android.os.Bundle();
-                                        _nb.putString(
-                                            com.fadcam.ui.picker.MaterialNumberPickerBottomSheetFragment.ARG_DESCRIPTION,
-                                            getString(
-                                                R.string.seek_amount_helper
-                                            )
-                                        );
-                                        num.setArguments(_nb);
                                         getSupportFragmentManager().setFragmentResultListener(
                                                 RK_NUM,
                                                 this,
