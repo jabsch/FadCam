@@ -402,7 +402,7 @@ public class ShortcutsManager {
                     ctx,
                     "com.fadcam.ScreenShotCaptureActivity"
                 ),
-                com.fadcam.R.drawable.screen_recorder,
+                com.fadcam.R.drawable.fadrec_screenshot_shortcut,
                 ctx.getString(com.fadcam.R.string.shortcut_take_screenshot)
             )
         );
@@ -570,7 +570,7 @@ public class ShortcutsManager {
                             ctx,
                             "com.fadcam.ScreenShotCaptureActivity"
                         ),
-                        com.fadcam.R.drawable.screen_recorder,
+                        com.fadcam.R.drawable.fadrec_screenshot_shortcut,
                         ctx.getString(com.fadcam.R.string.shortcut_take_screenshot)
                     )
                 );

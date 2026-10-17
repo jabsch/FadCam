@@ -553,6 +553,7 @@ public class DualCameraRecordingService extends Service {
         }
 
         prefs.setRecordingInProgress(false);
+        com.fadcam.services.RecordingTileService.requestTileRefresh(this);
         releaseWakeLock();
         clearRecordingTimelineState();
         pauseStartedAt = 0;
@@ -1836,6 +1837,7 @@ public class DualCameraRecordingService extends Service {
             applyPreviewFrameRateCap();
             registerScreenStateReceiver();
             prefs.setRecordingInProgress(true);
+            com.fadcam.services.RecordingTileService.requestTileRefresh(this);
             // Tactile confirmation that dual recording started (service-side,
             // gated by the Haptic feedback setting).
             com.fadcam.Utils.vibrateRecordingStart(this);
@@ -2101,6 +2103,7 @@ public class DualCameraRecordingService extends Service {
         // Clean up and stop
         releaseAllResources();
         prefs.setRecordingInProgress(false);
+        com.fadcam.services.RecordingTileService.requestTileRefresh(this);
         releaseWakeLock();
         stopSelf();
     }

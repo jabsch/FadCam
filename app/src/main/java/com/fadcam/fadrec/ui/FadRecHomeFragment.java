@@ -1302,20 +1302,7 @@ public class FadRecHomeFragment extends HomeFragment {
                             }
                             break;
                         
-                        // Handle permission results from TransparentPermissionActivity
-                        case Constants.ACTION_SCREEN_RECORDING_PERMISSION_GRANTED:
-                            // Permission granted, start recording with the provided Intent
-                            Intent permissionData = com.fadcam.Utils.getParcelableExtraCompat(intent, "data", Intent.class);
-                            if (permissionData == null) {
-                                permissionData = com.fadcam.Utils.getParcelableExtraCompat(intent, "mediaProjectionData", Intent.class);
-                            }
-                            if (permissionData != null && mediaProjectionHelper != null) {
-                                int resultCode = intent.getIntExtra("resultCode", -1);
-                                mediaProjectionHelper.startScreenRecording(resultCode, permissionData, false);
-                            } else {
-                            }
-                            break;
-                            
+                        // Permission denied in TransparentPermissionActivity (a grant starts the service there)
                         case Constants.ACTION_SCREEN_RECORDING_PERMISSION_DENIED:
                             pendingPreviewOnlyPermission = false;
                             pendingPreviewOpenUntilSurfaceReady = false;
@@ -1369,7 +1356,6 @@ public class FadRecHomeFragment extends HomeFragment {
             filter.addAction(Constants.ACTION_RESUME_SCREEN_RECORDING);
             filter.addAction(Constants.ACTION_STOP_SCREEN_RECORDING);
             // Add permission result actions from TransparentPermissionActivity
-            filter.addAction(Constants.ACTION_SCREEN_RECORDING_PERMISSION_GRANTED);
             filter.addAction(Constants.ACTION_SCREEN_RECORDING_PERMISSION_DENIED);
             
             // Use LocalBroadcastManager for guaranteed delivery on Android 12+

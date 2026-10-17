@@ -15,7 +15,7 @@ public class RecordingStopActivity extends Activity {
             RecordingShortcutDispatcher.stop(this);
         } catch (Exception e) {
             FLog.e(TAG, "Error stopping recording via shortcut", e);
-            Toast.makeText(this, "Failed to stop recording", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.shortcut_stop_failed, Toast.LENGTH_SHORT).show();
         } finally {
             RecordingStartActivity.finishWithoutUi(this);
         }

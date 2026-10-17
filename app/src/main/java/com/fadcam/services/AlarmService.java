@@ -92,12 +92,9 @@ public class AlarmService extends Service {
             if (soundFile != null && !soundFile.isEmpty()) {
                 // CRITICAL: Show notification immediately on Android 8+ to prevent crash
                 // startForegroundService() requires startForeground() to be called within 5 seconds
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForeground(NOTIFICATION_ID, createNotification(soundFile, durationMs), 
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
-                } else {
-                    startForeground(NOTIFICATION_ID, createNotification(soundFile, durationMs));
-                }
+                androidx.core.app.ServiceCompat.startForeground(this, NOTIFICATION_ID,
+                    createNotification(soundFile, durationMs),
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
                 
                 // Now start audio playback in background to avoid blocking
                 handler.post(() -> startAlarmPlayback(soundFile, durationMs));

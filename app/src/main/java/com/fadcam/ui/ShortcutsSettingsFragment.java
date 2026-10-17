@@ -575,29 +575,29 @@ public class ShortcutsSettingsFragment extends Fragment {
     /** Descriptive 1-2 word badge per shortcut (title case, consistent with icons). */
     private String badgeTextFor(String shortcutId) {
         if (ShortcutsManager.ID_TOGGLE.equals(shortcutId)) {
-            return "Rec Toggle";
+            return getString(R.string.shortcut_badge_toggle);
         } else if (ShortcutsManager.ID_START.equals(shortcutId)) {
-            return "Back";
+            return getString(R.string.shortcut_badge_back);
         } else if (ShortcutsManager.ID_START_FRONT.equals(shortcutId)) {
-            return "Front";
+            return getString(R.string.shortcut_badge_front);
         } else if (ShortcutsManager.ID_START_CURRENT.equals(shortcutId)) {
-            return "Current";
+            return getString(R.string.shortcut_badge_current);
         } else if (ShortcutsManager.ID_START_DUAL.equals(shortcutId)) {
-            return "Dual";
+            return getString(R.string.shortcut_badge_dual);
         } else if (ShortcutsManager.ID_STOP.equals(shortcutId)) {
-            return "Stop";
+            return getString(R.string.shortcut_badge_stop);
         } else if (ShortcutsManager.ID_TORCH.equals(shortcutId)) {
-            return "Torch";
+            return getString(R.string.shortcut_badge_torch);
         } else if (ShortcutsManager.ID_SHOT.equals(shortcutId)) {
-            return "FadShot Back";
+            return getString(R.string.shortcut_badge_shot_back);
         } else if (ShortcutsManager.ID_SHOT_FRONT.equals(shortcutId)) {
-            return "FadShot Front";
+            return getString(R.string.shortcut_badge_shot_front);
         } else if (ShortcutsManager.ID_SCREENSHOT.equals(shortcutId)) {
-            return "Screen Rec";
+            return getString(R.string.shortcut_badge_screenshot);
         } else if (ShortcutsManager.ID_VOICE.equals(shortcutId)) {
-            return "Voice";
+            return getString(R.string.shortcut_badge_voice);
         }
-        return "Shortcut";
+        return getString(R.string.shortcut_badge_default);
     }
 
     private String getShortcutPurposeLine(String shortcutId) {

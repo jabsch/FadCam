@@ -18,7 +18,7 @@ public class RecordingStartActivity extends Activity {
 
         try {
             if (RecordingShortcutDispatcher.hasActiveSession(this)) {
-                Utils.showQuickToast(this, R.string.video_recording_started);
+                Utils.showQuickToast(this, R.string.recording_already_active);
                 return;
             }
             String mode = getIntent() != null
@@ -27,7 +27,7 @@ public class RecordingStartActivity extends Activity {
             RecordingShortcutDispatcher.start(this, mode);
         } catch (Exception e) {
             FLog.e(TAG, "Error starting recording via shortcut", e);
-            Toast.makeText(this, "Failed to start recording", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.shortcut_start_failed, Toast.LENGTH_SHORT).show();
         } finally {
             // Runs in its own throwaway task (taskAffinity=""), so finishing is
             // enough to return to the launcher without touching the app's task.
