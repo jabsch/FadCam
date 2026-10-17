@@ -208,19 +208,16 @@ public class AppearanceSettingsFragment extends Fragment {
                             value.setText(themeLabelFor(id));
                             // Defer activity recreate until after sheet dismissal animation finishes to preserve
                             // correct checkmark animation & keep user on Appearance screen.
+                            // Held on the activity, not the fragment: pressing Back within the
+                            // delay used to skip the recreate, leaving the old theme on screen and
+                            // the reopen flags set for the next cold start.
+                            final android.app.Activity host = getActivity();
                             View root = getView();
-                            if (root != null) {
-                                root.postDelayed(
+                            if (root != null && host instanceof MainActivity) {
+                                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
                                     () -> {
-                                        if (!isAdded()) return; // fragment no longer attached
-                                        if (
-                                            getActivity() instanceof
-                                            MainActivity
-                                        ) {
-                                            ((MainActivity) requireActivity()).applyThemeFromSettings(
-                                                id
-                                            );
-                                        }
+                                        if (host.isFinishing() || host.isDestroyed()) return;
+                                        ((MainActivity) host).applyThemeFromSettings(id);
                                     },
                                     260
                                 ); // picker uses 160ms dismiss delay; add buffer
@@ -378,6 +375,9 @@ public class AppearanceSettingsFragment extends Fragment {
                                 )
                             ) {
                                 saveLanguagePreference(code);
+                                // The locale change recreates the activity; come back to Appearance
+                                sharedPreferencesManager.sharedPreferences.edit()
+                                        .putBoolean("reopen_appearance_after_theme", true).apply();
                                 if (getActivity() instanceof MainActivity) {
                                     ((MainActivity) requireActivity()).applyLanguage(
                                         code
@@ -560,7 +560,10 @@ public class AppearanceSettingsFragment extends Fragment {
                         String id = b.getString(
                             com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID
                         );
-                        if (id != null) {
+                        // Re-picking the current icon would toggle the live launcher entry
+                        // (and drop it from the home screen) for nothing
+                        if (id != null && !id.equals(sharedPreferencesManager.sharedPreferences
+                                .getString(Constants.PREF_APP_ICON, Constants.APP_ICON_DEFAULT))) {
                             updateAppIcon(id);
                             setAppIconButtonText(valueView, id);
                         }
@@ -734,14 +737,6 @@ public class AppearanceSettingsFragment extends Fragment {
             minimalIcon,
             blackIcon,
         };
-        for (ComponentName cn : all) {
-            pm.setComponentEnabledSetting(
-                cn,
-                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                PackageManager.DONT_KILL_APP
-            );
-        }
-
         ComponentName enable = defaultIcon;
         if (Constants.APP_ICON_DEFAULT.equals(iconKey)) enable = defaultIcon;
         else if (Constants.APP_ICON_ALTERNATIVE.equals(iconKey)) enable =
@@ -771,11 +766,21 @@ public class AppearanceSettingsFragment extends Fragment {
             minimalIcon;
         else if (Constants.APP_ICON_BLACK.equals(iconKey)) enable = blackIcon;
 
+        // Enable the target first, then disable the rest, so there is never a moment
+        // with no launcher entry and the live one is never toggled off
         pm.setComponentEnabledSetting(
             enable,
             PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
             PackageManager.DONT_KILL_APP
         );
+        for (ComponentName cn : all) {
+            if (cn.equals(enable)) continue;
+            pm.setComponentEnabledSetting(
+                cn,
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP
+            );
+        }
         sharedPreferencesManager.sharedPreferences
             .edit()
             .putString(Constants.PREF_APP_ICON, iconKey)
