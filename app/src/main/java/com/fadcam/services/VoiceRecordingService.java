@@ -304,7 +304,11 @@ public class VoiceRecordingService extends Service {
                 .setOngoing(true)
                 .setUsesChronometer(true)
                 .setWhen(System.currentTimeMillis())
-                .setContentIntent(stop)
+                // Tapping the body opens the app; only the Stop action stops (it used to stop too)
+                .setContentIntent(PendingIntent.getActivity(this, 1,
+                        new Intent(this, com.fadcam.MainActivity.class)
+                                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                        PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT))
                 .addAction(0, getString(R.string.voice_recording_stop), stop)
                 .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
                 .build();

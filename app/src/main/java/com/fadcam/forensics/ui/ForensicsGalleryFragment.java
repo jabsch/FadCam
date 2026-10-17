@@ -627,15 +627,15 @@ public class ForensicsGalleryFragment extends Fragment {
         pendingCustomExportUris.clear();
         Toast.makeText(requireContext(), getString(R.string.records_batch_custom_export_started, urisToExport.size()),
                 Toast.LENGTH_SHORT).show();
+        // App context: requireContext() threw if the screen was left mid-copy
+        final android.content.Context app = requireContext().getApplicationContext();
         executor.execute(() -> {
             int success = 0;
             int failed = 0;
-            DocumentFile targetDir = DocumentFile.fromTreeUri(requireContext(), treeUri);
+            DocumentFile targetDir = DocumentFile.fromTreeUri(app, treeUri);
             if (targetDir == null || !targetDir.isDirectory() || !targetDir.canWrite()) {
-                if (getActivity() != null) {
-                    getActivity().runOnUiThread(() -> Toast.makeText(requireContext(),
-                            getString(R.string.records_batch_custom_export_invalid_folder), Toast.LENGTH_LONG).show());
-                }
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> Toast.makeText(app,
+                        app.getString(R.string.records_batch_custom_export_invalid_folder), Toast.LENGTH_LONG).show());
                 return;
             }
             for (Uri uri : urisToExport) {
@@ -645,8 +645,8 @@ public class ForensicsGalleryFragment extends Fragment {
                         failed++;
                         continue;
                     }
-                    try (java.io.InputStream in = requireContext().getContentResolver().openInputStream(uri);
-                         java.io.OutputStream os = requireContext().getContentResolver().openOutputStream(out.getUri(), "w")) {
+                    try (java.io.InputStream in = app.getContentResolver().openInputStream(uri);
+                         java.io.OutputStream os = app.getContentResolver().openOutputStream(out.getUri(), "w")) {
                         if (in == null || os == null) {
                             failed++;
                             continue;
@@ -665,11 +665,9 @@ public class ForensicsGalleryFragment extends Fragment {
             }
             final int successFinal = success;
             final int failedFinal = failed;
-            if (getActivity() != null) {
-                getActivity().runOnUiThread(() -> Toast.makeText(requireContext(),
-                        getString(R.string.records_batch_custom_export_done, successFinal, failedFinal),
-                        Toast.LENGTH_LONG).show());
-            }
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> Toast.makeText(app,
+                    app.getString(R.string.records_batch_custom_export_done, successFinal, failedFinal),
+                    Toast.LENGTH_LONG).show());
         });
     }
 
