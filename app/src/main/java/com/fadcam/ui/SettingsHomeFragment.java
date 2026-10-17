@@ -667,10 +667,10 @@ public class SettingsHomeFragment extends Fragment {
         android.widget.TextView vAuto = root.findViewById(R.id.value_auto_update);
         android.widget.TextView vDebug = root.findViewById(R.id.value_debug_logging);
         com.fadcam.SharedPreferencesManager prefs = com.fadcam.SharedPreferencesManager.getInstance(requireContext());
-        if (vOn != null) { vOn.setText(prefs.isShowOnboarding() ? getString(R.string.universal_enable) : getString(R.string.universal_disable)); }
+        if (vOn != null) { vOn.setText(prefs.isShowOnboarding() ? getString(R.string.universal_enabled) : getString(R.string.universal_disabled)); }
         boolean auto = prefs.sharedPreferences.getBoolean("auto_update_check_enabled", true);
-        if (vAuto != null) { vAuto.setText(auto ? getString(R.string.universal_enable) : getString(R.string.universal_disable)); }
-        if (vDebug != null) { vDebug.setText(prefs.isDebugLoggingEnabled() ? getString(R.string.universal_enable) : getString(R.string.universal_disable)); }
+        if (vAuto != null) { vAuto.setText(auto ? getString(R.string.universal_enabled) : getString(R.string.universal_disabled)); }
+        if (vDebug != null) { vDebug.setText(prefs.isDebugLoggingEnabled() ? getString(R.string.universal_enabled) : getString(R.string.universal_disabled)); }
     }
 
     private void wireAppInlineRows(View root) {

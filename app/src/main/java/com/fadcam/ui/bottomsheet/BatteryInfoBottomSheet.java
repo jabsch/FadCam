@@ -194,18 +194,23 @@ public class BatteryInfoBottomSheet extends BottomSheetDialogFragment {
      * Set battery warning threshold via HTTP POST request
      */
     private void setBatteryWarningThreshold(int threshold, TextView statusText) {
+        // Captured up front: requireActivity() in the thread crashed if the sheet closed first
+        final android.app.Activity activity = getActivity();
+        if (activity == null) return;
         Thread thread = new Thread(() -> {
             try {
                 RemoteStreamManager manager = RemoteStreamManager.getInstance();
                 manager.setBatteryWarningThreshold(threshold);
                 
                 // Update UI on main thread
-                requireActivity().runOnUiThread(() -> {
+                activity.runOnUiThread(() -> {
+                    if (!isAdded()) return;
                     Toast.makeText(requireContext(), getString(R.string.battery_threshold_set, threshold), Toast.LENGTH_SHORT).show();
                     statusText.setText(getString(R.string.battery_current_threshold, threshold));
                 });
             } catch (Exception e) {
-                requireActivity().runOnUiThread(() -> {
+                activity.runOnUiThread(() -> {
+                    if (!isAdded()) return;
                     Toast.makeText(requireContext(), getString(R.string.battery_failed_threshold, e.getMessage()), Toast.LENGTH_SHORT).show();
                 });
             }
@@ -217,16 +222,20 @@ public class BatteryInfoBottomSheet extends BottomSheetDialogFragment {
      * Set battery capacity (mAh) and update estimate examples & battery estimate live
      */
     private void setBatteryCapacity(int capacityMah, TextView statusText, TextView example1, TextView example2) {
+        final android.app.Activity activity = getActivity();
+        if (activity == null) return;
+        final android.content.Context appContext = activity.getApplicationContext();
         Thread thread = new Thread(() -> {
             try {
                 RemoteStreamManager manager = RemoteStreamManager.getInstance();
                 manager.setBatteryCapacityMah(capacityMah);
                 
                 // Get updated battery estimates with new mAh
-                String updatedBatteryJson = manager.getBatteryDetailsJson(requireContext());
+                String updatedBatteryJson = manager.getBatteryDetailsJson(appContext);
                 
                 // Update UI on main thread
-                requireActivity().runOnUiThread(() -> {
+                activity.runOnUiThread(() -> {
+                    if (!isAdded()) return;
                     Toast.makeText(requireContext(), getString(R.string.battery_capacity_set, capacityMah), Toast.LENGTH_SHORT).show();
                     statusText.setText(getString(R.string.battery_current_capacity, capacityMah));
                     updateBatteryEstimateExamples(capacityMah, example1, example2);
@@ -250,7 +259,8 @@ public class BatteryInfoBottomSheet extends BottomSheetDialogFragment {
                     }
                 });
             } catch (Exception e) {
-                requireActivity().runOnUiThread(() -> {
+                activity.runOnUiThread(() -> {
+                    if (!isAdded()) return;
                     Toast.makeText(requireContext(), getString(R.string.battery_failed_capacity, e.getMessage()), Toast.LENGTH_SHORT).show();
                 });
             }

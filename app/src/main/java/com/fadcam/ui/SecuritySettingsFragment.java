@@ -79,22 +79,22 @@ public class SecuritySettingsFragment extends Fragment {
     private void refreshAppLockValue() {
         if (valueTabLock != null) {
             boolean enabled = sharedPreferencesManager.isAppLockEnabled();
-            // Use existing universal enable/disable strings for consistency
-            valueTabLock.setText(enabled ? getString(R.string.universal_enable) : getString(R.string.universal_disable));
+            // State labels ("Enabled"), not the action verbs ("Enable")
+            valueTabLock.setText(enabled ? getString(R.string.universal_enabled) : getString(R.string.universal_disabled));
         }
     }
 
     private void refreshCloakRecentsValue() {
         if (valueCloakRecents != null) {
             boolean enabled = sharedPreferencesManager.isCloakRecentsEnabled();
-            valueCloakRecents.setText(enabled ? getString(R.string.universal_enable) : getString(R.string.universal_disable));
+            valueCloakRecents.setText(enabled ? getString(R.string.universal_enabled) : getString(R.string.universal_disabled));
         }
     }
 
     private void refreshPrivacyBlackModeValue() {
         if (valuePrivacyBlackMode != null) {
             boolean enabled = sharedPreferencesManager.isPrivacyBlackModeEnabled();
-            valuePrivacyBlackMode.setText(enabled ? getString(R.string.universal_enable) : getString(R.string.universal_disable));
+            valuePrivacyBlackMode.setText(enabled ? getString(R.string.universal_enabled) : getString(R.string.universal_disabled));
         }
     }
 

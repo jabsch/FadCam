@@ -284,6 +284,7 @@
         <activity android:name=".ui.WebViewActivity" />
         <activity android:name=".ui.CloudAccountActivity" 
             android:theme="@style/Base.Theme.FadCam" 
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:exported="false" />
         
         <!-- Transparent activity for requesting screen recording permission without bringing app to foreground -->
@@ -464,13 +465,13 @@
         <service android:name=".fadrec.ui.AnnotationService" android:enabled="true" android:exported="false" android:foregroundServiceType="specialUse" />
 
         <!-- Transparent dialog activity for color picker -->
-        <activity android:name=".fadrec.ui.ColorPickerDialogActivity" android:theme="@style/Theme.FadCam.TransparentDialog" android:excludeFromRecents="true" android:exported="false" />
+        <activity android:name=".fadrec.ui.ColorPickerDialogActivity" android:theme="@style/Theme.FadCam.TransparentDialog" android:excludeFromRecents="true" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:exported="false" />
 
         <!-- Transparent dialog activity for project naming -->
-        <activity android:name=".fadrec.ui.ProjectNamingDialogActivity" android:theme="@style/Theme.FadCam.TransparentDialog" android:excludeFromRecents="true" android:exported="false" />
+        <activity android:name=".fadrec.ui.ProjectNamingDialogActivity" android:theme="@style/Theme.FadCam.TransparentDialog" android:excludeFromRecents="true" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:exported="false" />
 
         <!-- Transparent dialog activity for project selection -->
-        <activity android:name=".fadrec.ui.ProjectSelectionDialogActivity" android:theme="@style/Theme.FadCam.TransparentDialog" android:excludeFromRecents="true" android:exported="false" />
+        <activity android:name=".fadrec.ui.ProjectSelectionDialogActivity" android:theme="@style/Theme.FadCam.TransparentDialog" android:excludeFromRecents="true" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:exported="false" />
 
         <!-- Privacy Black Screen Activity -->
         <activity android:name=".ui.PrivacyBlackActivity" android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:screenOrientation="portrait" android:excludeFromRecents="true" android:exported="false" />

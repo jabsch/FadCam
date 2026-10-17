@@ -69,6 +69,12 @@ public class TorchToolFragment extends BaseFragment {
 
     // Auto-off timer
     private android.os.CountDownTimer autoOffTimer;
+    private long autoOffDeadlineUptimeMs = 0L;
+    // Closing with X keeps the torch on; its auto-off then runs from here, since the
+    // CountDownTimer dies with the view
+    private static final android.os.Handler detachedAutoOffHandler =
+            new android.os.Handler(android.os.Looper.getMainLooper());
+    private static Runnable detachedAutoOff;
     private boolean isTimerActive = false;
     private LinearLayout timerRow;
     private TextView timerStatus;
@@ -722,11 +728,37 @@ public class TorchToolFragment extends BaseFragment {
                 }
             }
         };
+        clearDetachedAutoOff(); // a new timer replaces one left running by a closed screen
+        autoOffDeadlineUptimeMs = android.os.SystemClock.uptimeMillis() + durationMs;
         autoOffTimer.start();
         FLog.d("TorchTimer", "Auto-off timer started: " + durationMs + "ms");
     }
 
+    private static void scheduleDetachedAutoOff(android.content.Context appContext, long delayMs) {
+        clearDetachedAutoOff();
+        detachedAutoOff = () -> {
+            detachedAutoOff = null;
+            TorchManager tm = TorchManager.getInstance(appContext);
+            if (tm.isTorchOn()) {
+                tm.setTorchEnabled(false);
+            }
+            NotificationManager nm = (NotificationManager)
+                    appContext.getSystemService(android.content.Context.NOTIFICATION_SERVICE);
+            if (nm != null) nm.cancel(TORCH_NOTIFICATION_ID);
+            FLog.d("TorchTimer", "Auto-off fired after the screen was closed");
+        };
+        detachedAutoOffHandler.postDelayed(detachedAutoOff, delayMs);
+    }
+
+    private static void clearDetachedAutoOff() {
+        if (detachedAutoOff != null) {
+            detachedAutoOffHandler.removeCallbacks(detachedAutoOff);
+            detachedAutoOff = null;
+        }
+    }
+
     private void cancelAutoOffTimer() {
+        clearDetachedAutoOff();
         if (autoOffTimer != null) {
             autoOffTimer.cancel();
             autoOffTimer = null;
@@ -834,10 +866,19 @@ public class TorchToolFragment extends BaseFragment {
     public void onDestroyView() {
         super.onDestroyView();
         dismissScreenLight();
-        cancelTorchNotification();
+        // X closes the screen but leaves the torch on: keep its notification (the way
+        // to turn it off) and its auto-off timer
+        boolean torchStillOn = torchManager != null && torchManager.isTorchOn();
+        if (!torchStillOn) {
+            cancelTorchNotification();
+        }
         if (autoOffTimer != null) {
             autoOffTimer.cancel();
             autoOffTimer = null;
+            if (torchStillOn && isTimerActive && getContext() != null) {
+                scheduleDetachedAutoOff(getContext().getApplicationContext(),
+                        Math.max(0L, autoOffDeadlineUptimeMs - android.os.SystemClock.uptimeMillis()));
+            }
         }
         if (torchStateReceiver != null) {
             try {
