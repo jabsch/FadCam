@@ -329,7 +329,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         
         // Handle deselection
         if (index < 0) {
-            selectedClipIndex = -1;
+            // Only drop the highlight. selectedClipIndex is the clip in the player; setting
+            // it to -1 made getSelectedClip() fall back to clip 0, so Play jumped the
+            // playhead and Speed/Rotate/Split edited the first clip.
             editorTimeline.setTimeline(project.getTimeline(), -1);
             FLog.d(TAG, "Deselected all segments");
             return;
@@ -344,6 +346,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         selectedClipIndex = index;
         Clip clip = getSelectedClip();
 
+        // Select it in the view first: setTrimFromClip and setPlayheadFraction write to the
+        // view's selected segment, so they overwrote the previous one and put the playhead
+        // at the old segment's start plus the new clip's offset
+        editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
         // Sync timeline view to the selected segment's trim
         editorTimeline.setTrimFromClip(clip);
 
@@ -461,7 +467,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
 
         // Check if opening a saved project by ID
-        String projectId = getIntent().getStringExtra(EXTRA_PROJECT_ID);
+        // A new project only had its id in memory, so a recreate (theme or language change,
+        // process death) started over from the video and left a duplicate in the list.
+        // onPause has saved it by the time this state is written.
+        String projectId = savedInstanceState != null
+                ? savedInstanceState.getString(EXTRA_PROJECT_ID) : null;
+        if (projectId == null) projectId = getIntent().getStringExtra(EXTRA_PROJECT_ID);
         if (projectId != null) {
             FaditorProject loaded = projectStorage.load(projectId);
             if (loaded != null && !loaded.getTimeline().isEmpty()) {
@@ -511,6 +522,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         com.fadcam.util.SystemBarUtil.hideSystemBars(getWindow().getDecorView());
         
         startPlayheadUpdates();
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (project != null) outState.putString(EXTRA_PROJECT_ID, project.getId());
     }
 
     @Override
@@ -2086,7 +2103,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 audioClip.setWaveform(waveform);
 
                 runOnUiThread(() -> {
-                    Clip srcClip = getSelectedClip();
+                    // Editor closed mid-extraction: onDestroy already saved the project
+                    if (isFinishing() || isDestroyed()) return;
+                    // The clip it was extracted from, not whichever is selected now
+                    int srcIndex = project.getTimeline().getClips().indexOf(clip);
+                    Clip srcClip = srcIndex >= 0 ? clip : null;
                     // Capture pre-extraction state for undo
                     boolean prevMuted = srcClip != null && srcClip.isAudioMuted();
                     float prevVolume = srcClip != null ? srcClip.getVolumeLevel() : 1.0f;
@@ -2098,7 +2119,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         audioClip.setOutPointMs(srcClip.getOutPointMs());
                         audioClip.setInPointMs(srcClip.getInPointMs());
                         long clipStartMs = 0;
-                        for (int i = 0; i < selectedClipIndex && i < project.getTimeline().getClipCount(); i++) {
+                        for (int i = 0; i < srcIndex && i < project.getTimeline().getClipCount(); i++) {
                             clipStartMs += project.getTimeline().getClip(i).getTrimmedDurationMs();
                         }
                         audioClip.setOffsetMs(clipStartMs);
@@ -2592,10 +2613,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.faditor_export_cancelled, Toast.LENGTH_SHORT).show();
         });
 
-        // Back button on export screen → cancel and return to editor
+        // Back arrow on the export screen does what system back does: a running export
+        // keeps going in its notification. It used to cancel it with no prompt, even at 95%;
+        // the Cancel button is there for that.
         findViewById(R.id.export_btn_back).setOnClickListener(v -> {
-            cancelRunningExport();
-            hideExportProgress();
+            if (exportServiceBound && exportService != null && exportService.isExporting()) {
+                moveTaskToBack(true);
+            } else {
+                hideExportProgress();
+            }
         });
 
         // Done button → navigate to Faditor Mini tab

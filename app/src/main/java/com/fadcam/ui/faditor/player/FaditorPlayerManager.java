@@ -458,6 +458,9 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
                 // double audio after a lifecycle resume.
                 float vol = currentClip.isAudioMuted() ? 0f : currentClip.getVolumeLevel();
                 setVolume(vol);
+                // The rebuilt player started at 1x, so a 2x clip played at normal speed
+                // after returning from the background
+                setPlaybackSpeed(currentClip.getSpeedMultiplier());
                 FLog.d(TAG, "Restored volume from clip state: vol=" + vol
                         + ", muted=" + currentClip.isAudioMuted());
             }
