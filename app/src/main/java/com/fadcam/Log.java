@@ -761,7 +761,8 @@ public class Log {
             return androidx.core.content.FileProvider.getUriForFile(
                 ctx, ctx.getPackageName() + ".provider", tmp);
         } catch (Exception e) {
-            return getLogUri(ctx);
+            // getLogUri can be file://, which ACTION_SEND rejects with FileUriExposedException
+            return getSharableLogUri(ctx);
         }
     }
 

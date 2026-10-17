@@ -62,7 +62,7 @@ public class VideoPlayerSettingsFragment extends Fragment {
         // Show saved default playback speed (defaults to Normal 1x)
         float defaultPlayback = com.fadcam.SharedPreferencesManager.getInstance(
             requireContext()
-        ).sharedPreferences.getFloat("pref_default_playback_speed", 1.0f);
+        ).safeGetFloat("pref_default_playback_speed", 1.0f);
         subPlayback.setText(getPlaybackLabel(defaultPlayback));
         float quick = com.fadcam.SharedPreferencesManager.getInstance(
             requireContext()
@@ -1074,7 +1074,7 @@ public class VideoPlayerSettingsFragment extends Fragment {
         }
         float current = com.fadcam.SharedPreferencesManager.getInstance(
             requireContext()
-        ).sharedPreferences.getFloat("pref_default_playback_speed", 1.0f);
+        ).safeGetFloat("pref_default_playback_speed", 1.0f);
         String selectedId = "spd_" + current;
         com.fadcam.ui.picker.PickerBottomSheetFragment sheet =
             com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(

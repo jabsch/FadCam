@@ -343,7 +343,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
             FLog.i(TAG, "Received video URI: " + videoUri.toString());
             spm = SharedPreferencesManager.getInstance(this);
             // Read default playback speed from prefs (if set) and adjust currentSpeedIndex
-            float defSpd = sharedPreferencesManager.sharedPreferences.getFloat(
+            float defSpd = sharedPreferencesManager.safeGetFloat(
                 "pref_default_playback_speed",
                 speedValues[currentSpeedIndex]
             );

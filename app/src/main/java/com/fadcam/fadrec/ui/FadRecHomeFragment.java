@@ -1949,7 +1949,7 @@ public class FadRecHomeFragment extends HomeFragment {
             // ── Elapsed time ─────────────────────────────────────────────────────────
             // ScreenRecordingService writes "screen_recording_start_time" on start and
             // shifts it forward on resume so a simple subtraction gives true elapsed.
-            long screenStartTime = sharedPreferencesManager.sharedPreferences.getLong(
+            long screenStartTime = sharedPreferencesManager.safeGetLong(
                 "screen_recording_start_time", 0);
             boolean isActive = screenRecordingState == ScreenRecordingState.IN_PROGRESS
                 || screenRecordingState == ScreenRecordingState.PAUSED;

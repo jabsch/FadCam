@@ -888,7 +888,7 @@ public class AppearanceSettingsFragment extends Fragment {
         View swatch = root.findViewById(R.id.eye_color_swatch);
         if (row == null || value == null) return;
 
-        int current = sharedPreferencesManager.sharedPreferences.getInt(
+        int current = sharedPreferencesManager.safeGetInt(
                 Constants.PREF_AVATAR_EYE_COLOR, Constants.DEFAULT_AVATAR_EYE_COLOR);
         updateEyeColorDisplay(value, swatch, current);
         row.setOnClickListener(v -> showEyeColorPicker(value, swatch));
@@ -957,7 +957,7 @@ public class AppearanceSettingsFragment extends Fragment {
                     c == 0 ? 0xFFFFFFFF : c));
         }
 
-        int current = sharedPreferencesManager.sharedPreferences.getInt(
+        int current = sharedPreferencesManager.safeGetInt(
                 Constants.PREF_AVATAR_EYE_COLOR, Constants.DEFAULT_AVATAR_EYE_COLOR);
         String currentId = "white";
         for (java.util.Map.Entry<String, Integer> e : EYE_COLORS.entrySet()) {

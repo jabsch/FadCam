@@ -30,6 +30,9 @@ import org.json.JSONObject;
  */
 public class PrefsBackupBottomSheetFragment extends BottomSheetDialogFragment {
 
+    private static final String[] BACKUP_MIME_TYPES = {
+            "application/json", "text/plain", "application/octet-stream"};
+
     private ActivityResultLauncher<Intent> exportLauncher;
     private ActivityResultLauncher<Intent> importLauncher;
     private ActivityResultLauncher<Intent> previewLauncher;
@@ -194,7 +197,10 @@ public class PrefsBackupBottomSheetFragment extends BottomSheetDialogFragment {
         try {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("application/json");
+            // Many file managers and Drive label .json as octet-stream or text, which
+            // greyed the backup out
+            intent.setType("*/*");
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, BACKUP_MIME_TYPES);
             importLauncher.launch(intent);
         } catch (Exception e){
             Toast.makeText(requireContext(), getString(R.string.prefs_import_failed)+": "+e.getMessage(), Toast.LENGTH_LONG).show();
@@ -224,7 +230,10 @@ public class PrefsBackupBottomSheetFragment extends BottomSheetDialogFragment {
         try {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("application/json");
+            // Many file managers and Drive label .json as octet-stream or text, which
+            // greyed the backup out
+            intent.setType("*/*");
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, BACKUP_MIME_TYPES);
             previewLauncher.launch(intent);
         } catch (Exception e){
             Toast.makeText(requireContext(), getString(R.string.prefs_import_failed)+": "+e.getMessage(), Toast.LENGTH_LONG).show();

@@ -184,7 +184,7 @@ public class RemoteFragment extends BaseFragment {
                     Intent data = result.getData();
                     if (data != null && data.getBooleanExtra("linked", false)) {
                         String email = data.getStringExtra("email");
-                        FLog.i(TAG, "Device linked to: " + email);
+                        FLog.i(TAG, "Device linked");
                         Toast.makeText(requireContext(), R.string.cloud_account_link_success, Toast.LENGTH_SHORT).show();
                         updateCloudButtonState();
                         // E2E encryption is auto-configured during device linking

@@ -446,7 +446,10 @@ public class DebugLogBottomSheetFragment extends BottomSheetDialogFragment {
                     for (String l : lines) {
                         if (l == null) continue;
                         newLinesHtml.add(l);
-                        String plain = l.replaceAll("<[^>]*>", "");
+                        // Must match the displayed text exactly: stripping tags kept "&gt;" (4
+                        // chars) where the row shows ">", so match offsets ran past the line
+                        // end and setSpan crashed the sheet on lines with "->", "<" or "&"
+                        String plain = HtmlCompat.fromHtml(l, HtmlCompat.FROM_HTML_MODE_LEGACY).toString();
                         newLinesPlainLower.add(plain.toLowerCase(java.util.Locale.ROOT));
                     }
                 }
@@ -527,6 +530,7 @@ public class DebugLogBottomSheetFragment extends BottomSheetDialogFragment {
         b.setImageResource(up ? android.R.drawable.arrow_up_float : android.R.drawable.arrow_down_float);
         b.setColorFilter(resolveAccentColor());
         b.setOnClickListener(v -> navigateToMatch(up ? -1 : 1));
+        b.setContentDescription(getString(up ? R.string.previous : R.string.next));
         return b;
     }
 
