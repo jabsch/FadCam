@@ -1380,6 +1380,10 @@ public class MainActivity extends AppCompatActivity {
         // the keys took a photo behind it and couldn't change the volume
         View overlay = findViewById(R.id.overlay_fragment_container);
         if (overlay != null && overlay.getVisibility() == View.VISIBLE) return false;
+        // FadRecHomeFragment extends HomeFragment, so in screen-recording mode the keys
+        // ran the camera handlers: a tap took a camera photo and a hold started a hidden
+        // camera recording, and the volume never changed
+        if (getCurrentFragment() instanceof com.fadcam.fadrec.ui.FadRecHomeFragment) return false;
         try {
             if (sharedPreferencesManager == null) {
                 sharedPreferencesManager = SharedPreferencesManager.getInstance(this);

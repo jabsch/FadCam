@@ -354,7 +354,7 @@ public class AvatarToggleView extends FrameLayout {
             }
 
             // Status label → "ON" (green).
-            showStatusLabel("ON", 0xFF4CAF50, animate);
+            showStatusLabel(getContext().getString(R.string.avatar_toggle_on), 0xFF4CAF50, animate);
 
             if (animate) {
                 startAvd(resolveDrawable(RES_WAKE), WAKE_AVD_DURATION_MS, () -> {
@@ -368,7 +368,7 @@ public class AvatarToggleView extends FrameLayout {
         } else {
             // ── Sleep path ───────────────────────────────────────────────────
             // Status label → "OFF" (red).
-            showStatusLabel("OFF", 0xFFE57373, animate);
+            showStatusLabel(getContext().getString(R.string.avatar_toggle_off), 0xFFE57373, animate);
 
             Runnable settle = () -> {
                 ivAvatar.setImageResource(R.drawable.toggle_off);
