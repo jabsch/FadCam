@@ -414,6 +414,10 @@ public class VideoPlayerActivity extends AppCompatActivity {
                 timeSlider.setTrackInactiveTintList(android.content.res.ColorStateList.valueOf(white40));
                 timeSlider.setHaloTintList(android.content.res.ColorStateList.valueOf(white60));
                 timeSlider.setThumbTintList(android.content.res.ColorStateList.valueOf(red));
+                // The value is milliseconds: TalkBack read "37482". It reads the formatted
+                // label even though the bubble itself is hidden.
+                timeSlider.setLabelFormatter(value ->
+                        android.text.format.DateUtils.formatElapsedTime((long) (value / 1000f)));
                 // Ensure baseline range is sane
                 try {
                     timeSlider.setValueFrom(0f);

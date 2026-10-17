@@ -44,12 +44,14 @@
 
                 <com.fadcam.ui.custom.AudioWaveformView
                     android:id="@+id/audio_waveform"
+                    android:importantForAccessibility="no"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:alpha="0.7" />
 
                 <com.google.android.material.slider.Slider
                     android:id="@+id/material_time_slider"
+                    android:contentDescription="@string/player_seek_bar_desc"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:paddingStart="8dp"

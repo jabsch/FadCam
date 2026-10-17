@@ -1525,7 +1525,9 @@ public class FadRecHomeFragment extends HomeFragment {
 
         // Content description reflects the CURRENT selection (not a static hint).
         if (isRecordingActive) {
-            buttonFadRecMute.setContentDescription(getString(R.string.fadrec_mute_toggle_desc));
+            // Says what a tap does now, so TalkBack users know whether audio is muted
+            buttonFadRecMute.setContentDescription(getString(muted
+                    ? R.string.fadrec_unmute_audio : R.string.fadrec_mute_audio));
         } else if (Constants.AUDIO_SOURCE_NONE.equals(audioSource)) {
             buttonFadRecMute.setContentDescription(getString(R.string.fadrec_audio_source_none));
         } else if (Constants.AUDIO_SOURCE_INTERNAL.equals(audioSource)) {

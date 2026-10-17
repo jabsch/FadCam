@@ -34,6 +34,7 @@
             <!-- Update Badge -->
             <TextView
                 android:id="@+id/hamburgerBadgeDot"
+                android:importantForAccessibility="no"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="top|end"
@@ -371,7 +372,7 @@
 
                 <LinearLayout android:id="@+id/layoutClockInner" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="@dimen/home_card_padding_small" android:clipChildren="false" android:clipToPadding="false">
 
-                    <TextView android:layout_width="@dimen/home_row_icon_size" android:layout_height="@dimen/home_row_icon_size" android:layout_gravity="center_vertical" android:layout_marginEnd="@dimen/home_card_padding_small" android:fontFamily="@font/materialicons" android:text="access_time" android:textColor="?attr/homeRailTextPrimary" android:textSize="@dimen/home_text_row_icon" android:gravity="center" />
+                    <TextView android:layout_width="@dimen/home_row_icon_size" android:layout_height="@dimen/home_row_icon_size" android:layout_gravity="center_vertical" android:layout_marginEnd="@dimen/home_card_padding_small" android:importantForAccessibility="no" android:fontFamily="@font/materialicons" android:text="access_time" android:textColor="?attr/homeRailTextPrimary" android:textSize="@dimen/home_text_row_icon" android:gravity="center" />
 
                     <LinearLayout android:id="@+id/layoutClockContent" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="@dimen/home_card_padding_small" android:clipChildren="false" android:clipToPadding="false">
 
@@ -391,7 +392,7 @@
 
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="@dimen/home_card_padding_small" android:clipChildren="false" android:clipToPadding="false">
 
-                    <TextView android:layout_width="@dimen/home_row_icon_size" android:layout_height="@dimen/home_row_icon_size" android:layout_gravity="center" android:layout_marginEnd="@dimen/home_card_padding_small" android:fontFamily="@font/materialicons" android:text="folder" android:textColor="?attr/sectionHeaderColor" android:textSize="@dimen/home_text_row_icon" android:gravity="center" />
+                    <TextView android:layout_width="@dimen/home_row_icon_size" android:layout_height="@dimen/home_row_icon_size" android:layout_gravity="center" android:layout_marginEnd="@dimen/home_card_padding_small" android:importantForAccessibility="no" android:fontFamily="@font/materialicons" android:text="folder" android:textColor="?attr/sectionHeaderColor" android:textSize="@dimen/home_text_row_icon" android:gravity="center" />
 
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="@dimen/home_card_padding_small" android:clipChildren="false" android:clipToPadding="false">
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:clipChildren="false" android:clipToPadding="false">
@@ -477,6 +478,7 @@
             android:layout_width="20dp"
             android:layout_height="20dp"
             android:layout_marginEnd="10dp"
+            android:importantForAccessibility="no"
             android:src="@drawable/ic_error"
             android:tint="#EF5350" />
 
@@ -491,16 +493,19 @@
 
         <ImageView
             android:id="@+id/btn_dismiss_gps_banner"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:padding="4dp"
-            android:layout_marginStart="4dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="14dp"
+            android:layout_marginStart="-6dp"
+            android:layout_marginTop="-10dp"
+            android:layout_marginBottom="-10dp"
+            android:layout_marginEnd="-10dp"
             android:src="@drawable/ic_cross"
             android:tint="#EF9A9A"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true"
             android:focusable="true"
-            android:contentDescription="@string/universal_cancel" />
+            android:contentDescription="@string/gps_banner_dismiss" />
     </LinearLayout>
 
     <androidx.cardview.widget.CardView android:id="@+id/cardPreview" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginStart="@dimen/home_preview_margin_h" android:layout_marginEnd="@dimen/home_preview_margin_h" android:layout_marginTop="@dimen/home_preview_margin_top" android:layout_marginBottom="@dimen/home_controls_bottom_margin" app:cardBackgroundColor="@android:color/transparent" app:cardCornerRadius="8dp" app:cardElevation="0dp" app:layout_constraintBottom_toTopOf="@id/layoutControls" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toBottomOf="@id/banner_gps_warning" app:strokeColor="#4CAF50" app:strokeWidth="@dimen/home_preview_stroke_width" android:clipChildren="false" android:clipToPadding="false">
@@ -639,6 +644,7 @@
                     android:layout_width="@dimen/home_paused_icon_box"
                     android:layout_height="@dimen/home_paused_icon_box"
                     android:gravity="center"
+                    android:importantForAccessibility="no"
                     android:text="pause_circle"
                     android:textSize="@dimen/home_text_paused_icon"
                     android:textColor="#FFFFFF"
@@ -649,7 +655,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/home_paused_title_margin"
-                    android:text="Recording Paused"
+                    android:text="@string/home_recording_paused_title"
                     android:textSize="@dimen/home_text_paused_title"
                     android:textStyle="bold"
                     android:textColor="#FFFFFF"
