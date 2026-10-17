@@ -85,11 +85,6 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
         if (savedInstanceState != null) {
             autoRequested = savedInstanceState.getBoolean(STATE_AUTO_REQUESTED, autoRequested);
         }
-        // Once per slide: the pager rebuilds this view on swipes and rotation
-        if (!autoRequested && !permissionsGranted && !permanentlyDenied) {
-            autoRequested = true;
-            requestAllPermissionsAlways();
-        }
 
         View openSettingsLink = view.findViewById(R.id.open_settings_link);
         if (openSettingsLink != null) {
@@ -236,6 +231,13 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
     public void onResume() {
         super.onResume();
         checkPermissionsAndUpdateUI();
+        // Once per slide, and only when it is actually showing: the pager builds the next
+        // slide ahead of time, so asking in onCreateView popped the system dialog over the
+        // language picker. AppIntro resumes only the current slide.
+        if (!autoRequested && !permissionsGranted && !permanentlyDenied) {
+            autoRequested = true;
+            requestAllPermissionsAlways();
+        }
     }
 
     @Override

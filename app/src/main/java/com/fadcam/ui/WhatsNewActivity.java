@@ -145,16 +145,14 @@ public class WhatsNewActivity extends AppCompatActivity {
      * Navigate to home screen (MainActivity)
      */
     private void navigateToHome() {
-        FLog.d(TAG, "navigateToHome: Marking onboarding as complete before navigation");
-        // Mark onboarding as complete BEFORE navigating to prevent it from showing again
-        SharedPreferencesManager.getInstance(this).setShowOnboarding(false);
-        FLog.d(TAG, "navigateToHome: Onboarding marked as complete");
-        
         if (!getIntent().getBooleanExtra(EXTRA_START_HOME, false)) {
-            // Opened from the sidebar: the app is still underneath, so just close
+            // Opened from the sidebar: the app is still underneath, so just close. It must
+            // not clear "Show Intro" here, which switched the setting off without asking.
             finish();
             return;
         }
+        // Mark onboarding as complete BEFORE navigating to prevent it from showing again
+        SharedPreferencesManager.getInstance(this).setShowOnboarding(false);
         FLog.d(TAG, "navigateToHome: Starting navigation to MainActivity");
         Intent intent = new Intent(this, com.fadcam.MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

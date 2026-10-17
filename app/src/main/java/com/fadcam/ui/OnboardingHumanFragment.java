@@ -24,6 +24,9 @@ import com.airbnb.lottie.LottieAnimationView;
 import com.fadcam.R;
 
 public class OnboardingHumanFragment extends Fragment {
+    private static final String STATE_CHECKED_1 = "human_checked_1";
+    private static final String STATE_CHECKED_2 = "human_checked_2";
+    private static final String STATE_CHECKED_3 = "human_checked_3";
     private boolean checked1 = false;
     private boolean checked2 = false;
     private boolean checked3 = false;
@@ -36,6 +39,12 @@ public class OnboardingHumanFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.onboarding_human_slide, container, false);
+        // Rotation recreates the fragment, which unticked every box and disabled the button
+        if (savedInstanceState != null) {
+            checked1 = savedInstanceState.getBoolean(STATE_CHECKED_1, checked1);
+            checked2 = savedInstanceState.getBoolean(STATE_CHECKED_2, checked2);
+            checked3 = savedInstanceState.getBoolean(STATE_CHECKED_3, checked3);
+        }
 
         LinearLayout row1 = v.findViewById(R.id.checkbox_row_1);
         LinearLayout row2 = v.findViewById(R.id.checkbox_row_2);
@@ -186,6 +195,14 @@ public class OnboardingHumanFragment extends Fragment {
         
         label3.setText(spannableString);
         label3.setMovementMethod(LinkMovementMethod.getInstance());
+    }
+
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(STATE_CHECKED_1, checked1);
+        outState.putBoolean(STATE_CHECKED_2, checked2);
+        outState.putBoolean(STATE_CHECKED_3, checked3);
     }
 
     private void applyCheckIcon(ImageView icon, boolean checked, int tint) {
