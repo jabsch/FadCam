@@ -98,6 +98,8 @@ public class ForensicsGalleryFragment extends Fragment {
     private Chip chipObject;
 
     private int currentGridSpan = 2;
+    private static final String STATE_SELECTED_TYPE = "forensics_gallery_type";
+    private static final String STATE_SELECTED_SORT = "forensics_gallery_sort";
     private String selectedSort = "newest";
     private String selectedType = null;
     private String clipStyle = ForensicsGalleryAdapter.CLIP_STYLE_BLACK;
@@ -170,6 +172,12 @@ public class ForensicsGalleryFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        // The chip group restores its checked chip on its own; without these the list went
+        // back to "All, newest" while "Person" stayed highlighted
+        if (savedInstanceState != null) {
+            selectedType = savedInstanceState.getString(STATE_SELECTED_TYPE, selectedType);
+            selectedSort = savedInstanceState.getString(STATE_SELECTED_SORT, selectedSort);
+        }
         embeddedMode = getArguments() != null && getArguments().getBoolean(ARG_EMBEDDED, false);
 
         // Restore persisted grid span before layout setup
@@ -423,6 +431,13 @@ public class ForensicsGalleryFragment extends Fragment {
         executor = null;
     }
 
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString(STATE_SELECTED_TYPE, selectedType);
+        outState.putString(STATE_SELECTED_SORT, selectedSort);
+    }
+
     public void clearSelectionFromHost() {
         adapter.clearSelection();
     }
@@ -636,7 +651,7 @@ public class ForensicsGalleryFragment extends Fragment {
                 Toast.LENGTH_SHORT).show();
         // App context: requireContext() threw if the screen was left mid-copy
         final android.content.Context app = requireContext().getApplicationContext();
-        executor.execute(() -> {
+        ensureExecutor().execute(() -> {
             int success = 0;
             int failed = 0;
             DocumentFile targetDir = DocumentFile.fromTreeUri(app, treeUri);
@@ -786,17 +801,30 @@ public class ForensicsGalleryFragment extends Fragment {
         isLoading = true;
         final android.content.Context context = requireContext().getApplicationContext();
         ensureExecutor().execute(() -> {
-            List<ForensicsSnapshotWithMedia> rows = ForensicsDatabase.getInstance(context)
-                    .aiEventSnapshotDao()
-                    .getGallerySnapshots(null, 0f, null, 0L, 3000);
-            rows = dedupeRowsByStableId(rows);
+            List<ForensicsSnapshotWithMedia> rows = null;
+            try {
+                rows = ForensicsDatabase.getInstance(context)
+                        .aiEventSnapshotDao()
+                        .getGallerySnapshots(null, 0f, null, 0L, 3000);
+                rows = dedupeRowsByStableId(rows);
+                reconcileMediaState(context, rows);
+            } catch (Exception e) {
+                // isLoading stayed true after a failed load, so every later refresh only
+                // queued up and pull-to-refresh spun forever
+                com.fadcam.FLog.w("ForensicsGallery", "Gallery load failed", e);
+            }
             final List<ForensicsSnapshotWithMedia> finalRows = rows;
-            reconcileMediaState(rows);
-            if (!isAdded()) return;
-            requireActivity().runOnUiThread(() -> {
-                allRows.clear();
-                if (finalRows != null) allRows.addAll(finalRows);
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                 isLoading = false;
+                // Left the screen mid-load: rendering touched requireContext() and the
+                // executor that onDestroyView had nulled
+                if (!isAdded() || getView() == null) return;
+                if (finalRows == null) {
+                    if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+                    return;
+                }
+                allRows.clear();
+                allRows.addAll(finalRows);
                 dataLoaded = true;
                 applyFiltersAndRender();
                 if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
@@ -890,7 +918,7 @@ public class ForensicsGalleryFragment extends Fragment {
             hostSelectionUi.onSummaryChanged(count, cachedBytes);
         }
         // Compute actual file sizes in background to avoid main thread I/O
-        executor.execute(() -> {
+        ensureExecutor().execute(() -> {
             adapter.computeTotalImageBytesAsync(null);
             android.app.Activity activity = getActivity();
             if (activity == null || !isAdded()) return;
@@ -948,7 +976,7 @@ public class ForensicsGalleryFragment extends Fragment {
         List<ForensicsSnapshotWithMedia> selectedRows = adapter.getSelectedRows();
         if (selectedRows.isEmpty() || !isAdded()) return;
         final android.content.Context context = requireContext().getApplicationContext();
-        executor.execute(() -> {
+        ensureExecutor().execute(() -> {
             int movedCount = 0;
             int deletedRows = 0;
             ForensicsDatabase db = ForensicsDatabase.getInstance(context);
@@ -1095,11 +1123,17 @@ public class ForensicsGalleryFragment extends Fragment {
         return c.get(java.util.Calendar.YEAR) * 12 + c.get(java.util.Calendar.MONTH);
     }
 
-    private void reconcileMediaState(@Nullable List<ForensicsSnapshotWithMedia> rows) {
-        if (rows == null || rows.isEmpty() || !isAdded()) return;
-        ForensicsDatabase db = ForensicsDatabase.getInstance(requireContext());
+    private void reconcileMediaState(@NonNull android.content.Context app,
+            @Nullable List<ForensicsSnapshotWithMedia> rows) {
+        if (rows == null || rows.isEmpty()) return;
+        ForensicsDatabase db = ForensicsDatabase.getInstance(app);
+        // Many snapshots share one recording; check each recording once per load
+        java.util.HashMap<String, Boolean> checked = new java.util.HashMap<>();
         for (ForensicsSnapshotWithMedia row : rows) {
-            boolean missing = isMediaMissing(row.mediaUri);
+            String key = row.mediaUri == null ? "" : row.mediaUri;
+            Boolean cached = checked.get(key);
+            boolean missing = cached != null ? cached : isMediaMissing(app, row.mediaUri);
+            if (cached == null) checked.put(key, missing);
             boolean changed = row.mediaMissing != missing;
             row.mediaMissing = missing;
             // Only write changes: this ran one UPDATE per row on every refresh
@@ -1127,13 +1161,24 @@ public class ForensicsGalleryFragment extends Fragment {
         return new ArrayList<>(unique.values());
     }
 
-    private boolean isMediaMissing(@Nullable String mediaUri) {
+    private static boolean isMediaMissing(@NonNull android.content.Context app, @Nullable String mediaUri) {
         if (mediaUri == null || mediaUri.isEmpty()) return true;
         try {
             Uri uri = Uri.parse(mediaUri);
             if ("file".equalsIgnoreCase(uri.getScheme())) {
                 String path = uri.getPath();
                 return path == null || !(new java.io.File(path).exists());
+            }
+            if ("content".equalsIgnoreCase(uri.getScheme())) {
+                // Recordings in the SAF folder were always reported present, so a video
+                // deleted in Records still showed "Video linked" and its play button failed
+                try (android.os.ParcelFileDescriptor pfd = app.getContentResolver().openFileDescriptor(uri, "r")) {
+                    return pfd == null;
+                } catch (java.io.FileNotFoundException e) {
+                    return true;
+                } catch (SecurityException e) {
+                    return false; // folder access lost: unknown, keep the link
+                }
             }
             return false;
         } catch (Exception e) {
