@@ -2279,7 +2279,8 @@ public class SharedPreferencesManager {
      */
     public long getVideoSplitSizeBytes() {
         int mb = getVideoSplitSizeMb();
-        return mb > 0 ? mb * 1024L * 1024L : 0L;
+        // Same 100 MB floor as the pickers: tiny values split every second
+        return mb > 0 ? Math.max(mb, 100) * 1024L * 1024L : 0L;
     }
 
 

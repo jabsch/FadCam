@@ -162,15 +162,21 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
         checkAppLock();
 
         // Auto-delete old items first, then load
-        if (getContext() != null) {
-            int autoDeleteMinutes = sharedPreferencesManager.getTrashAutoDeleteMinutes();
-            int autoDeletedCount = TrashManager.autoDeleteExpiredItems(getContext(), autoDeleteMinutes);
-            if (autoDeletedCount > 0) {
-                Toast.makeText(getContext(), getString(R.string.trash_auto_deleted_toast, autoDeletedCount),
-                        Toast.LENGTH_LONG).show();
-            }
-        }
         loadTrashItems();
+        // Deleting expired files can take a while for big videos; keep it off the main thread
+        if (getContext() != null && executorService != null && !executorService.isShutdown()) {
+            final android.content.Context app = requireContext().getApplicationContext();
+            final int autoDeleteMinutes = sharedPreferencesManager.getTrashAutoDeleteMinutes();
+            executorService.submit(() -> {
+                int autoDeletedCount = TrashManager.autoDeleteExpiredItems(app, autoDeleteMinutes);
+                if (autoDeletedCount <= 0) return;
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                    Toast.makeText(app, app.getString(R.string.trash_auto_deleted_toast, autoDeletedCount),
+                            Toast.LENGTH_LONG).show();
+                    if (isAdded()) loadTrashItems();
+                });
+            });
+        }
     }
 
     private void initializeViews(@NonNull View view) {

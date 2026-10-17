@@ -25,6 +25,17 @@ public class FadCamApplication extends Application implements DefaultLifecycleOb
         // And for the app lock: an unlock saved by a process that crashed or was killed in
         // the foreground (so onStop never ran) opened Records with no PIN
         prefs.setAppLockSessionUnlocked(false);
+        // Trash auto-delete only ran when the Trash screen was opened, so expired
+        // multi-GB videos kept using storage for weeks. Run it once per process start.
+        final android.content.Context appCtx = this;
+        new Thread(() -> {
+            try {
+                com.fadcam.utils.TrashManager.autoDeleteExpiredItems(appCtx,
+                        SharedPreferencesManager.getInstance(appCtx).getTrashAutoDeleteMinutes());
+            } catch (Exception e) {
+                FLog.w("FadCamApplication", "Trash auto-delete at start failed", e);
+            }
+        }, "trash-auto-delete").start();
         ProcessLifecycleOwner.get().getLifecycle().addObserver(this);
         // Settings > Appearance > Screen Refresh Rate, applied to every JaCam window.
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {

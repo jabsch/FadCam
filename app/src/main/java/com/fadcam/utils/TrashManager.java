@@ -261,6 +261,12 @@ public class TrashManager {
         boolean success = false;
         long copiedBytes = 0L;
         long totalBytes = getUriSize(context, videoUri);
+        // Trash lives on phone storage: copying a big SD-card video in could fill it to 0
+        // and break other apps, and the copy would fail anyway
+        if (totalBytes > 0 && trashDir.getUsableSpace() < totalBytes + 64L * 1024L * 1024L) {
+            FLog.e(TAG, "moveToTrash: not enough space in trash for " + totalBytes + " bytes");
+            return false;
+        }
         FLog.i(TAG, "Attempting to move to trash: '" + originalDisplayName + "' -> '" + targetTrashFile.getAbsolutePath()
                 + "'");
 

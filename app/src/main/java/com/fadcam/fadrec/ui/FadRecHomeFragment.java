@@ -1968,7 +1968,8 @@ public class FadRecHomeFragment extends HomeFragment {
             if (isStreamOnly) {
                 // Nothing is written to disk — show full available space and infinite time.
                 adjustedAvailable = storageInfo.availableBytes;
-                remainingTimeText = "Unlimited"; // More readable than ∞ symbol
+                remainingTimeText = getContext() != null
+                        ? getContext().getString(R.string.storage_time_unlimited) : "Unlimited"; // More readable than ∞ symbol
             } else {
                 // Deduct estimated bytes written so far.
                 long bitrateBps = calculateScreenRecordingBitrateBps();
@@ -1998,7 +1999,8 @@ public class FadRecHomeFragment extends HomeFragment {
             double gbTotal = storageInfo.getTotalGB();
             Locale numLocale = "fr".equalsIgnoreCase(Locale.getDefault().getLanguage())
                 ? Locale.US : Locale.getDefault();
-            String availableSpace = String.format(numLocale, "%.2f GB", gbAvailable);
+            String availableSpace = String.format(numLocale, getContext() != null
+                ? getContext().getString(R.string.home_storage_format) : "%.2f GB", gbAvailable);
             float availableFraction = gbTotal > 0
                 ? (float) Math.max(0, Math.min(1, gbAvailable / gbTotal)) : 0f;
 
