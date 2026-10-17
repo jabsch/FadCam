@@ -159,10 +159,19 @@ class ApiService {
             const startTime = performance.now();
             console.log(`📱 [/status] Dashboard sending request to ${this.localBaseUrl}/status`);
             
-            const response = await fetch(`${this.localBaseUrl}/status`, {
-                method: 'GET',
-                headers: this.getHeaders()
-            });
+            // Time out instead of hanging forever when the phone drops off Wi-Fi
+            const controller = new AbortController();
+            const abortTimer = setTimeout(() => controller.abort(), 8000);
+            let response;
+            try {
+                response = await fetch(`${this.localBaseUrl}/status`, {
+                    method: 'GET',
+                    headers: this.getHeaders(),
+                    signal: controller.signal
+                });
+            } finally {
+                clearTimeout(abortTimer);
+            }
             
             const fetchTime = performance.now() - startTime;
             console.log(`📡 [/status] Response received in ${fetchTime.toFixed(2)}ms, status: ${response.status}`);

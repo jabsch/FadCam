@@ -1062,8 +1062,9 @@ public class RemoteStreamManager {
         } catch (Exception e) {
             FLog.e(TAG, "❌ [getStatusJson] Exception during JSON generation: " + e.getMessage(), e);
             // Return fallback JSON instead of crashing
-            return "{\"streaming\": " + streamingEnabled + ", \"state\": \"error\", \"message\": \"JSON generation failed\", \"error\": \"" + 
-                   com.fadcam.streaming.util.JsonEscaper.escapeToJsonString(e.getMessage()) + "\"}";
+            return "{\"streaming\": " + streamingEnabled + ", \"state\": \"error\", \"message\": \"JSON generation failed\", \"error\": " +
+                   // escapeToJsonString adds the quotes itself
+                   com.fadcam.streaming.util.JsonEscaper.escapeToJsonString(String.valueOf(e.getMessage())) + "}";
         } finally {
             bufferLock.readLock().unlock();
         }

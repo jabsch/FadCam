@@ -493,7 +493,7 @@
                         <i class="fab fa-discord"></i>
                         <span>Discord</span>
                     </a>
-                    <a href="https://github.com/anonfaded/FadCam" target="_blank" title="GitHub Repository" class="footer-link">
+                    <a href="https://github.com/jabsch/FadCam" target="_blank" title="GitHub Repository" class="footer-link">
                         <i class="fab fa-github"></i>
                         <span>GitHub</span>
                     </a>
@@ -2995,8 +2995,8 @@
             
             // Fresh HLS.js instance for clean state
             // This ensures no cached init segment from previous recording
-            if (hlsService && hlsService.hls) {
-                hlsService.destroy();
+            if (hlsService) {
+                hlsService.destroy(); // also cancels the old instance's pending reload
             }
             hlsService = new HlsService(); // Fresh instance
             
@@ -3469,7 +3469,8 @@
                 // This ensures we load fresh init segment and don't mix old/new codec data
                 console.log('[Stream] Recording restarted - resetting HLS instance');
                 hlsLoaded = false;
-                if (hlsService && hlsService.hls) {
+                if (hlsService) {
+                    // Also while a reload is pending (hls is null for that second)
                     console.log('[Stream] Destroying old HLS instance');
                     hlsService.destroy();
                 }
@@ -3488,10 +3489,8 @@
                 if (hlsService) {
                     // Reset video to allow fresh load on next recording
                     hlsLoaded = false;
-                    if (hlsService.hls) {
-                        hlsService.destroy();
-                        hlsService = null;
-                    }
+                    hlsService.destroy(); // also cancels a pending reload
+                    hlsService = null;
                 }
                 
                 // Restore initial overlay with disabled state
@@ -5106,10 +5105,10 @@
             
             // Track user activity for auto-lock timeout
             ['click', 'keypress', 'mousemove', 'touchstart'].forEach(eventType => {
+                // Also counted while locked: typing the password and tapping Unlock is
+                // activity, otherwise the old timestamp re-locked the page right after unlock
                 document.addEventListener(eventType, () => {
-                    if (authService.isAuthenticated()) {
-                        lastActivityTime = Date.now();
-                    }
+                    lastActivityTime = Date.now();
                 }, { passive: true });
             });
             

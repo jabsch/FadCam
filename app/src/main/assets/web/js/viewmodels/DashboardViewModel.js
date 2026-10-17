@@ -243,7 +243,11 @@ class DashboardViewModel {
         
         this.isPolling = true;
         this.pollInterval = setInterval(() => {
-            this.updateStatus();
+            // Skip a tick while the last poll is still out: on a flaky network hung polls
+            // piled up to the browser's per-host limit and blocked the video requests
+            if (this.statusPollInFlight) return;
+            this.statusPollInFlight = true;
+            this.updateStatus().finally(() => { this.statusPollInFlight = false; });
         }, CONFIG.STATUS_POLL_INTERVAL);
         
         console.log('[DashboardViewModel] 👑 Leader tab - started polling every', CONFIG.STATUS_POLL_INTERVAL / 1000, 'seconds');
