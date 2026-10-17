@@ -1626,7 +1626,11 @@ public class GLWatermarkRenderer {
         // Correct for active viewport aspect ratio so watermark text shape remains consistent.
         float ndcHeight = (ndcWidth * ((float) vpW / (float) vpH)) / bitmapAspect;
         float maxNdcHeight = Math.min(0.65f, 0.08f + watermarkLineCount * 0.06f);
-        ndcHeight = Math.min(ndcHeight, maxNdcHeight);
+        if (ndcHeight > maxNdcHeight) {
+            // Scale both sides so the text keeps its shape instead of being squashed
+            ndcWidth *= maxNdcHeight / ndcHeight;
+            ndcHeight = maxNdcHeight;
+        }
 
         if (watermarkRectBuffer != null
                 && lastWatermarkVpW == vpW

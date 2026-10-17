@@ -688,7 +688,9 @@ public class WatermarkSettingsFragment extends Fragment {
     }
 
     private String formatNow(){
-        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MMM/yyyy hh:mm:ss a", java.util.Locale.getDefault());
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MMM/yyyy "
+                + (android.text.format.DateFormat.is24HourFormat(requireContext()) ? "HH:mm:ss" : "hh:mm:ss a"),
+                java.util.Locale.ENGLISH);
         return sdf.format(new java.util.Date());
     }
 

@@ -3875,7 +3875,7 @@ public class RecordingService extends Service {
             return "";
         }
         String watermarkOption = sharedPreferencesManager.getWatermarkOption();
-        String locationText = sharedPreferencesManager.isLocalisationEnabled() ? getLocationData() : "";
+        String locationText = isLocationBlockEnabled() && !"badge_fadcam".equals(watermarkOption) ? getLocationData() : "";
         String customText = sharedPreferencesManager.getWatermarkCustomText();
         String customTextLine = (customText != null && !customText.isEmpty()) ? "\n" + customText : "";
         String finalText;
@@ -3922,7 +3922,7 @@ public class RecordingService extends Service {
                     // into a video set to have no watermark.
                     return "";
                 }
-                String locationText = sharedPreferencesManager.isLocalisationEnabled()
+                String locationText = isLocationBlockEnabled()
                         && !"badge_fadcam".equals(watermarkOption) ? getLocationData() : "";
                 String customText = sharedPreferencesManager.getWatermarkCustomText();
                 String customTextLine = (customText != null && !customText.isEmpty()) ? "\n" + customText : "";
@@ -5410,10 +5410,10 @@ public class RecordingService extends Service {
     private synchronized String getCurrentTimestamp() {
         // Abbreviated day (e.g. "Wed, ") included when the Day toggle is on.
         String pattern = (sharedPreferencesManager.isWatermarkDayEnabled() ? "EEE, " : "")
-                + "dd/MMM/yyyy hh:mm:ss a";
+                + "dd/MMM/yyyy " + (android.text.format.DateFormat.is24HourFormat(this) ? "HH:mm:ss" : "hh:mm:ss a");
         if (watermarkTimeFormat == null || !pattern.equals(watermarkTimePattern)) {
             // Locale.ENGLISH always formats Western digits, so no numeral conversion is needed.
-            watermarkTimeFormat = new SimpleDateFormat(pattern, Locale.ENGLISH); // 12-hour format with AM/PM
+            watermarkTimeFormat = new SimpleDateFormat(pattern, Locale.ENGLISH); // follows the phone's 12/24-hour setting
             watermarkTimePattern = pattern;
         }
         // The formatter keeps the zone it was built with; follow time zone changes.
@@ -5508,6 +5508,11 @@ public class RecordingService extends Service {
                 }
             }
             
+            // UTM can be on without Location: then only the UTM line is shown
+            if (!sharedPreferencesManager.isLocalisationEnabled()) {
+                cachedLocationWatermarkText = "";
+            }
+
             // Append UTM coordinates if enabled and location is available
             if (sharedPreferencesManager.isUtmEnabled() && locationHelper != null) {
                 org.osmdroid.util.GeoPoint utmPt = locationHelper.getCurrentLocation();
@@ -5530,7 +5535,10 @@ public class RecordingService extends Service {
         // when no speed/altitude/accuracy line is shown, so it refreshes the state too.
         refreshGpsProviderState();
         if (!cachedGpsProviderEnabled) {
-            StringBuilder gpsOffMsg = new StringBuilder("\nLocation: GPS is off");
+            StringBuilder gpsOffMsg = new StringBuilder();
+            if (sharedPreferencesManager.isLocalisationEnabled()) {
+                gpsOffMsg.append("\nLocation: GPS is off");
+            }
             if (sharedPreferencesManager.isUtmEnabled()) {
                 gpsOffMsg.append("\nUTM: GPS is off");
             }
@@ -5545,11 +5553,16 @@ public class RecordingService extends Service {
         return cachedLocationWatermarkText;
     }
 
+    // The location block holds the lat/long line, the UTM line, or both.
+    private boolean isLocationBlockEnabled() {
+        return sharedPreferencesManager.isLocalisationEnabled() || sharedPreferencesManager.isUtmEnabled();
+    }
+
     private String buildPhotoWatermarkExtras() {
         StringBuilder sb = new StringBuilder();
 
         // Location data (same format as video watermark)
-        if (sharedPreferencesManager != null && sharedPreferencesManager.isLocalisationEnabled()) {
+        if (sharedPreferencesManager != null && isLocationBlockEnabled()) {
             String loc = getLocationData();
             if (loc != null && !loc.isEmpty()) {
                 sb.append(loc.trim());

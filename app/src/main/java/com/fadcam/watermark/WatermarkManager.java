@@ -161,7 +161,8 @@ public class WatermarkManager implements WatermarkInfoProvider {
     public String getWatermarkText() {
         watermarkUpdateSequence++;
         String watermarkOption = prefs.getWatermarkOption();
-        String locationText = prefs.isLocalisationEnabled() ? getLocationData() : "";
+        String locationText = (prefs.isLocalisationEnabled() || prefs.isUtmEnabled())
+                && !"badge_fadcam".equals(watermarkOption) ? getLocationData() : "";
         String customText = prefs.getWatermarkCustomText();
         String customTextLine = (customText != null && !customText.isEmpty()) ? "\n" + customText : "";
 
@@ -199,7 +200,7 @@ public class WatermarkManager implements WatermarkInfoProvider {
     private String getCurrentTimestamp() {
         // Day name (e.g. "Wednesday, ") is included when the Day toggle is on.
         String pattern = (prefs.isWatermarkDayEnabled() ? "EEE, " : "")
-                + "dd/MMM/yyyy hh:mm:ss a";
+                + "dd/MMM/yyyy " + (android.text.format.DateFormat.is24HourFormat(context) ? "HH:mm:ss" : "hh:mm:ss a");
         SimpleDateFormat sdf = new SimpleDateFormat(pattern, Locale.ENGLISH);
         return convertArabicNumeralsToEnglish(sdf.format(new Date()));
     }
@@ -268,6 +269,9 @@ public class WatermarkManager implements WatermarkInfoProvider {
                 }
             }
 
+            // UTM can be on without Location: then only the UTM line is shown
+            if (!prefs.isLocalisationEnabled()) cachedLocationWatermarkText = "";
+
             if (prefs.isUtmEnabled() && locationHelper != null) {
                 org.osmdroid.util.GeoPoint utmPt = locationHelper.getCurrentLocation();
                 if (utmPt != null) {
@@ -286,7 +290,8 @@ public class WatermarkManager implements WatermarkInfoProvider {
         // so every dual recording opened with "GPS is off"
         refreshGpsProviderState();
         if (!cachedGpsProviderEnabled) {
-            StringBuilder off = new StringBuilder("\nLocation: GPS is off");
+            StringBuilder off = new StringBuilder();
+            if (prefs.isLocalisationEnabled()) off.append("\nLocation: GPS is off");
             if (prefs.isUtmEnabled()) off.append("\nUTM: GPS is off");
             return off.toString();
         }
