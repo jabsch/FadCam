@@ -78,6 +78,8 @@ public class PlaybackService extends Service {
     };
     // Millis timestamp when the auto-stop alarm is scheduled (0 when none)
     private long autoStopTriggerAtMs = 0L;
+    /** Sleep-timer time left while paused from the notification; 0 when none. */
+    private long pausedAutoStopRemainingMs = 0L;
 
     // Shows the finished state when the video reaches its end, and lets the
     // notification be swiped away instead of staying pinned as "playing".
@@ -272,14 +274,19 @@ public class PlaybackService extends Service {
             if (player.isPlaying()) {
                 player.pause();
                 stopProgressUpdates();
+                // Keep what is left, so a pause for a call doesn't restart the timer in full
+                long left = autoStopTriggerAtMs - System.currentTimeMillis();
                 cancelAutoStop();
+                pausedAutoStopRemainingMs = Math.max(0L, left);
             } else {
                 if (player.getPlaybackState() == ExoPlayer.STATE_ENDED) {
                     player.seekTo(0); // play from the start again
                 }
                 player.play();
                 startProgressUpdates();
-                scheduleAutoStopIfNeeded();
+                long resumeDelay = pausedAutoStopRemainingMs;
+                pausedAutoStopRemainingMs = 0L;
+                scheduleAutoStopIfNeeded(resumeDelay);
             }
             buildAndShowNotification();
         } catch (Exception e) { FLog.e("PlaybackService", "play/pause failed", e); }
@@ -331,19 +338,26 @@ public class PlaybackService extends Service {
     }
 
     private void scheduleAutoStopIfNeeded(){
+        pausedAutoStopRemainingMs = 0L;
+        scheduleAutoStopIfNeeded(0L);
+    }
+
+    /** @param delayMs time left from before a pause, or 0 for the full timer */
+    private void scheduleAutoStopIfNeeded(long delayMs){
         try{
             int seconds = com.fadcam.SharedPreferencesManager.getInstance(this).getBackgroundPlaybackTimerSeconds();
             cancelAutoStop();
             if(seconds>0){
+                long delay = delayMs > 0 ? Math.min(delayMs, seconds * 1000L) : seconds * 1000L;
                 // Schedule an AlarmManager alarm that fires even if the process is idle
-                long triggerAt = System.currentTimeMillis() + seconds * 1000L;
+                long triggerAt = System.currentTimeMillis() + delay;
                 android.app.AlarmManager am = (android.app.AlarmManager) getSystemService(ALARM_SERVICE);
                 Intent alarmIntent = new Intent(this, AutoStopReceiver.class).setAction(AUTO_STOP_ALARM_ACTION);
                 int flags = android.os.Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT : PendingIntent.FLAG_UPDATE_CURRENT;
                 PendingIntent pi = PendingIntent.getBroadcast(this, 12345, alarmIntent, flags);
                 // In-process fallback first, so the timer still works if the alarm call fails.
                 if(autoStopHandler==null) autoStopHandler = new Handler(Looper.getMainLooper());
-                autoStopHandler.postDelayed(autoStopRunnable, seconds * 1000L);
+                autoStopHandler.postDelayed(autoStopRunnable, delay);
                 if (am != null) {
                     // Exact alarms need SCHEDULE_EXACT_ALARM on Android 12+, which the app
                     // doesn't hold: the exact call threw and the sleep timer never ran.
