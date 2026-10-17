@@ -7,6 +7,8 @@
 <!--        the color for statusbar at top-->
         <item name="android:statusBarColor">@color/gray</item>
         <item name="colorTopBar">@color/gray</item>
+        <item name="colorTopBarContent">@android:color/white</item>
+        <item name="colorTopBarContentSecondary">#CCFFFFFF</item>
         <item name="colorBottomNav">@color/gray</item>
         <item name="colorHeading">@color/colorHeading</item>
         <item name="colorButton">@color/colorButton</item>

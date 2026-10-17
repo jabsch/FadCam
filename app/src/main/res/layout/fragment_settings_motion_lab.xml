@@ -28,7 +28,7 @@
             android:contentDescription="@string/watch_back_desc"
             android:padding="2dp"
             android:src="@drawable/ic_close"
-            android:tint="@android:color/white" />
+            android:tint="?attr/colorTopBarContent" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -36,7 +36,7 @@
             android:layout_marginStart="12dp"
             android:text="@string/motion_lab_title"
             android:textAlignment="viewStart"
-            android:textColor="@android:color/white"
+            android:textColor="?attr/colorTopBarContent"
             android:textSize="20sp"
             android:textStyle="bold" />
 
@@ -52,7 +52,7 @@
             android:contentDescription="@string/motion_lab_info_cd"
             android:padding="2dp"
             android:src="@drawable/ic_info"
-            android:tint="@android:color/white" />
+            android:tint="?attr/colorTopBarContent" />
     </LinearLayout>
 
     <ScrollView
