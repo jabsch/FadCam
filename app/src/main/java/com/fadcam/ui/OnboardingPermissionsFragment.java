@@ -123,6 +123,7 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
     }
 
     private void showPermissionStatus(int stringResId, boolean success) {
+        if (!isAdded()) return;
         if (permissionStatusText != null) {
             permissionStatusText.setText(stringResId);
             permissionStatusText.setTextColor(ContextCompat.getColor(requireContext(), 

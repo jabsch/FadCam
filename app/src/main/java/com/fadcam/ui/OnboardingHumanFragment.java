@@ -128,15 +128,19 @@ public class OnboardingHumanFragment extends Fragment {
 
         applyPrivacyLabel();
 
+        // Taps on the icon and label fall through to the row, so TalkBack gets one
+        // checkbox per row instead of three stops that never said ticked or not.
+        // Label 3 keeps its own listener for the Privacy Policy link.
         row1.setOnClickListener(toggle1);
-        icon1.setOnClickListener(toggle1);
-        label1.setOnClickListener(toggle1);
         row2.setOnClickListener(toggle2);
-        icon2.setOnClickListener(toggle2);
-        label2.setOnClickListener(toggle2);
         row3.setOnClickListener(toggle3);
-        icon3.setOnClickListener(toggle3);
         label3.setOnClickListener(toggle3);
+        icon1.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        icon2.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        icon3.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        markCheckable(row1, () -> checked1);
+        markCheckable(row2, () -> checked2);
+        markCheckable(row3, () -> checked3);
 
         continueButton.setOnClickListener(view -> {
             if (getActivity() instanceof OnboardingActivity) {
@@ -153,6 +157,20 @@ public class OnboardingHumanFragment extends Fragment {
         update.onClick(continueButton);
 
         return v;
+    }
+
+    /** Reports the row as a checkbox with its ticked state; performClick then announces the change. */
+    private static void markCheckable(View row, java.util.function.BooleanSupplier checked) {
+        androidx.core.view.ViewCompat.setAccessibilityDelegate(row, new androidx.core.view.AccessibilityDelegateCompat() {
+            @Override
+            public void onInitializeAccessibilityNodeInfo(@NonNull View host,
+                    @NonNull androidx.core.view.accessibility.AccessibilityNodeInfoCompat info) {
+                super.onInitializeAccessibilityNodeInfo(host, info);
+                info.setClassName(android.widget.CheckBox.class.getName());
+                info.setCheckable(true);
+                info.setChecked(checked.getAsBoolean());
+            }
+        });
     }
 
     /** Checkbox 3 text with its Privacy Policy link; also used after a language refresh. */

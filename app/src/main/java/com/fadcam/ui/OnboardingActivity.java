@@ -51,6 +51,20 @@ public class OnboardingActivity extends AppIntro {
     private final java.util.List<android.animation.Animator> endlessAnimators = new java.util.ArrayList<>();
     private final java.util.List<Handler> slideHandlers = new java.util.ArrayList<>();
 
+    /** Keeps the language picked on the language slide when the activity is recreated. */
+    @Override
+    protected void attachBaseContext(android.content.Context base) {
+        String code = base.getSharedPreferences(com.fadcam.Constants.PREFS_NAME, MODE_PRIVATE)
+                .getString(com.fadcam.Constants.LANGUAGE_KEY, null);
+        if (code != null && !code.isEmpty()) {
+            android.content.res.Configuration config =
+                    new android.content.res.Configuration(base.getResources().getConfiguration());
+            config.setLocale(java.util.Locale.forLanguageTag("zh".equals(code) ? "zh-CN" : code));
+            base = base.createConfigurationContext(config);
+        }
+        super.attachBaseContext(base);
+    }
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         // Force dark mode for onboarding regardless of system theme
@@ -87,10 +101,21 @@ public class OnboardingActivity extends AppIntro {
         }
 
         // Add slides in the correct sequence
-        addSlide(AppIntroCustomLayoutFragment.newInstance(R.layout.onboarding_intro_slide));
-        addSlide(AppIntroCustomLayoutFragment.newInstance(R.layout.onboarding_language_slide));
-        addSlide(new OnboardingPermissionsFragment());
-        addSlide(new OnboardingHumanFragment());
+        // After rotation or process death the pager shows the fragments the FragmentManager
+        // restored; adding fresh ones made AppIntro check permissions on detached copies,
+        // which refused Next and crashed on requireContext()
+        Fragment[] slides = {
+                AppIntroCustomLayoutFragment.newInstance(R.layout.onboarding_intro_slide),
+                AppIntroCustomLayoutFragment.newInstance(R.layout.onboarding_language_slide),
+                new OnboardingPermissionsFragment(),
+                new OnboardingHumanFragment()
+        };
+        int pagerId = com.github.appintro.R.id.view_pager;
+        for (int i = 0; i < slides.length; i++) {
+            Fragment restored = savedInstanceState == null ? null
+                    : getSupportFragmentManager().findFragmentByTag("android:switcher:" + pagerId + ":" + i);
+            addSlide(restored != null ? restored : slides[i]);
+        }
 
         // Hide only the Done button while keeping navigation buttons
         setSkipButtonEnabled(false); // No skip button needed
