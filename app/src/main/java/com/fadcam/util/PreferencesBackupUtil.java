@@ -79,6 +79,23 @@ public final class PreferencesBackupUtil {
     }
 
     /**
+     * Settings kept in their own prefs files: hardware-button bindings, the home clock
+     * format, torch tool and stream quality. Only app_prefs used to be exported, imported
+     * and reset, so "Reset all settings" left a volume key still starting a recording.
+     * Each is stored under COMPANION_PREFIX + file name; an older backup without them
+     * leaves those files as they are.
+     */
+    private static final String COMPANION_PREFIX = "@prefs:";
+    private static final String[] COMPANION_FILES = {
+            "hardware_button_bindings", "AppPreferences", "torch_prefs", "FadCamPrefs"};
+
+    private static boolean isExcluded(@androidx.annotation.Nullable String companionFile, String key){
+        if(companionFile == null) return isTransientKey(key) || key.startsWith(COMPANION_PREFIX);
+        // The port the stream server actually bound to, written by the running service
+        return "FadCamPrefs".equals(companionFile) && "stream_server_port".equals(key);
+    }
+
+    /**
      * Builds a JSONObject representing all app SharedPreferences values.
      * Uses a type-annotated format to preserve Long vs Integer distinction:
      *   {"key": {"t": "long", "v": 5000}}
@@ -87,11 +104,20 @@ public final class PreferencesBackupUtil {
      */
     @NonNull
     public static JSONObject buildBackupJson(Context context) throws JSONException {
-        SharedPreferences sp = context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE);
+        JSONObject root = typedJson(context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE), null);
+        for(String file : COMPANION_FILES){
+            root.put(COMPANION_PREFIX + file, typedJson(context.getSharedPreferences(file, Context.MODE_PRIVATE), file));
+        }
+        return root;
+    }
+
+    /** One prefs file as typed entries; companionFile is null for the main app prefs. */
+    @NonNull
+    private static JSONObject typedJson(SharedPreferences sp, @androidx.annotation.Nullable String companionFile) throws JSONException {
         Map<String, ?> all = sp.getAll();
         JSONObject root = new JSONObject();
         for(Map.Entry<String, ?> e : all.entrySet()){
-            if(isTransientKey(e.getKey())){ continue; }
+            if(isExcluded(companionFile, e.getKey())){ continue; }
             Object v = e.getValue();
             JSONObject entry = new JSONObject();
             if(v instanceof Boolean){
@@ -195,14 +221,25 @@ public final class PreferencesBackupUtil {
     /** @return true when the imported custom storage folder had to be dropped. */
     public static boolean applyFromJson(Context context, JSONObject root) throws JSONException {
         if(root == null) throw new JSONException("Root JSON null");
-        SharedPreferences sp = context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE);
+        applyTyped(context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE), root, null);
+        for(String file : COMPANION_FILES){
+            JSONObject section = root.optJSONObject(COMPANION_PREFIX + file);
+            if(section != null){
+                applyTyped(context.getSharedPreferences(file, Context.MODE_PRIVATE), section, file);
+            }
+        }
+        return dropUnreachableCustomStorage(context);
+    }
+
+    private static void applyTyped(SharedPreferences sp, JSONObject root,
+                                   @androidx.annotation.Nullable String companionFile) throws JSONException {
         SharedPreferences.Editor editor = sp.edit();
 
         // Remove keys that exist in current prefs but not in the import
         // (safer than editor.clear() which would wipe keys the import doesn't know about)
         Map<String, ?> existing = sp.getAll();
         for(String existingKey : existing.keySet()) {
-            if(!root.has(existingKey) && !isTransientKey(existingKey)) {
+            if(!root.has(existingKey) && !isExcluded(companionFile, existingKey)) {
                 editor.remove(existingKey);
             }
         }
@@ -210,7 +247,7 @@ public final class PreferencesBackupUtil {
         java.util.Iterator<String> it = root.keys();
         while(it.hasNext()){
             String key = it.next();
-            if(isTransientKey(key)) { continue; }
+            if(isExcluded(companionFile, key)) { continue; }
             Object v = root.get(key);
 
             // --- NEW typed format: {"t": "type", "v": value} ---
@@ -300,7 +337,6 @@ public final class PreferencesBackupUtil {
             }
         }
         editor.apply();
-        return dropUnreachableCustomStorage(context);
     }
 
     /**
@@ -338,6 +374,14 @@ public final class PreferencesBackupUtil {
             if(factoryReset || !isTransientKey(key)) editor.remove(key);
         }
         editor.apply();
+        for(String file : COMPANION_FILES){
+            SharedPreferences companion = context.getSharedPreferences(file, Context.MODE_PRIVATE);
+            SharedPreferences.Editor companionEditor = companion.edit();
+            for(String key : companion.getAll().keySet()){
+                if(!isExcluded(file, key)) companionEditor.remove(key);
+            }
+            companionEditor.apply();
+        }
         // The remote password is gone, so no browser stays signed in with it
         com.fadcam.streaming.RemoteAuthManager.getInstance(context).clearAllSessions();
     }
@@ -409,6 +453,16 @@ public final class PreferencesBackupUtil {
             if (isTransientKey(key)) continue;
             Object v;
             try { v = root.get(key); } catch (JSONException e) { continue; }
+
+            // A companion prefs file: list its entries as "file/key"
+            if (key.startsWith(COMPANION_PREFIX) && v instanceof JSONObject) {
+                String file = key.substring(COMPANION_PREFIX.length());
+                for (PreviewEntry inner : buildPreviewEntries((JSONObject) v, null)) {
+                    out.add(new PreviewEntry(file + "/" + inner.key, inner.type, inner.value,
+                            inner.status, inner.message));
+                }
+                continue;
+            }
 
             // Typed format: {"t": "long", "v": 5000}
             if (v instanceof JSONObject) {
