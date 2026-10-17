@@ -230,7 +230,7 @@ public class AnnotationService extends Service {
                 FLog.e(TAG, "SYSTEM_ALERT_WINDOW permission not granted, cannot start AnnotationService");
                 // Broadcast permission missing error
                 Intent errorBroadcast = new Intent("com.fadcam.fadrec.ANNOTATION_SERVICE_PERMISSION_ERROR");
-                sendBroadcast(errorBroadcast);
+                sendBroadcast(errorBroadcast.setPackage(getPackageName()));
                 stopSelf();
                 return START_NOT_STICKY;
             }
@@ -278,7 +278,7 @@ public class AnnotationService extends Service {
         
         // Broadcast to FadRecHomeFragment to turn off toggle
         Intent broadcast = new Intent("com.fadcam.fadrec.ACTION_SERVICE_TERMINATED");
-        sendBroadcast(broadcast);
+        sendBroadcast(broadcast.setPackage(getPackageName()));
         
         // Stop service
         stopSelf();
@@ -927,7 +927,7 @@ public class AnnotationService extends Service {
      */
     private void sendReadyBroadcast() {
         Intent readyIntent = new Intent("com.fadcam.fadrec.ANNOTATION_SERVICE_READY");
-        sendBroadcast(readyIntent);
+        sendBroadcast(readyIntent.setPackage(getPackageName()));
         FLog.d(TAG, "ANNOTATION_SERVICE_READY broadcast sent");
     }
 
@@ -4456,7 +4456,7 @@ public class AnnotationService extends Service {
 
         // Send broadcast to turn off menu switch in app
         Intent intent = new Intent("com.fadcam.fadrec.ANNOTATION_SERVICE_STOPPED");
-        sendBroadcast(intent);
+        sendBroadcast(intent.setPackage(getPackageName()));
 
         // Unregister broadcast receivers
         if (menuActionReceiver != null) {

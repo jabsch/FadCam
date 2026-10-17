@@ -464,7 +464,7 @@ public class QRScannerActivity extends AppCompatActivity {
         Intent intent = new Intent(Constants.ACTION_RECORDING_COMPLETE);
         intent.putExtra(Constants.EXTRA_RECORDING_SUCCESS, true);
         intent.putExtra(Constants.EXTRA_RECORDING_URI_STRING, Uri.fromFile(scanDir).toString());
-        sendBroadcast(intent);
+        sendBroadcast(intent.setPackage(getPackageName()));
     }
 
     @Nullable private Result decodeImage(@NonNull ImageProxy image) {

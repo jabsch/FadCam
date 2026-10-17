@@ -164,7 +164,7 @@ public class ProjectSelectionDialogActivity extends Activity {
         itemView.setOnClickListener(v -> {
             Intent resultIntent = new Intent(ACTION_PROJECT_SELECTED);
             resultIntent.putExtra(EXTRA_PROJECT_NAME, fileName);
-            sendBroadcast(resultIntent);
+            sendBroadcast(resultIntent.setPackage(getPackageName()));
             finish();
         });
         

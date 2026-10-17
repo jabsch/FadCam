@@ -78,11 +78,7 @@ public class FadRecScreenshotAccessibilityService extends AccessibilityService {
         }
         try {
             IntentFilter filter = new IntentFilter(Constants.ACTION_TRIGGER_FADREC_SCREENSHOT);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(triggerReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-            } else {
-                registerReceiver(triggerReceiver, filter);
-            }
+            androidx.core.content.ContextCompat.registerReceiver(this, triggerReceiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
             receiverRegistered = true;
             FLog.d(TAG, "Screenshot trigger receiver registered.");
         } catch (Exception e) {
@@ -177,7 +173,7 @@ public class FadRecScreenshotAccessibilityService extends AccessibilityService {
                 Intent updateIntent = new Intent(Constants.ACTION_RECORDING_COMPLETE);
                 updateIntent.putExtra(Constants.EXTRA_RECORDING_SUCCESS, true);
                 updateIntent.putExtra(Constants.EXTRA_RECORDING_URI_STRING, savedUri.toString());
-                sendBroadcast(updateIntent);
+                sendBroadcast(updateIntent.setPackage(getPackageName()));
                 showToast(R.string.screenshot_capture_saved);
             } else {
                 FLog.e(TAG, "Screenshot save failed: PhotoStorageHelper returned null URI.");

@@ -2776,11 +2776,7 @@ public class HomeFragment extends BaseFragment {
 
         for (int idx = 0; idx < actions.length; idx++) {
             IntentFilter filter = new IntentFilter(actions[idx]);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                ctx.registerReceiver(receivers[idx], filter, Context.RECEIVER_EXPORTED);
-            } else {
-                ctx.registerReceiver(receivers[idx], filter);
-            }
+            androidx.core.content.ContextCompat.registerReceiver(ctx, receivers[idx], filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
         }
         isDualBroadcastsRegistered = true;
         FLog.d(TAG, "Dual camera broadcast receivers registered");
@@ -3119,18 +3115,7 @@ public class HomeFragment extends BaseFragment {
             Constants.BROADCAST_ON_RECORDING_STARTED
         );
         if (broadcastOnRecordingStarted != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(
-                    broadcastOnRecordingStarted,
-                    intentFilterStarted,
-                    Context.RECEIVER_EXPORTED
-                );
-            } else {
-                context.registerReceiver(
-                    broadcastOnRecordingStarted,
-                    intentFilterStarted
-                );
-            }
+            androidx.core.content.ContextCompat.registerReceiver(context, broadcastOnRecordingStarted, intentFilterStarted, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
             // OPTIMIZATION: Removed generic receiver registration log
         } else {
             allRegisteredSuccessfully = false;
@@ -3141,18 +3126,7 @@ public class HomeFragment extends BaseFragment {
             Constants.BROADCAST_ON_RECORDING_RESUMED
         );
         if (broadcastOnRecordingResumed != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(
-                    broadcastOnRecordingResumed,
-                    intentFilterResumed,
-                    Context.RECEIVER_EXPORTED
-                );
-            } else {
-                context.registerReceiver(
-                    broadcastOnRecordingResumed,
-                    intentFilterResumed
-                );
-            }
+            androidx.core.content.ContextCompat.registerReceiver(context, broadcastOnRecordingResumed, intentFilterResumed, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
             // OPTIMIZATION: Removed generic receiver registration log
         } else {
             allRegisteredSuccessfully = false;
@@ -3163,18 +3137,7 @@ public class HomeFragment extends BaseFragment {
             Constants.BROADCAST_ON_RECORDING_PAUSED
         );
         if (broadcastOnRecordingPaused != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(
-                    broadcastOnRecordingPaused,
-                    intentFilterPaused,
-                    Context.RECEIVER_EXPORTED
-                );
-            } else {
-                context.registerReceiver(
-                    broadcastOnRecordingPaused,
-                    intentFilterPaused
-                );
-            }
+            androidx.core.content.ContextCompat.registerReceiver(context, broadcastOnRecordingPaused, intentFilterPaused, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
             // OPTIMIZATION: Removed generic receiver registration log
         } else {
             allRegisteredSuccessfully = false;
@@ -3185,18 +3148,7 @@ public class HomeFragment extends BaseFragment {
             Constants.BROADCAST_ON_RECORDING_STOPPED
         );
         if (broadcastOnRecordingStopped != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(
-                    broadcastOnRecordingStopped,
-                    intentFilterStopped,
-                    Context.RECEIVER_EXPORTED
-                );
-            } else {
-                context.registerReceiver(
-                    broadcastOnRecordingStopped,
-                    intentFilterStopped
-                );
-            }
+            androidx.core.content.ContextCompat.registerReceiver(context, broadcastOnRecordingStopped, intentFilterStopped, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
             // OPTIMIZATION: Removed generic receiver registration log
         } else {
             allRegisteredSuccessfully = false;
@@ -3207,18 +3159,7 @@ public class HomeFragment extends BaseFragment {
             Constants.BROADCAST_ON_RECORDING_STATE_CALLBACK
         );
         if (broadcastOnRecordingStateCallback != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(
-                    broadcastOnRecordingStateCallback,
-                    intentFilterStateCallback,
-                    Context.RECEIVER_EXPORTED
-                );
-            } else {
-                context.registerReceiver(
-                    broadcastOnRecordingStateCallback,
-                    intentFilterStateCallback
-                );
-            }
+            androidx.core.content.ContextCompat.registerReceiver(context, broadcastOnRecordingStateCallback, intentFilterStateCallback, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
             // OPTIMIZATION: Removed generic receiver registration log
         } else {
             allRegisteredSuccessfully = false;
@@ -3232,18 +3173,7 @@ public class HomeFragment extends BaseFragment {
             Constants.BROADCAST_ON_PREVIEW_ONLY_STARTED
         );
         if (broadcastOnPreviewOnlyStarted != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(
-                    broadcastOnPreviewOnlyStarted,
-                    intentFilterPreviewOnlyStarted,
-                    Context.RECEIVER_EXPORTED
-                );
-            } else {
-                context.registerReceiver(
-                    broadcastOnPreviewOnlyStarted,
-                    intentFilterPreviewOnlyStarted
-                );
-            }
+            androidx.core.content.ContextCompat.registerReceiver(context, broadcastOnPreviewOnlyStarted, intentFilterPreviewOnlyStarted, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
         } else {
             allRegisteredSuccessfully = false;
             FLog.e(TAG, "broadcastOnPreviewOnlyStarted is null, not registering");
@@ -3253,18 +3183,7 @@ public class HomeFragment extends BaseFragment {
             Constants.BROADCAST_ON_PREVIEW_ONLY_STOPPED
         );
         if (broadcastOnPreviewOnlyStopped != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(
-                    broadcastOnPreviewOnlyStopped,
-                    intentFilterPreviewOnlyStopped,
-                    Context.RECEIVER_EXPORTED
-                );
-            } else {
-                context.registerReceiver(
-                    broadcastOnPreviewOnlyStopped,
-                    intentFilterPreviewOnlyStopped
-                );
-            }
+            androidx.core.content.ContextCompat.registerReceiver(context, broadcastOnPreviewOnlyStopped, intentFilterPreviewOnlyStopped, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
         } else {
             allRegisteredSuccessfully = false;
             FLog.e(TAG, "broadcastOnPreviewOnlyStopped is null, not registering");
@@ -3304,7 +3223,7 @@ public class HomeFragment extends BaseFragment {
                 context.registerReceiver(
                     recordingCompleteReceiver,
                     new IntentFilter(Constants.ACTION_RECORDING_COMPLETE),
-                    Context.RECEIVER_EXPORTED
+                    Context.RECEIVER_NOT_EXPORTED
                 );
                 isCompletionReceiverRegistered = true; // isCompletionReceiverRegistered is the correct flag here
                 FLog.d(TAG, "ACTION_RECORDING_COMPLETE receiver registered.");
@@ -3331,16 +3250,7 @@ public class HomeFragment extends BaseFragment {
         );
         try {
             // method(registerTorchReceiver_add_export_flag_for_Tiramisu)-----
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(
-                    torchReceiver,
-                    filter,
-                    Context.RECEIVER_EXPORTED
-                ); // Or RECEIVER_NOT_EXPORTED
-                // if purely internal
-            } else {
-                context.registerReceiver(torchReceiver, filter);
-            }
+            androidx.core.content.ContextCompat.registerReceiver(context, torchReceiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
             // ContextCompat.registerReceiver(context, torchReceiver, filter,
             // ContextCompat.RECEIVER_NOT_EXPORTED);
             // method(registerTorchReceiver_add_export_flag_for_Tiramisu)-----
@@ -9726,18 +9636,7 @@ public class HomeFragment extends BaseFragment {
             IntentFilter filter = new IntentFilter(
                 Constants.BROADCAST_ON_TORCH_STATE_CHANGED
             );
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                requireContext().registerReceiver(
-                    torchReceiver,
-                    filter,
-                    Context.RECEIVER_EXPORTED
-                ); // Or
-                // RECEIVER_NOT_EXPORTED
-                // if strictly
-                // internal
-            } else {
-                requireContext().registerReceiver(torchReceiver, filter);
-            }
+            androidx.core.content.ContextCompat.registerReceiver(requireContext(), torchReceiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
             // ContextCompat.registerReceiver(context, torchReceiver, filter,
             // ContextCompat.RECEIVER_NOT_EXPORTED);
             // method(setupTorchButton_correct_torch_receiver_registration)-----
@@ -10647,7 +10546,7 @@ public class HomeFragment extends BaseFragment {
         // Register GPS provider change listener for real-time banner updates
         gpsProviderReceiver = new GpsProviderReceiver();
         IntentFilter gpsFilter = new IntentFilter(android.location.LocationManager.PROVIDERS_CHANGED_ACTION);
-        requireContext().registerReceiver(gpsProviderReceiver, gpsFilter);
+        androidx.core.content.ContextCompat.registerReceiver(requireContext(), gpsProviderReceiver, gpsFilter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
 
         // Listen for location-related pref changes so the banner updates immediately
         // when the user toggles location watermark or motion lab features
@@ -12450,18 +12349,7 @@ public class HomeFragment extends BaseFragment {
             Constants.ACTION_CAMERA_RESOURCE_AVAILABILITY
         );
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                requireContext().registerReceiver(
-                    cameraResourceAvailabilityReceiver,
-                    filter,
-                    Context.RECEIVER_NOT_EXPORTED
-                );
-            } else {
-                requireContext().registerReceiver(
-                    cameraResourceAvailabilityReceiver,
-                    filter
-                );
-            }
+            androidx.core.content.ContextCompat.registerReceiver(requireContext(), cameraResourceAvailabilityReceiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
             isCameraResourceAvailabilityReceiverRegistered = true;
             FLog.d(TAG, "Camera resource availability receiver registered");
         } catch (Exception e) {
@@ -12559,18 +12447,7 @@ public class HomeFragment extends BaseFragment {
                     Constants.ACTION_RECORDING_SEGMENT_COMPLETE
                 );
                 // Add receiver export flag for Android 13+
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    context.registerReceiver(
-                        segmentCompleteStatsReceiver,
-                        filter,
-                        Context.RECEIVER_NOT_EXPORTED
-                    );
-                } else {
-                    context.registerReceiver(
-                        segmentCompleteStatsReceiver,
-                        filter
-                    );
-                }
+                androidx.core.content.ContextCompat.registerReceiver(context, segmentCompleteStatsReceiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
                 isSegmentCompleteStatsReceiverRegistered = true;
                 // OPTIMIZATION: Removed generic receiver registration log
             } else {

@@ -262,11 +262,7 @@ public class RecordingTileService extends TileService {
         filter.addAction(Constants.BROADCAST_ON_RECORDING_STOPPED);
         filter.addAction(Constants.BROADCAST_ON_DUAL_RECORDING_STARTED);
         filter.addAction(Constants.BROADCAST_ON_DUAL_RECORDING_STOPPED);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(stateReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(stateReceiver, filter);
-        }
+        androidx.core.content.ContextCompat.registerReceiver(this, stateReceiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
     }
 
     private void unregisterStateReceiver() {

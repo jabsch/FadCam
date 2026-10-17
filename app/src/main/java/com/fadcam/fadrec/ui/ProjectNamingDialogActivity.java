@@ -123,7 +123,7 @@ public class ProjectNamingDialogActivity extends Activity {
             Intent resultIntent = new Intent(ACTION_PROJECT_RENAMED);
             resultIntent.putExtra(EXTRA_PROJECT_NAME, newName);
             resultIntent.putExtra(EXTRA_PROJECT_DESCRIPTION, newDescription);
-            sendBroadcast(resultIntent);
+            sendBroadcast(resultIntent.setPackage(getPackageName()));
             
             finish();
         });

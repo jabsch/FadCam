@@ -112,7 +112,7 @@ public class ColorPickerDialogActivity extends Activity {
                 // Send result back to service
                 Intent resultIntent = new Intent(ACTION_COLOR_SELECTED);
                 resultIntent.putExtra(EXTRA_SELECTED_COLOR, finalColor);
-                sendBroadcast(resultIntent);
+                sendBroadcast(resultIntent.setPackage(getPackageName()));
                 
                 // Dismiss dialog and close activity
                 dialog.dismiss();

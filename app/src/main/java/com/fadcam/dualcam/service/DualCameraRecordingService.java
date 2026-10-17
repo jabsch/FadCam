@@ -797,7 +797,7 @@ public class DualCameraRecordingService extends Service {
                 .putBoolean(Constants.PREF_TORCH_STATE, isTorchOn).apply();
         Intent broadcast = new Intent(Constants.BROADCAST_ON_TORCH_STATE_CHANGED);
         broadcast.putExtra(Constants.INTENT_EXTRA_TORCH_STATE, isTorchOn);
-        sendBroadcast(broadcast);
+        sendBroadcast(broadcast.setPackage(getPackageName()));
     }
 
     private void handleSetFrontVideoMirror(Intent intent) {
@@ -909,7 +909,7 @@ public class DualCameraRecordingService extends Service {
                     Intent recordingCompleteIntent = new Intent(Constants.ACTION_RECORDING_COMPLETE);
                     recordingCompleteIntent.putExtra(Constants.EXTRA_RECORDING_SUCCESS, true);
                     recordingCompleteIntent.putExtra(Constants.EXTRA_RECORDING_URI_STRING, savedUri.toString());
-                    sendBroadcast(recordingCompleteIntent);
+                    sendBroadcast(recordingCompleteIntent.setPackage(getPackageName()));
                     mainHandler.post(() -> Toast.makeText(getApplicationContext(),
                             R.string.photo_capture_saved, Toast.LENGTH_SHORT).show());
                 } else {
@@ -2315,7 +2315,7 @@ public class DualCameraRecordingService extends Service {
     private void broadcastError(@NonNull String reason) {
         Intent intent = new Intent(Constants.BROADCAST_ON_DUAL_CAMERA_ERROR);
         intent.putExtra("error_reason", reason);
-        sendBroadcast(intent);
+        sendBroadcast(intent.setPackage(getPackageName()));
     }
 
     private void broadcastRecordingComplete(boolean success) {
@@ -2325,7 +2325,7 @@ public class DualCameraRecordingService extends Service {
             if (lastRecordingUriString != null && !lastRecordingUriString.isEmpty()) {
                 recordingCompleteIntent.putExtra(Constants.EXTRA_RECORDING_URI_STRING, lastRecordingUriString);
             }
-            sendBroadcast(recordingCompleteIntent);
+            sendBroadcast(recordingCompleteIntent.setPackage(getPackageName()));
             FLog.d(TAG, "Broadcasted ACTION_RECORDING_COMPLETE for dual recording. success=" + success);
         } catch (Exception e) {
             FLog.e(TAG, "Error broadcasting ACTION_RECORDING_COMPLETE for dual recording", e);
