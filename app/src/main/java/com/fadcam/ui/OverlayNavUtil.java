@@ -56,7 +56,9 @@ public final class OverlayNavUtil {
             if(sameInstance){
                 container.setVisibility(View.GONE);
                 container.setAlpha(1f);
-                if(activity instanceof MainActivity){
+                // WatchMainActivity hosts the same overlay container; without the pop the dismissed
+                // overlay stayed on its back stack and the next Back press only popped that
+                if(activity instanceof MainActivity || activity instanceof WatchMainActivity){
                     if(activity.getSupportFragmentManager().getBackStackEntryCount()>0){
                         activity.getSupportFragmentManager().popBackStack();
                     }

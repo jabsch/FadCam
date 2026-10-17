@@ -206,7 +206,7 @@ public class WatchRecordsFragment extends Fragment {
             startActivity(intent);
         } catch (Exception e) {
             FLog.e(TAG, "Failed to start player", e);
-            Toast.makeText(requireContext(), "Cannot play: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(requireContext(), getString(R.string.watch_play_failed, String.valueOf(e.getMessage())), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -297,7 +297,7 @@ public class WatchRecordsFragment extends Fragment {
                 FLog.e(TAG, "Save failed", e);
                 mainHandler.post(() -> {
                     if (isAdded()) Toast.makeText(requireContext(),
-                            "Save failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                            getString(R.string.watch_save_failed, String.valueOf(e.getMessage())), Toast.LENGTH_LONG).show();
                 });
             }
         });

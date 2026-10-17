@@ -61,6 +61,7 @@
         <!-- Play / Pause button — centred -->
         <ImageView
             android:id="@+id/watch_player_play_pause"
+            android:contentDescription="@string/watch_player_pause"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:src="@drawable/ic_pause"
