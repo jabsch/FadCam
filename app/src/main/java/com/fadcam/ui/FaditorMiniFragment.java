@@ -332,8 +332,10 @@ public class FaditorMiniFragment extends BaseFragment {
                         com.fadcam.ui.faditor.export.ExportService.EXTRA_ERROR_MESSAGE);
                     FLog.d("FaditorMiniFragment", "Export error: " + errorMsg);
                     // Post to main thread
-                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> 
-                        onExportError(errorMsg != null ? errorMsg : "Unknown error"));
+                    String shownError = errorMsg != null ? errorMsg
+                            : context.getString(R.string.faditor_unknown_error);
+                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
+                        onExportError(shownError));
 
                 } else if (com.fadcam.ui.faditor.export.ExportService.ACTION_EXPORT_CANCELLED.equals(action)) {
                     FLog.d("FaditorMiniFragment", "Export cancelled");

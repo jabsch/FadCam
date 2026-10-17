@@ -230,7 +230,7 @@ public class FlipPickerBottomSheet extends BottomSheetDialogFragment {
 
         // Label
         TextView labelView = new TextView(requireContext());
-        labelView.setText("Reset");
+        labelView.setText(R.string.universal_reset);
         labelView.setTextSize(15);
         labelView.setTextColor(0xFFF44336);
         labelView.setTypeface(null, Typeface.BOLD);

@@ -306,7 +306,7 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
         resetRow.addView(resetIcon);
 
         TextView resetLabel = new TextView(requireContext());
-        resetLabel.setText("Reset");
+        resetLabel.setText(R.string.universal_reset);
         resetLabel.setTextSize(15);
         resetLabel.setTextColor(0xFFF44336);
         resetLabel.setTypeface(null, Typeface.BOLD);
