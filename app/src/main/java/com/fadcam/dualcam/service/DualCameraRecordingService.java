@@ -2039,6 +2039,13 @@ public class DualCameraRecordingService extends Service {
         });
 
         durationPreferenceListener = (preferences, key) -> {
+            if (isNotificationPrefKey(key)) {
+                // Preset, custom text and the Stop button apply to the running notification
+                // too; debounced since custom text is saved on every keystroke
+                mainHandler.removeCallbacks(notificationPrefRefresh);
+                mainHandler.postDelayed(notificationPrefRefresh, 300);
+                return;
+            }
             boolean customValueKey =
                     SharedPreferencesManager.PREF_MAX_RECORDING_DURATION_CUSTOM_MINUTES.equals(key)
                             || SharedPreferencesManager.PREF_MAX_RECORDING_DURATION_CUSTOM_SECONDS.equals(key);
@@ -2081,6 +2088,7 @@ public class DualCameraRecordingService extends Service {
         if (durationLimitController != null) {
             durationLimitController.stopSession();
         }
+        mainHandler.removeCallbacks(notificationPrefRefresh);
         if (prefs != null && durationPreferenceListener != null) {
             prefs.sharedPreferences.unregisterOnSharedPreferenceChangeListener(
                     durationPreferenceListener);
@@ -2276,6 +2284,22 @@ public class DualCameraRecordingService extends Service {
         } else {
             startForeground(NOTIFICATION_ID, notification);
         }
+    }
+
+    private final Runnable notificationPrefRefresh = () -> {
+        if (isStopping) return;
+        if (state == DualCameraState.RECORDING) {
+            if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) return;
+            android.app.NotificationManager nm = getSystemService(android.app.NotificationManager.class);
+            if (nm != null) nm.notify(NOTIFICATION_ID, buildDualCameraNotification(false).build());
+        } else if (state == DualCameraState.PAUSED) {
+            updatePausedNotification();
+        }
+    };
+
+    private static boolean isNotificationPrefKey(String key) {
+        return com.fadcam.services.RecordingService.isNotificationPrefKey(key);
     }
 
     private void updatePausedNotification() {

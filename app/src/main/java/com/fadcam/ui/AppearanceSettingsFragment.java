@@ -536,7 +536,7 @@ public class AppearanceSettingsFragment extends Fragment {
         else if (key.equals(Constants.APP_ICON_FOOTBALL)) button.setText(getString(R.string.app_icon_football));
         else if (key.equals(Constants.APP_ICON_CAR)) button.setText(getString(R.string.app_icon_car));
         else if (key.equals(Constants.APP_ICON_JET)) button.setText(getString(R.string.app_icon_jet));
-        else if (key.equals(Constants.APP_ICON_BLACK)) button.setText("");
+        else if (key.equals(Constants.APP_ICON_BLACK)) button.setText(getString(R.string.app_icon_black));
     }
 
     /** Icon option: original label string + descriptive codename badge (like shortcuts). */
@@ -622,7 +622,7 @@ public class AppearanceSettingsFragment extends Fragment {
             iconOption(Constants.APP_ICON_JET, getString(R.string.app_icon_jet), "Jet", R.mipmap.ic_launcher_jet)
         );
         items.add(
-            iconOption(Constants.APP_ICON_BLACK, "", "Black", R.mipmap.ic_launcher_black)
+            iconOption(Constants.APP_ICON_BLACK, getString(R.string.app_icon_black), "Black", R.mipmap.ic_launcher_black)
         );
         String current = sharedPreferencesManager.sharedPreferences.getString(
             Constants.PREF_APP_ICON,

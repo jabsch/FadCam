@@ -352,6 +352,13 @@ public class RecordingService extends Service {
         });
 
         durationPreferenceListener = (preferences, key) -> {
+            if (isNotificationPrefKey(key)) {
+                // Preset, custom text and the Stop button apply to the running notification
+                // too; debounced since custom text is saved on every keystroke
+                mainHandler.removeCallbacks(notificationPrefRefresh);
+                mainHandler.postDelayed(notificationPrefRefresh, 300);
+                return;
+            }
             boolean customValueKey =
                     SharedPreferencesManager.PREF_MAX_RECORDING_DURATION_CUSTOM_MINUTES.equals(key)
                             || SharedPreferencesManager.PREF_MAX_RECORDING_DURATION_CUSTOM_SECONDS.equals(key);
@@ -395,6 +402,7 @@ public class RecordingService extends Service {
         if (durationLimitController != null) {
             durationLimitController.stopSession();
         }
+        mainHandler.removeCallbacks(notificationPrefRefresh);
         if (sharedPreferencesManager != null && durationPreferenceListener != null) {
             sharedPreferencesManager.sharedPreferences.unregisterOnSharedPreferenceChangeListener(
                     durationPreferenceListener);
@@ -5786,6 +5794,24 @@ public class RecordingService extends Service {
         }
     }
 
+    public static boolean isNotificationPrefKey(String key) {
+        return SharedPreferencesManager.PREF_NOTIFICATION_PRESET.equals(key)
+                || SharedPreferencesManager.PREF_CUSTOM_NOTIFICATION_TITLE.equals(key)
+                || SharedPreferencesManager.PREF_CUSTOM_NOTIFICATION_TEXT.equals(key)
+                || SharedPreferencesManager.PREF_HIDE_NOTIFICATION_STOP_BUTTON.equals(key);
+    }
+
+    private final Runnable notificationPrefRefresh = () -> {
+        if (isStopping) return;
+        if (recordingState == RecordingState.IN_PROGRESS) {
+            if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) return;
+            postFullRecordingNotification();
+        } else if (recordingState == RecordingState.PAUSED) {
+            setupRecordingResumeNotification();
+        }
+    };
+
     private void setupRecordingInProgressNotification() {
         if (ActivityCompat.checkSelfPermission(this,
                 android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -5875,6 +5901,11 @@ public class RecordingService extends Service {
         } else {
             startForeground(NOTIFICATION_ID, immediateBuilder.build());
         }
+        postFullRecordingNotification();
+    }
+
+    private void postFullRecordingNotification() {
+        if (backgroundHandler == null) return;
         // STEP 2: Build the full notification with custom icon on background thread
         // (bitmap decode must NOT block the main/GL thread — this was causing Davey! frames)
         backgroundHandler.post(() -> {
