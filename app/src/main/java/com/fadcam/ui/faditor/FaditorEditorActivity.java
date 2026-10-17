@@ -291,6 +291,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * Falls back to clip 0 if the index is out of range.
      */
     @NonNull
+    /** The clip a trim handle belongs to; the handle may sit on a segment that isn't selected. */
+    @Nullable
+    private Clip trimClipAt(int segmentIndex) {
+        Timeline tl = project.getTimeline();
+        if (segmentIndex < 0 || segmentIndex >= tl.getClipCount()) return null;
+        return tl.getClip(segmentIndex);
+    }
+
     private Clip getSelectedClip() {
         int count = project.getTimeline().getClipCount();
         if (selectedClipIndex < 0 || selectedClipIndex >= count) {
@@ -592,14 +600,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public void onTrimChanged(int segmentIndex, float startFraction, float endFraction, boolean isLeft) {
                 if (!userDragging) {
                     // First drag callback — capture pre-trim values for undo
-                    Clip clip = getSelectedClip();
+                    Clip clip = trimClipAt(segmentIndex);
                     if (clip != null) {
                         preTrimInMs = clip.getInPointMs();
                         preTrimOutMs = clip.getOutPointMs();
                     }
                 }
                 userDragging = true;
-                Clip clip = getSelectedClip();
+                Clip clip = trimClipAt(segmentIndex);
                 if (clip == null) return;
                 long duration = clip.getSourceDurationMs();
                 clip.setInPointMs((long)(startFraction * duration));
@@ -613,7 +621,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onTrimFinished(int segmentIndex, float startFraction, float endFraction) {
                 userDragging = false;
-                Clip clip = getSelectedClip();
+                Clip clip = trimClipAt(segmentIndex);
                 if (clip == null) return;
                 long duration = clip.getSourceDurationMs();
                 long newIn = (long)(startFraction * duration);
@@ -634,7 +642,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 clip.setInPointMs(newIn);
                 clip.setOutPointMs(newOut);
                 editorTimeline.setTrimFromClip(clip);
-                if (!clip.isImageClip()) {
+                // The player holds the selected clip; trimming another segment must not
+                // load that segment's bounds onto it
+                if (!clip.isImageClip() && segmentIndex == selectedClipIndex) {
                     playerManager.updateTrimBounds(clip);
                 }
                 updateCurrentTimeDisplay(0);
@@ -3448,17 +3458,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void saveUndoHistoryNow() {
         if (project != null && projectStorage != null) {
             List<UndoManager.HistoryEntry> history = undoManager.getUndoHistory();
-            if (!history.isEmpty()) {
-                List<String> descriptions = new ArrayList<>();
-                List<String> snapshots = new ArrayList<>();
-                for (UndoManager.HistoryEntry entry : history) {
-                    if (entry.getSnapshotBefore() != null) {
-                        descriptions.add(entry.getDescription());
-                        snapshots.add(entry.getSnapshotBefore());
-                    }
+            // Also when empty: undoing everything must overwrite the old file, or the
+            // undone edits came back as undo history on the next open
+            List<String> descriptions = new ArrayList<>();
+            List<String> snapshots = new ArrayList<>();
+            for (UndoManager.HistoryEntry entry : history) {
+                if (entry.getSnapshotBefore() != null) {
+                    descriptions.add(entry.getDescription());
+                    snapshots.add(entry.getSnapshotBefore());
                 }
-                projectStorage.saveUndoHistory(project.getId(), descriptions, snapshots);
             }
+            projectStorage.saveUndoHistory(project.getId(), descriptions, snapshots);
         }
     }
 

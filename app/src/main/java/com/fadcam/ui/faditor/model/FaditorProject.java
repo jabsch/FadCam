@@ -108,6 +108,11 @@ public class FaditorProject {
         touch();
     }
 
+    /** Sets the preset while loading, without marking the project as just edited. */
+    public void restoreCanvasPreset(@NonNull String canvasPreset) {
+        this.canvasPreset = canvasPreset;
+    }
+
     public void setName(@NonNull String name) {
         this.name = name;
         touch();
