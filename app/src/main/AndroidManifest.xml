@@ -432,11 +432,15 @@
             android:name=".services.RecordingTileService"
             android:exported="true"
             android:icon="@drawable/ic_qs_tile_videocam_back"
-            android:label="@string/shortcut_start_back"
+            android:label="@string/record_tile_label"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
+            <!-- TalkBack reads it as an on/off switch (Android 13+) -->
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
         </service>
 
         <!-- Audio-only voice recording (voice shortcut / hardware button) -->
