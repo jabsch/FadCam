@@ -212,7 +212,11 @@ public class SettingsHomeFragment extends Fragment {
         // Position popup below the anchor button
         int[] anchorPos = new int[2];
         anchor.getLocationOnScreen(anchorPos);
-        int x = anchorPos[0] + anchor.getWidth() / 2 - 100; // center the 200dp popup
+        // Center on the measured popup (the old fixed offset was in px, so it sat off-center)
+        popupView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        int screenW = getResources().getDisplayMetrics().widthPixels;
+        int x = anchorPos[0] + (anchor.getWidth() - popupView.getMeasuredWidth()) / 2;
+        x = Math.max(0, Math.min(x, screenW - popupView.getMeasuredWidth()));
         int y = anchorPos[1] + anchor.getHeight() + 4;
 
         popup.showAtLocation(anchor, android.view.Gravity.TOP | android.view.Gravity.START, x, y);

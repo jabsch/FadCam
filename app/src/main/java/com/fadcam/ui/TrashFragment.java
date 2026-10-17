@@ -420,6 +420,8 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
             return;
         List<TrashItem> loadedItems = TrashManager.loadTrashMetadata(getContext());
         allTrashItems.clear();
+        // Metadata is in trash order (oldest first); the list shows newest first
+        loadedItems.sort((a, b) -> Long.compare(b.getDateTrashed(), a.getDateTrashed()));
         allTrashItems.addAll(loadedItems);
         applyTrashFilter();
     }
@@ -708,7 +710,7 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
                 }
                 
                 String sizeStr = Formatter.formatShortFileSize(requireContext(), totalSize);
-                String titleText_new = selectedCount + " selected • " + sizeStr;
+                String titleText_new = getResources().getQuantityString(R.plurals.records_selected_count, selectedCount, selectedCount) + " • " + sizeStr;
                 titleText.animateSlot(titleText_new, 300);
             } else {
                 titleText.animateSlot(getString(R.string.trash_fragment_title_text), 300);
@@ -1405,7 +1407,7 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
         if (getContext() == null) return;
 
         // Get available restore destinations
-        List<TrashManager.RestoreDestination> destinations = TrashManager.getAvailableRestoreDestinations(selectedItems);
+        List<TrashManager.RestoreDestination> destinations = TrashManager.getAvailableRestoreDestinations(requireContext(), selectedItems);
         
         // Create option items for the picker
         ArrayList<OptionItem> options = new ArrayList<>();
@@ -1629,7 +1631,8 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
             boolean success = TrashManager.permanentlyDeleteItems(app, selectedItems);
             new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                 Toast.makeText(app, success ? doneMsg : errorMsg, Toast.LENGTH_SHORT).show();
-                if (success && isAdded()) {
+                // Reload even on partial failure: the items that did go are gone
+                if (isAdded()) {
                     loadTrashItems();
                 }
             });
@@ -1667,7 +1670,8 @@ public class TrashFragment extends BaseFragment implements TrashAdapter.OnTrashI
             boolean success = TrashManager.restoreItemsFromTrash(app, selectedItems, destination);
             new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                 Toast.makeText(app, success ? successMsg : errorMsg, Toast.LENGTH_LONG).show();
-                if (success && isAdded()) {
+                // Reload even on partial failure: the items that did go are gone
+                if (isAdded()) {
                     loadTrashItems(); // Refresh trash list
                     
                     // Add a small delay to ensure UI is ready, then refresh Records tab
