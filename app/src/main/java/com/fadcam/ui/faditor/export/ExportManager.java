@@ -30,6 +30,7 @@ import androidx.media3.transformer.ExportResult;
 import androidx.media3.transformer.Transformer;
 
 import com.fadcam.Constants;
+import com.fadcam.R;
 import com.fadcam.SharedPreferencesManager;
 import com.fadcam.ui.faditor.CanvasPickerBottomSheet;
 import com.fadcam.ui.faditor.model.AudioClip;
@@ -201,15 +202,26 @@ public class ExportManager {
                                 FLog.d(TAG, "SAF copy dropped: export was cancelled");
                                 return;
                             }
-                            if (safResult != null) {
-                                FLog.d(TAG, "Export copied to SAF: " + safResult);
-                            } else {
-                                FLog.e(TAG, "SAF copy failed, file remains at: " + tempPath);
+                            if (safResult == null) {
+                                // The temp file sits in the cache, where Records never shows it,
+                                // so report the failure instead of a completed export
+                                FLog.e(TAG, "SAF copy failed for: " + tempPath);
+                                new File(tempPath).delete();
+                                completionHandler.post(() -> {
+                                    if (generation == exportGeneration) {
+                                        isExporting = false;
+                                        if (listener != null) {
+                                            listener.onExportError(new java.io.IOException(context.getString(
+                                                    R.string.faditor_export_saf_failed)));
+                                        }
+                                    }
+                                });
+                                return;
                             }
-                            String finalPath = safResult != null ? safResult : tempPath;
+                            FLog.d(TAG, "Export copied to SAF: " + safResult);
                             completionHandler.post(() -> {
                                 if (generation == exportGeneration) {
-                                    finishExport(finalPath, result);
+                                    finishExport(safResult, result);
                                 }
                             });
                         }, "FaditorSafCopy").start();
@@ -348,6 +360,7 @@ public class ExportManager {
             }
         }
 
+        boolean anyAudioRemoved = false;
         for (Clip clip : project.getTimeline().getClips()) {
             MediaItem mediaItem;
 
@@ -382,6 +395,7 @@ public class ExportManager {
             // Mute audio if requested or if image clip (no audio track)
             if (clip.isAudioMuted() || clip.isImageClip()) {
                 editedBuilder.setRemoveAudio(true);
+                anyAudioRemoved = true;
             }
 
             // Collect effects
@@ -458,8 +472,12 @@ public class ExportManager {
             items.add(editedBuilder.build());
         }
 
+        // Muted and image clips carry no audio; forcing an audio track fills them with
+        // silence, since Transformer rejects a sequence where only some items have audio
         EditedMediaItemSequence videoSequence =
-                new EditedMediaItemSequence.Builder(items).build();
+                new EditedMediaItemSequence.Builder(items)
+                        .experimentalSetForceAudioTrack(anyAudioRemoved)
+                        .build();
 
         // Build audio sequence from AudioClips on the audio track (if any)
         Timeline timeline = project.getTimeline();
@@ -511,8 +529,13 @@ public class ExportManager {
             // Insert silence gap if necessary
             if (clipStartMs > cursorMs) {
                 long gapMs = clipStartMs - cursorMs;
-                EditedMediaItem silenceItem = buildSilenceItem(silenceUri, gapMs);
-                audioItems.add(silenceItem);
+                // The silence file is SILENCE_FILE_MS long, so longer gaps take several
+                // pieces; one clipped piece would end early and pull later clips forward
+                while (gapMs > 0) {
+                    long pieceMs = Math.min(gapMs, SILENCE_FILE_MS);
+                    audioItems.add(buildSilenceItem(silenceUri, pieceMs));
+                    gapMs -= pieceMs;
+                }
                 cursorMs = clipStartMs;
             }
 
@@ -559,6 +582,9 @@ public class ExportManager {
      * required duration. For gaps longer than 1 s the file is looped or
      * a longer file is generated.
      */
+    /** Length of the generated silence file. */
+    private static final long SILENCE_FILE_MS = 600_000L;
+
     @NonNull
     private EditedMediaItem buildSilenceItem(@NonNull Uri silenceUri, long durationMs) {
         // Clip the silence file to the required duration
@@ -589,20 +615,19 @@ public class ExportManager {
         if (!cacheDir.exists()) cacheDir.mkdirs();
 
         File silenceFile = new File(cacheDir, "silence.wav");
-        if (silenceFile.exists() && silenceFile.length() > 44) {
+        int sampleRate = 44100;
+        int channels = 1;
+        int bitsPerSample = 16;
+        long durationSeconds = SILENCE_FILE_MS / 1000;
+        long numSamples = sampleRate * durationSeconds;
+        long dataSize = numSamples * channels * (bitsPerSample / 8);
+        // Only a complete file is reused; a write cut short earlier is regenerated
+        if (silenceFile.exists() && silenceFile.length() == 44 + dataSize) {
             return silenceFile;
         }
 
-        try {
-            // Generate a 10-minute silent WAV (enough for any gap)
-            int sampleRate = 44100;
-            int channels = 1;
-            int bitsPerSample = 16;
-            long durationSeconds = 600; // 10 minutes
-            long numSamples = sampleRate * durationSeconds;
-            long dataSize = numSamples * channels * (bitsPerSample / 8);
-
-            FileOutputStream fos = new FileOutputStream(silenceFile);
+        File tempFile = new File(cacheDir, "silence.wav.tmp");
+        try (FileOutputStream fos = new FileOutputStream(tempFile)) {
 
             // WAV header (44 bytes)
             ByteBuffer header = ByteBuffer.allocate(44);
@@ -641,6 +666,12 @@ public class ExportManager {
 
             fos.flush();
             fos.close();
+            if (!tempFile.renameTo(silenceFile)) {
+                silenceFile.delete();
+                if (!tempFile.renameTo(silenceFile)) {
+                    throw new java.io.IOException("Could not move silence file into place");
+                }
+            }
 
             FLog.d(TAG, "Created silence file: " + silenceFile.getAbsolutePath()
                     + " (" + silenceFile.length() + " bytes)");
@@ -648,6 +679,7 @@ public class ExportManager {
 
         } catch (Exception e) {
             FLog.e(TAG, "Failed to create silence WAV file", e);
+            tempFile.delete();
             return null;
         }
     }
@@ -778,6 +810,7 @@ public class ExportManager {
             return null;
         }
 
+        DocumentFile docFile = null;
         try {
             Uri treeUri = Uri.parse(customUriString);
             DocumentFile pickedDir = DocumentFile.fromTreeUri(context, treeUri);
@@ -796,7 +829,7 @@ public class ExportManager {
             }
 
             String name = fileName != null ? fileName : tempFile.getName();
-            DocumentFile docFile = pickedDir.createFile(
+            docFile = pickedDir.createFile(
                     "video/" + Constants.RECORDING_FILE_EXTENSION, name);
             if (docFile == null) {
                 FLog.e(TAG, "SAF copy: failed to create DocumentFile: " + name);
@@ -842,6 +875,10 @@ public class ExportManager {
 
         } catch (Exception e) {
             FLog.e(TAG, "SAF copy failed", e);
+            if (docFile != null) {
+                // Drop the half-written document so the folder holds no broken video
+                docFile.delete();
+            }
             return null;
         }
     }

@@ -156,6 +156,10 @@ public class ExportService extends Service {
     /** Last percent shown in the notification and broadcast to the UI. */
     private int lastNotifiedPercent = -1;
 
+    /** Project being exported, so the notification reopens it in the editor. */
+    @Nullable
+    private String exportProjectId;
+
     private void startExportInternal() {
         FaditorProject project = pendingProject;
         pendingProject = null; // consume
@@ -172,6 +176,7 @@ public class ExportService extends Service {
         }
 
         isExporting = true;
+        exportProjectId = project.getId();
         exportStartTimeMs = System.currentTimeMillis();
         lastNotifiedPercent = -1;
 
@@ -308,6 +313,10 @@ public class ExportService extends Service {
         // Tap to open editor
         Intent openIntent = new Intent(this, FaditorEditorActivity.class);
         openIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        if (exportProjectId != null) {
+            // Without a project the editor has nothing to open and closes with an error
+            openIntent.putExtra(FaditorEditorActivity.EXTRA_PROJECT_ID, exportProjectId);
+        }
         PendingIntent openPi = PendingIntent.getActivity(this, 0, openIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
@@ -349,6 +358,10 @@ public class ExportService extends Service {
         // Tap to open editor
         Intent openIntent = new Intent(this, FaditorEditorActivity.class);
         openIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        if (exportProjectId != null) {
+            // Without a project the editor has nothing to open and closes with an error
+            openIntent.putExtra(FaditorEditorActivity.EXTRA_PROJECT_ID, exportProjectId);
+        }
         PendingIntent openPi = PendingIntent.getActivity(this, 0, openIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
@@ -371,7 +384,7 @@ public class ExportService extends Service {
                 .setSmallIcon(R.drawable.ic_export_video)
                 .setContentTitle(getString(R.string.faditor_export_notif_error_title))
                 .setContentText(errorMsg != null ? errorMsg
-                        : getString(R.string.faditor_export_error, "Unknown error"))
+                        : getString(R.string.faditor_export_error, getString(R.string.faditor_unknown_error)))
                 .setOngoing(false)
                 .setAutoCancel(true)
                 .build();

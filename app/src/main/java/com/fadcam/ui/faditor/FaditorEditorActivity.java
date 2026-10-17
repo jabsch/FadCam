@@ -2577,18 +2577,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Cancel export button
         findViewById(R.id.btn_cancel_export).setOnClickListener(v -> {
-            if (exportServiceBound && exportService != null) {
-                exportService.cancelExport();
-            }
+            cancelRunningExport();
             hideExportProgress();
             Toast.makeText(this, R.string.faditor_export_cancelled, Toast.LENGTH_SHORT).show();
         });
 
         // Back button on export screen → cancel and return to editor
         findViewById(R.id.export_btn_back).setOnClickListener(v -> {
-            if (exportServiceBound && exportService != null && exportService.isExporting()) {
-                exportService.cancelExport();
-            }
+            cancelRunningExport();
             hideExportProgress();
         });
 
@@ -2599,6 +2595,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 saveProjectNow();
                 finish();
             });
+        }
+    }
+
+    /**
+     * Cancel the export, also when the service is not bound yet: the cancel
+     * action reaches the running service either way.
+     */
+    private void cancelRunningExport() {
+        if (exportServiceBound && exportService != null) {
+            if (exportService.isExporting()) {
+                exportService.cancelExport();
+            }
+            return;
+        }
+        Intent cancel = new Intent(this, ExportService.class);
+        cancel.setAction(ExportService.ACTION_CANCEL_EXPORT);
+        try {
+            startService(cancel);
+        } catch (Exception e) {
+            FLog.w(TAG, "Could not send export cancel", e);
         }
     }
 
@@ -2720,6 +2736,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // If in crop mode, back = cancel crop
                 if (inCropMode) {
                     exitCropMode(false);
+                    return;
+                }
+
+                // While exporting, back leaves the export running in its notification
+                // instead of counting towards closing the editor
+                if (exportProgressOverlay != null
+                        && exportProgressOverlay.getVisibility() == View.VISIBLE) {
+                    if (exportServiceBound && exportService != null && exportService.isExporting()) {
+                        moveTaskToBack(true);
+                    } else {
+                        hideExportProgress();
+                    }
                     return;
                 }
 
@@ -3559,14 +3587,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
         AddAssetBottomSheet sheet = AddAssetBottomSheet.newInstance();
         sheet.setCallback(isImage -> {
             if (isImage) {
-                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                // OPEN_DOCUMENT so the read grant can be persisted and the clip
+                // still opens after the app restarts
+                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                 intent.setType("image/*");
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
                 imagePickerLauncher.launch(intent);
             } else {
-                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                // OPEN_DOCUMENT so the read grant can be persisted and the clip
+                // still opens after the app restarts
+                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                 intent.setType("video/*");
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
                 videoPickerLauncher.launch(intent);
             }
         });
