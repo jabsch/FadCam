@@ -26,6 +26,15 @@ public class RecordingPresetTileService extends TileService {
     @Override
     public void onClick() {
         super.onClick();
+        // Like the record tile: changing what the next recording uses needs an unlocked phone
+        if (isLocked()) {
+            unlockAndRun(this::applyNextPreset);
+            return;
+        }
+        applyNextPreset();
+    }
+
+    private void applyNextPreset() {
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(this);
         RecordingPreset next = RecordingPreset.next(RecordingPreset.current(prefs));
         next.apply(this);

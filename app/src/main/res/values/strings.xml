@@ -1080,6 +1080,7 @@
     <!-- Below are the start and stop shortcut texts for the shortcuts that appears when we Íss on app icon   -->
     <string name="start_recording">Start</string>
     <string name="shortcut_start_back">Start Back</string>
+    <string name="record_tile_label">Record video</string>
     <string name="shortcut_start_front">Start Front</string>
     <string name="shortcut_start_current">Start Current</string>
     <string name="shortcut_start_dual">Start Dual</string>
