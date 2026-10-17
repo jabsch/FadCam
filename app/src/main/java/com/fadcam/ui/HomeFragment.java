@@ -3321,8 +3321,9 @@ public class HomeFragment extends BaseFragment {
                 long now = System.currentTimeMillis();
                 if (now - lastCameraSwitchCompleteTime > 500) {
                     lastCameraSwitchCompleteTime = now;
-                    String message = "Camera switched to " + (toType.equals("FRONT") ? "front" : "rear");
-                    Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "FRONT".equals(toType)
+                            ? R.string.camera_switched_front : R.string.camera_switched_rear,
+                            Toast.LENGTH_SHORT).show();
                 }
             }
         };
@@ -3344,8 +3345,10 @@ public class HomeFragment extends BaseFragment {
                 long now = System.currentTimeMillis();
                 if (now - lastCameraSwitchCompleteTime > 500) {
                     lastCameraSwitchCompleteTime = now;
-                    String message = "Camera switch failed: " + errorReason;
-                    Toast.makeText(getContext(), message, Toast.LENGTH_LONG).show();
+                    if (getContext() != null) {
+                        Toast.makeText(getContext(), getString(R.string.camera_switch_failed_reason,
+                                errorReason != null ? errorReason : ""), Toast.LENGTH_LONG).show();
+                    }
                 }
             }
         };

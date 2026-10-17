@@ -172,6 +172,10 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
     private float lastTouchX = 0f;
     private float lastTouchY = 0f;
     private boolean isPanningPreview = false;
+    /** Set once a second finger touches down; the gesture's UP is then not a tap. */
+    private boolean multiTouchGesture;
+    /** After a finger lifts mid-gesture, re-anchor the pan to the finger that stays. */
+    private boolean reanchorPan;
 
     // Camera control state — mirrors HomeFragment's fields
     private int currentEvIndex;
@@ -613,13 +617,24 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
                     return true;
                 }
             }
-            if (action == MotionEvent.ACTION_POINTER_DOWN && pendingLongPressRunnable != null) {
-                longPressHandler.removeCallbacks(pendingLongPressRunnable);
+            if (action == MotionEvent.ACTION_POINTER_DOWN) {
+                multiTouchGesture = true;
+                if (pendingLongPressRunnable != null) {
+                    longPressHandler.removeCallbacks(pendingLongPressRunnable);
+                }
+            }
+            if (action == MotionEvent.ACTION_POINTER_UP) {
+                // lastTouchX/Y belong to the first finger; measuring the next move from
+                // there made the view jump by the distance between the fingers
+                reanchorPan = true;
+                return true;
             }
 
             if (action == MotionEvent.ACTION_DOWN) {
                 longPressTriggered = false;
                 isPanningPreview = false;
+                multiTouchGesture = false;
+                reanchorPan = false;
                 lastTouchX = event.getX();
                 lastTouchY = event.getY();
                 pendingLongPressRunnable = () -> {
@@ -632,6 +647,12 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
                     longPressHandler.postDelayed(pendingLongPressRunnable, 420L);
                 }
                 v.setPressed(true);
+                return true;
+            }
+            if (action == MotionEvent.ACTION_MOVE && reanchorPan) {
+                reanchorPan = false;
+                lastTouchX = event.getX();
+                lastTouchY = event.getY();
                 return true;
             }
             if (action == MotionEvent.ACTION_MOVE) {
@@ -678,9 +699,11 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
                 longPressTriggered = false;
                 return true;
             }
-            if (isPanningPreview) {
+            if (isPanningPreview || multiTouchGesture) {
                 isPanningPreview = false;
-                // Send the settled pan; moves above are throttled
+                multiTouchGesture = false;
+                // Send the settled zoom and pan (moves above are throttled). Lifting the
+                // last finger of a pinch is not a tap, so no focus ring or controls toggle
                 dispatchZoomPanToCamera(pinchZoomRatio);
                 return true;
             }
@@ -788,11 +811,13 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
                 // Hint visibility will be updated by BROADCAST_ON_PREVIEW_ONLY_STOPPED
             } else {
                 // START PREVIEW
-                prefs.setPreviewEnabled(true);
                 if (prefs.getCameraSelection() != CameraType.BACK && prefs.getCameraSelection() != CameraType.FRONT) {
                     Toast.makeText(this, R.string.preview_dual_not_supported, Toast.LENGTH_SHORT).show();
                     return;
                 }
+                // Only after the dual check: a refused start left this on, and preview
+                // later started by itself on single-camera Home
+                prefs.setPreviewEnabled(true);
                 
                 intent.setAction(Constants.INTENT_ACTION_START_PREVIEW_ONLY);
                 if ((previewSurface == null || !previewSurface.isValid()) && textureView != null && textureView.isAvailable()) {
@@ -1132,7 +1157,11 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
             if (isRecordingPaused && textureView != null && textureView.isAvailable()) {
                 SurfaceTexture st = textureView.getSurfaceTexture();
                 if (st != null) {
-                    intent.putExtra("SURFACE", new Surface(st));
+                    // Reuse the preview's Surface; a new one each resume was never released
+                    if (previewSurface == null || !previewSurface.isValid()) {
+                        previewSurface = new Surface(st);
+                    }
+                    intent.putExtra("SURFACE", previewSurface);
                     intent.putExtra("SURFACE_WIDTH", textureView.getWidth());
                     intent.putExtra("SURFACE_HEIGHT", textureView.getHeight());
                 }
@@ -1197,8 +1226,12 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
                     .edit()
                     .putString(Constants.PREF_CAMERA_SELECTION, targetType.toString())
                     .apply();
-            pinchZoomRatio = prefs.getSpecificZoomRatio(targetType);
+            // Zoom, scale and pan all follow the new camera; a stale scale above 1x
+            // blocked the long-press that starts preview
+            syncZoomUiStateFromPrefs(true);
+            applyPreviewTransform();
             updateZoomHudUi(pinchZoomRatio);
+            updateZoomTileTint();
             updateMirrorButtonVisibilityAndState();
             Toast.makeText(this,
                     targetType == CameraType.FRONT ? R.string.camera_switched_front : R.string.camera_switched_rear,
@@ -1399,6 +1432,11 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
                     if (index < 0 || index >= ratios.size()) return;
                     float zoomRatio = ratios.get(index);
                     prefs.setSpecificZoomRatio(cam, zoomRatio);
+                    // The next pinch starts from this value, and the HUD shows it
+                    pinchZoomRatio = zoomRatio;
+                    previewUiScale = Math.max(1.0f, Math.min(4.0f, zoomRatio));
+                    applyPreviewTransform();
+                    updateZoomHudUi(zoomRatio);
                     updateZoomTileTint();
                     Intent intent = RecordingControlIntents.setZoomRatio(this, zoomRatio);
                     intent.setClass(this, getTargetServiceClass());
@@ -1451,11 +1489,26 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
         return 5f;
     }
 
+    /** The lens's real minimum: the front camera and some lenses can't go below 1.0x. */
+    private float getMinZoomRatio(CameraType cam) {
+        try {
+            String id = getCameraIdForType(cam);
+            if (id != null && cameraManager != null && Build.VERSION.SDK_INT >= 30) {
+                Range<Float> range = cameraManager.getCameraCharacteristics(id)
+                        .get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE);
+                if (range != null) return range.getLower();
+            }
+        } catch (Exception ignored) { }
+        return 1.0f;
+    }
+
     @NonNull
     private List<Float> buildZoomRatioOptions(CameraType cam) {
         List<Float> list = new ArrayList<>();
+        float min = getMinZoomRatio(cam);
         float max = getMaxZoomRatio(cam);
         for (float z = 0.5f; z <= max + 0.001f; z += 0.5f) {
+            if (z < min - 0.001f) continue;
             list.add(((float) Math.round(z * 10)) / 10f);
         }
         if (!list.contains(1.0f)) list.add(1.0f);
@@ -1465,7 +1518,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
 
     private void applyPinchZoom(float scaleFactor) {
         CameraType cam = prefs.getCameraSelection();
-        float minZoom = 0.5f;
+        float minZoom = getMinZoomRatio(cam);
         float maxZoom = getMaxZoomRatio(cam);
         float base = pinchZoomRatio > 0f ? pinchZoomRatio : prefs.getSpecificZoomRatio(cam);
         float next = Math.max(minZoom, Math.min(maxZoom, base * scaleFactor));

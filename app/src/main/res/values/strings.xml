@@ -3430,4 +3430,5 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="torch_notification_toggling">Toggling torch…</string>
     <string name="video_bitrate_summary_custom">%1$.1f Mbps (Custom)</string>
     <string name="video_bitrate_summary_auto">%1$.1f Mbps (Auto)</string>
+    <string name="camera_switch_failed_reason">Camera switch failed: %1$s</string>
 </resources>
