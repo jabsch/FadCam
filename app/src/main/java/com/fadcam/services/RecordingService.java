@@ -1947,7 +1947,7 @@ public class RecordingService extends Service {
             // Handle torch toggle requests
             // If service was started via startForegroundService(), we MUST call startForeground()
             // within 5 seconds to avoid crash
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !isWorkingInProgress()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !isWorkingInProgress() && !previewOnlyActive) {
                 // Service is not recording, so start a minimal foreground notification
                 try {
                     NotificationCompat.Builder minimalBuilder = new NotificationCompat.Builder(this, CHANNEL_ID)
@@ -2118,6 +2118,10 @@ public class RecordingService extends Service {
                 recordingState == RecordingState.IN_PROGRESS
                         || recordingState == RecordingState.PAUSED
                         || (previewOnlyActive && recordingState == RecordingState.NONE);
+        // A paused session whose camera was released has no frames to grab
+        if (recordingState == RecordingState.PAUSED && cameraDevice == null) {
+            canCaptureFromSession = false;
+        }
         if (glRecordingPipeline == null || !canCaptureFromSession) {
             mainHandler.post(() -> Toast.makeText(getApplicationContext(),
                     R.string.photo_capture_preview_unavailable, Toast.LENGTH_SHORT).show());
@@ -4610,6 +4614,7 @@ public class RecordingService extends Service {
 
             // Store camera state before closing
             boolean wasRecording = (recordingState == RecordingState.IN_PROGRESS);
+            boolean stoppedForError = false;
 
             if (cameraDevice != null) {
                 cameraDevice.close();
@@ -4641,6 +4646,7 @@ public class RecordingService extends Service {
             // For other errors or states, stop recording
             else if (recordingState != RecordingState.NONE && recordingState != RecordingState.WAITING_FOR_CAMERA) {
                 FLog.w(TAG, "Camera error during recording, stopping recording");
+                stoppedForError = true;
                 stopRecording();
             } else if (previewOnlyActive) {
                 FLog.w(TAG, "Camera error during preview-only, scheduling recovery");
@@ -4684,9 +4690,13 @@ public class RecordingService extends Service {
                     errorMsg = getString(R.string.camera_error_unknown) + " (" + error + ")";
             }
 
-            final String finalErrorMsg = errorMsg;
-            // mainHandler.post(() -> Toast.makeText(getApplicationContext(), finalErrorMsg,
-            // Toast.LENGTH_LONG).show());
+            // Only tell the user when the error actually ended their recording;
+            // recoverable errors (black-frame mode, reconnect, preview recovery) stay silent
+            if (stoppedForError) {
+                final String finalErrorMsg = errorMsg;
+                mainHandler.post(() -> Toast.makeText(getApplicationContext(), finalErrorMsg,
+                        Toast.LENGTH_LONG).show());
+            }
         }
 
         @Override
@@ -6282,7 +6292,7 @@ public class RecordingService extends Service {
                 FLog.e(TAG, "createNextSegmentOutputFile: Cannot write to selected custom directory");
                 return null;
             }
-            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
             String segmentSuffix = String.format(Locale.US, "_part%d", nextSegmentNumber);
             String baseFilename = filenamePrefix + timestamp + segmentSuffix + "."
                     + Constants.RECORDING_FILE_EXTENSION;
@@ -6309,7 +6319,7 @@ public class RecordingService extends Service {
             return null;
         } else {
             // Internal storage mode - Use same directory and naming as first segment
-            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
             String segmentSuffix = String.format(Locale.US, "_part%d", nextSegmentNumber);
             String baseFilename = filenamePrefix + timestamp + segmentSuffix + "."
                     + Constants.RECORDING_FILE_EXTENSION;
@@ -7866,7 +7876,7 @@ public class RecordingService extends Service {
     
     // Add this helper method for OpenGL pipeline direct output
     private File getFinalOutputFile() {
-        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
         String segmentSuffix = ""; // No segment number for the initial file
         
         // Use "Stream_" prefix only if streaming is actually enabled (server running)
@@ -7914,7 +7924,7 @@ public class RecordingService extends Service {
                     stopRecording();
                     return;
                 }
-                String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+                String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
                 String segmentSuffix = String.format(Locale.US, "_part%d", nextSegmentNumber);
                 String filenamePrefix = isStreamAndSave ? "Stream_" : Constants.RECORDING_DIRECTORY + "_";
                 String baseFilename = filenamePrefix + timestamp + segmentSuffix + ".mp4";
@@ -7987,6 +7997,8 @@ public class RecordingService extends Service {
                         // Pass the raw FileDescriptor to the pipeline
                         // The ParcelFileDescriptor wrapper stays alive in currentSegmentParcelFileDescriptor
                         glRecordingPipeline.setNextOutput(null, pfd.getFileDescriptor());
+                        // Keep the fd re-opener pointed at THIS segment's document, not the first one
+                        glRecordingPipeline.setOutputUri(safUri.toString());
                         FLog.d(TAG, "Set next output to file descriptor for segment " + nextSegmentNumber);
                     } else {
                         FLog.e(TAG, "glRecordingPipeline is null, cannot set next output");
@@ -8029,6 +8041,7 @@ public class RecordingService extends Service {
                 
                 if (glRecordingPipeline != null) {
                     glRecordingPipeline.setNextOutput(nextFile.getAbsolutePath(), null);
+                    glRecordingPipeline.setOutputUri(null);
                     FLog.d(TAG, "Set next output to path: " + nextFile.getAbsolutePath() + " for segment "
                             + nextSegmentNumber);
                 } else {
@@ -8161,7 +8174,7 @@ public class RecordingService extends Service {
                     stopSelf();
                     return;
                 }
-                String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+                String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
                 String filenamePrefix = isStreamAndSave ? "Stream_" : Constants.RECORDING_DIRECTORY + "_";
                 String baseFilename = filenamePrefix + timestamp + ".mp4";
                 androidx.documentfile.provider.DocumentFile videoFile = pickedDir.createFile("video/mp4", baseFilename);
