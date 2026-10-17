@@ -3465,4 +3465,9 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="e2e_configured">E2E encryption configured</string>
     <string name="e2e_password_incorrect">Incorrect password, please try again</string>
     <string name="e2e_setup_failed">Setup failed: %1$s</string>
+    <string name="fadrec_mute_option_on">Audio on</string>
+    <string name="fadrec_mute_option_mute">Mute</string>
+    <string name="fadrec_mute_picker_title">Audio control</string>
+    <string name="fadrec_mute_picker_helper">Mute or unmute audio during recording</string>
+    <string name="fadrec_mute_toggle_desc">Toggle mute</string>
 </resources>
