@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class PhotoCaptureActivity extends ComponentActivity {
+    private static final String TAG = "PhotoCaptureActivity";
     public static final String EXTRA_SHORTCUT_PHOTO_CAMERA_MODE = "shortcut_photo_camera_mode";
     public static final String PHOTO_CAMERA_MODE_BACK = "back";
     public static final String PHOTO_CAMERA_MODE_FRONT = "front";
@@ -160,18 +161,25 @@ public class PhotoCaptureActivity extends ComponentActivity {
                 imageCapture.takePicture(opts, cameraExecutor, new ImageCapture.OnImageSavedCallback() {
                     @Override
                     public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-                        Bitmap bitmap = decodeAndOrientBitmap(temp, prefs);
+                        long capturedAtMs = System.currentTimeMillis();
                         Uri saved = null;
-                        if (bitmap != null) {
-                            // Gather live sensor data on-demand at capture time
-                            String extras = gatherWatermarkExtras();
-                            saved = PhotoStorageHelper.saveJpegBitmap(
-                                    getApplicationContext(),
-                                    bitmap,
-                                    true,
-                                    finalShotSource,
-                                    extras != null && !extras.isEmpty() ? extras : null);
-                            bitmap.recycle();
+                        try {
+                            Bitmap bitmap = decodeAndOrientBitmap(temp, prefs);
+                            if (bitmap != null) {
+                                // Gather live sensor data on-demand at capture time
+                                String extras = gatherWatermarkExtras();
+                                saved = PhotoStorageHelper.saveJpegBitmap(
+                                        getApplicationContext(),
+                                        bitmap,
+                                        true,
+                                        finalShotSource,
+                                        extras != null && !extras.isEmpty() ? extras : null,
+                                        capturedAtMs);
+                                bitmap.recycle();
+                            }
+                        } catch (OutOfMemoryError oom) {
+                            // A very high resolution shot: report a failure instead of crashing
+                            FLog.e(TAG, "Out of memory while saving photo", oom);
                         }
                         //noinspection ResultOfMethodCallIgnored
                         temp.delete();
@@ -193,6 +201,8 @@ public class PhotoCaptureActivity extends ComponentActivity {
 
                     @Override
                     public void onError(@NonNull ImageCaptureException exception) {
+                        //noinspection ResultOfMethodCallIgnored
+                        temp.delete();
                         runOnUiThread(() -> {
                             Toast.makeText(PhotoCaptureActivity.this, R.string.photo_capture_failed, Toast.LENGTH_SHORT).show();
                             finishSafely(provider);
