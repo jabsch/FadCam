@@ -755,8 +755,11 @@ public class VideoSettingsFragment extends Fragment {
             registerForActivityResult(
                     new androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions(),
                     result -> {
+                        // "Approximate" is enough for the geotag's network fix
                         boolean granted = Boolean.TRUE.equals(
-                                result.get(android.Manifest.permission.ACCESS_FINE_LOCATION));
+                                result.get(android.Manifest.permission.ACCESS_FINE_LOCATION))
+                                || Boolean.TRUE.equals(
+                                result.get(android.Manifest.permission.ACCESS_COARSE_LOCATION));
                         Runnable action = pendingLocationGrantedAction;
                         pendingLocationGrantedAction = null;
                         if (granted && action != null) action.run();
@@ -795,7 +798,9 @@ public class VideoSettingsFragment extends Fragment {
 
     private void ensureLocationPermissionThen(Runnable onGranted) {
         if (androidx.core.content.ContextCompat.checkSelfPermission(requireContext(),
-                android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                || androidx.core.content.ContextCompat.checkSelfPermission(requireContext(),
+                android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
             onGranted.run();
         } else {
             pendingLocationGrantedAction = onGranted;

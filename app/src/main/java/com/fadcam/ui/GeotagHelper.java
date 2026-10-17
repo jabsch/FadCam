@@ -77,7 +77,7 @@ public class GeotagHelper {
             if (gpsEnabled) {
                 try {
                     Location lastKnown = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-                    if (lastKnown != null) {
+                    if (lastKnown != null && isRecent(lastKnown)) {
                         FLog.d(TAG, "Using last known GPS location: " + com.fadcam.FLog.redactedCoords(lastKnown.getLatitude(), lastKnown.getLongitude()));
                         updateBestLocation(lastKnown);
                     }
@@ -89,7 +89,7 @@ public class GeotagHelper {
             if (networkEnabled) {
                 try {
                     Location lastKnown = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                    if (lastKnown != null) {
+                    if (lastKnown != null && isRecent(lastKnown)) {
                         FLog.d(TAG, "Using last known network location: " + com.fadcam.FLog.redactedCoords(lastKnown.getLatitude(), lastKnown.getLongitude()));
                         updateBestLocation(lastKnown);
                     }
@@ -231,6 +231,14 @@ public class GeotagHelper {
         };
     }
     
+    /** Last known fixes can be hours old (yesterday's position at home). */
+    private static final long MAX_FIX_AGE_MS = 120_000L;
+
+    private static boolean isRecent(Location location) {
+        long ageNs = android.os.SystemClock.elapsedRealtimeNanos() - location.getElapsedRealtimeNanos();
+        return ageNs >= 0 && ageNs < MAX_FIX_AGE_MS * 1_000_000L;
+    }
+
     /**
      * Updates the best location based on accuracy and recency
      * @param location New location to evaluate
@@ -240,7 +248,9 @@ public class GeotagHelper {
         
         lastLocationUpdateTime = System.currentTimeMillis();
         
-        if (bestLocation == null) {
+        // A fix more than 2 minutes newer always wins: an accurate fix from somewhere
+        // the phone has since left is worse than a rough one from here
+        if (bestLocation == null || location.getTime() - bestLocation.getTime() > MAX_FIX_AGE_MS) {
             bestLocation = location;
             return;
         }
