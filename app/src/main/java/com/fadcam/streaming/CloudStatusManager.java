@@ -62,6 +62,10 @@ public class CloudStatusManager {
     private static final int MAX_CONSECUTIVE_FAILURES = 10;
     private static final long MAX_BACKOFF_MS = 8000;  // Max delay after repeated failures
     private int consecutiveFailures = 0;
+    // 401/403 pushes in a row, each with a fresh token; past the limit the relay is
+    // rejecting the device itself, so tell the user instead of retrying silently forever
+    private int consecutiveAuthRejections = 0;
+    private static final int AUTH_REJECTIONS_BEFORE_NOTICE = 5;
     private long currentBackoffMs = 0L; // 0 = no failure backoff, use the configured rate
     private long lastSuccessfulPushTime = 0;
     
@@ -528,6 +532,7 @@ public class CloudStatusManager {
             });
         }
         consecutiveFailures = 0;
+        consecutiveAuthRejections = 0;
         currentBackoffMs = 0L;
         lastSuccessfulPushTime = System.currentTimeMillis();
     }
@@ -671,6 +676,9 @@ public class CloudStatusManager {
                     FLog.w(TAG, "☁️ 📤 Got HTTP " + responseCode + " — clearing cached stream token for refresh");
                     authManager.clearStreamToken();
                     onPushFailure("HTTP " + responseCode);
+                    if (++consecutiveAuthRejections == AUTH_REJECTIONS_BEFORE_NOTICE) {
+                        notifyAuthError("Cloud relay keeps rejecting this device. Try re-linking from Cloud Account.");
+                    }
                 } else {
                     onPushFailure("HTTP " + responseCode);
                 }

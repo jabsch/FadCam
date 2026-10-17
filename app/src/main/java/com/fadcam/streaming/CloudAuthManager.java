@@ -801,7 +801,36 @@ public class CloudAuthManager {
      * @param listener Callback for success/error (called on main thread)
      */
     public void fetchStreamTokenAsync(@Nullable StreamTokenListener listener) {
-        fetchStreamTokenAsyncWithRetry(listener, 0);
+        // Segment uploads, playlist uploads and status pushes all ask at once after a
+        // token expires; one request serves them all instead of one POST each
+        synchronized (pendingTokenListeners) {
+            if (listener != null) pendingTokenListeners.add(listener);
+            if (tokenFetchInFlight) return;
+            tokenFetchInFlight = true;
+        }
+        fetchStreamTokenAsyncWithRetry(new StreamTokenListener() {
+            @Override
+            public void onSuccess(String streamToken) {
+                for (StreamTokenListener l : takePendingTokenListeners()) l.onSuccess(streamToken);
+            }
+
+            @Override
+            public void onError(String error) {
+                for (StreamTokenListener l : takePendingTokenListeners()) l.onError(error);
+            }
+        }, 0);
+    }
+
+    private final java.util.List<StreamTokenListener> pendingTokenListeners = new java.util.ArrayList<>();
+    private boolean tokenFetchInFlight = false;
+
+    private java.util.List<StreamTokenListener> takePendingTokenListeners() {
+        synchronized (pendingTokenListeners) {
+            java.util.List<StreamTokenListener> waiting = new java.util.ArrayList<>(pendingTokenListeners);
+            pendingTokenListeners.clear();
+            tokenFetchInFlight = false;
+            return waiting;
+        }
     }
     
     /**
