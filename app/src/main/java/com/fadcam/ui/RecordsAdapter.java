@@ -1773,7 +1773,8 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                                 : ("." + Constants.RECORDING_FILE_EXTENSION);
 
                         String sanitizedBaseName = newNameBase
-                                .replaceAll("[^a-zA-Z0-9\\-_]", "_")
+                                // Only characters file systems forbid; letters in any script stay
+                                .replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_")
                                 .replaceAll("\\s+", "_")
                                 .replaceAll("_+", "_")
                                 .replaceAll("^_|_$", "");
@@ -1786,7 +1787,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                         if (newFullName.equals(videoItem.displayName)) {
                             if (context != null)
                                 ((Activity) context).runOnUiThread(() -> Toast
-                                        .makeText(context, "Name hasn't changed", Toast.LENGTH_SHORT).show());
+                                        .makeText(context, R.string.toast_rename_unchanged, Toast.LENGTH_SHORT).show());
                         } else {
                             executorService.submit(() -> renameVideo(videoItem, newFullName));
                         }
@@ -1813,6 +1814,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         Uri videoUri = videoItem.uri;
         boolean renameSuccess = false;
         Uri newUri = null;
+        String appliedName = newFullName; // may become "name_1.mp4" when the name is taken
 
         try {
             FLog.d(TAG, "Attempting rename. URI: " + videoUri + ", Scheme: " + videoUri.getScheme() + ", New Name: "
@@ -1832,6 +1834,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
                 if (oldFile.renameTo(newFile)) {
                     renameSuccess = true;
+                    appliedName = uniqueName;
                     newUri = Uri.fromFile(newFile);
                     FLog.i(TAG, "Renamed file system file successfully to: " + uniqueName);
                 } else {
@@ -1856,6 +1859,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 newUri = DocumentsContract.renameDocument(context.getContentResolver(), videoUri, finalName);
                 if (newUri != null) {
                     renameSuccess = true;
+                    appliedName = finalName;
                     FLog.i(TAG, "Renamed SAF document successfully to: " + finalName + ", New URI: " + newUri);
                 } else {
                     FLog.w(TAG, "DocumentsContract.renameDocument returned null for: " + videoUri + " to '" + finalName
@@ -1889,7 +1893,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 final Uri finalNewUri = newUri; // Create an effectively final variable
                 VideoItem updatedItem = new VideoItem(
                         finalNewUri,
-                        newFullName,
+                        appliedName, // the card showed the requested name even when a suffix was added
                         videoItem.size,
                         System.currentTimeMillis(),
                         videoItem.category,
@@ -1929,7 +1933,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             FLog.e(TAG, "Exception during rename for " + videoUri + " to " + newFullName, e);
             if (context instanceof Activity) {
                 ((Activity) context).runOnUiThread(() -> Toast.makeText(context,
-                        context.getString(R.string.toast_rename_failed) + " (Error)", Toast.LENGTH_SHORT).show());
+                        context.getString(R.string.toast_rename_failed), Toast.LENGTH_SHORT).show());
             }
         }
     }
@@ -2034,7 +2038,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 // Run on UI thread if context is available to show Toast
                 if (context instanceof Activity) {
                     ((Activity) context).runOnUiThread(
-                            () -> actionListener.onSaveToGalleryFinished(false, "Invalid video data.", null));
+                            () -> actionListener.onSaveToGalleryFinished(false, context.getString(R.string.toast_invalid_video_data), null));
                 } else { // No activity context, just log
                     FLog.e(TAG, "saveVideoToGalleryInternal: Invalid video data or context null before starting save.");
                 }

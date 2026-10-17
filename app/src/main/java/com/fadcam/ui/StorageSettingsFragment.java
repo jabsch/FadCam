@@ -64,6 +64,9 @@ public class StorageSettingsFragment extends Fragment {
                     FLog.e(TAG, "Failed to persist custom storage URI", e);
                     prefs.setStorageMode(SharedPreferencesManager.STORAGE_MODE_INTERNAL);
                     prefs.setCustomStorageUri(null);
+                    // Said nothing before; the row just went back to Internal
+                    android.widget.Toast.makeText(requireContext(), R.string.storage_folder_access_failed,
+                            android.widget.Toast.LENGTH_LONG).show();
                 }
                 refreshValue();
             } else {
@@ -171,6 +174,10 @@ public class StorageSettingsFragment extends Fragment {
             openDocumentTreeLauncher.launch(null);
         } catch (Exception e) {
             FLog.e(TAG, "Error launching directory picker", e);
+            if (getContext() != null) {
+                android.widget.Toast.makeText(getContext(), R.string.storage_picker_unavailable,
+                        android.widget.Toast.LENGTH_LONG).show();
+            }
         }
     }
 
