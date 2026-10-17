@@ -494,7 +494,18 @@ public class DualCameraRecordingService extends Service {
     /**
      * Stop dual camera recording and clean up all resources.
      */
+    // Stops the recording cleanly before the disk is full (writes otherwise fail silently)
+    private final com.fadcam.utils.RecordingStorageWatchdog storageWatchdog =
+            new com.fadcam.utils.RecordingStorageWatchdog(this,
+                    () -> state == DualCameraState.RECORDING || state == DualCameraState.PAUSED,
+                    () -> {
+                        Toast.makeText(getApplicationContext(), R.string.recording_stopped_storage_full,
+                                Toast.LENGTH_LONG).show();
+                        handleStopDualRecording();
+                    });
+
     private void handleStopDualRecording() {
+        storageWatchdog.stop();
         thermalGuard.stop();
         unregisterScreenStateReceiver();
         if (durationLimitController != null && durationLimitController.stopSession()) {
@@ -1878,6 +1889,7 @@ public class DualCameraRecordingService extends Service {
 
             persistRecordingTimelineState();
             startDurationLimitSession();
+            storageWatchdog.start();
             broadcastActionWithTiming(Constants.BROADCAST_ON_DUAL_RECORDING_STARTED);
             FLog.i(TAG, "✅ Dual camera recording started");
         } catch (Exception e) {
@@ -1994,6 +2006,7 @@ public class DualCameraRecordingService extends Service {
 
     /** Release everything in case of crash/destroy. */
     private void releaseAllResources() {
+        storageWatchdog.stop();
         if (durationLimitController != null) {
             durationLimitController.stopSession();
         }

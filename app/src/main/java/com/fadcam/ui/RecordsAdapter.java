@@ -1015,6 +1015,11 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             return;
         }
         float contentAlpha = (isSelectionModeActive && isCurrentlySelected) ? 0.58f : 1f;
+        // TalkBack: say "Selected"/"Not selected" in selection mode, nothing otherwise
+        androidx.core.view.ViewCompat.setStateDescription(holder.itemView, isSelectionModeActive
+                ? holder.itemView.getContext().getString(isCurrentlySelected
+                        ? R.string.records_item_selected : R.string.records_item_not_selected)
+                : null);
         if (holder.textViewRecord != null) holder.textViewRecord.setAlpha(contentAlpha);
         if (holder.textViewTimeAgo != null) holder.textViewTimeAgo.setAlpha(contentAlpha);
         if (holder.textViewFileSize != null) holder.textViewFileSize.setAlpha(contentAlpha);
