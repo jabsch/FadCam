@@ -505,6 +505,17 @@ public class DualCameraSettingsFragment extends Fragment {
         DualCameraConfig config = configBuilder.build();
         prefs.saveDualCameraConfig(config);
         FLog.d(TAG, "Config saved: " + config);
+        // Nothing told a running dual recording, so changes waited for the next one
+        if (getContext() != null && com.fadcam.utils.ServiceUtils.isServiceRunning(getContext(),
+                com.fadcam.dualcam.service.DualCameraRecordingService.class)) {
+            try {
+                getContext().startService(new android.content.Intent(getContext(),
+                        com.fadcam.dualcam.service.DualCameraRecordingService.class)
+                        .setAction(com.fadcam.Constants.INTENT_ACTION_UPDATE_PIP_CONFIG));
+            } catch (Exception e) {
+                FLog.w(TAG, "Could not send PiP config to the dual service", e);
+            }
+        }
     }
 
     // ── Formatting Helpers ─────────────────────────────────────────────
