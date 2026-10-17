@@ -3072,6 +3072,9 @@ public class VideoPlayerActivity extends AppCompatActivity {
             holder.claimScreenOwner(this);
             playerView.setPlayer(p);
         }
+        // Back from background playback: this screen owns playback again, so drop the
+        // service's notification and sleep timer (the timer used to rewind the video here)
+        detachBackgroundPlayback();
         // Optional: Resume playback if it was paused but ready (useful if app was
         // backgrounded briefly)
         // Consider adding a check if user manually paused vs activity lifecycle pause
@@ -3449,8 +3452,10 @@ public class VideoPlayerActivity extends AppCompatActivity {
         super.onPause();
         // Allow screen to turn off when activity is paused
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        // Pause playback when activity goes into background/pause state
-        if (player != null) {
+        // Pause playback when activity goes into background/pause state. Not on rotation:
+        // the new instance reuses the shared player, and pausing here saved
+        // playWhenReady=false so the video came back paused
+        if (player != null && !isChangingConfigurations()) {
             boolean bg = SharedPreferencesManager.getInstance(
                 this
             ).isBackgroundPlaybackEnabled();
@@ -3509,15 +3514,9 @@ public class VideoPlayerActivity extends AppCompatActivity {
                 try {
                     if (isPlaying) player.pause();
                 } catch (Exception ignored) {}
-                try {
-                    android.content.Intent stop = new android.content.Intent(
-                        this,
-                        com.fadcam.services.PlaybackService.class
-                    ).setAction(
-                        com.fadcam.services.PlaybackService.ACTION_STOP
-                    );
-                    startService(stop);
-                } catch (Exception ignored) {}
+                // Detach rather than STOP: STOP rewinds the shared player to 0, so a
+                // paused video came back at the start
+                detachBackgroundPlayback();
                 FLog.d(
                     TAG,
                     "Background service stopped (no background playback or paused)."
@@ -3569,8 +3568,9 @@ public class VideoPlayerActivity extends AppCompatActivity {
         // If a newer player screen already took the shared player (this onDestroy
         // can run seconds after Back), leave its video alone.
         boolean ownsPlayer = com.fadcam.playback.PlayerHolder.getInstance().releaseScreenOwner(this);
+        boolean rotating = isChangingConfigurations();
         try {
-            if (ownsPlayer && player != null) player.pause();
+            if (ownsPlayer && !rotating && player != null) player.pause();
         } catch (Exception ignored) {}
         // Leaving the player for good: free the decoders and buffers. The shared
         // player otherwise stays prepared for as long as JaCam's process lives (the
@@ -3594,15 +3594,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
         // Stop background playback service when activity is destroyed (if pref
         // disabled)
         // (Its stop also pauses and rewinds the shared player, so only the owner sends it.)
-        try {
-            if (ownsPlayer) {
-                android.content.Intent stop = new android.content.Intent(
-                    this,
-                    com.fadcam.services.PlaybackService.class
-                ).setAction(com.fadcam.services.PlaybackService.ACTION_STOP);
-                startService(stop);
-            }
-        } catch (Exception ignored) {}
+        if (ownsPlayer && !rotating) detachBackgroundPlayback();
         // Unregister SharedPreferences listener if it was registered
         try {
             if (spm != null && prefsListener != null) {
@@ -3615,6 +3607,15 @@ public class VideoPlayerActivity extends AppCompatActivity {
     } // --- End onDestroy ---
 
     // --- End Lifecycle Management ---
+
+    /** Ends background playback's notification/timer without touching the shared player. */
+    private void detachBackgroundPlayback() {
+        if (!com.fadcam.services.PlaybackService.isActive()) return;
+        try {
+            startService(new android.content.Intent(this, com.fadcam.services.PlaybackService.class)
+                .setAction(com.fadcam.services.PlaybackService.ACTION_DETACH));
+        } catch (Exception ignored) {}
+    }
 
     private MaterialAlertDialogBuilder themedDialogBuilder() {
         int dialogTheme = R.style.ThemeOverlay_FadCam_Dialog;
