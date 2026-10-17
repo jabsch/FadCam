@@ -2112,7 +2112,7 @@ public class DualCameraRecordingService extends Service {
 
     @Nullable
     private File createOutputFile() {
-        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
         String filename = "DualCam_" + timestamp + "." + Constants.RECORDING_FILE_EXTENSION;
         
         String storageMode = prefs.getStorageMode();

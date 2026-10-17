@@ -151,7 +151,7 @@ public class Utils {
         long hours = TimeUnit.MILLISECONDS.toHours(diff);
         long days = TimeUnit.MILLISECONDS.toDays(diff);
         long weeks = days / 7;
-        long months = days / 30; // Approximate months
+        long months = Math.min(days / 30, 11); // Approximate months; days 360-364 read "12mos" before
         long years = days / 365; // Approximate years
 
         if (years > 0) {
@@ -185,7 +185,9 @@ public class Utils {
         }
         long currentTime = System.currentTimeMillis();
         long twentyFourHoursInMillis = 24 * 60 * 60 * 1000;
-        return (currentTime - timestampMillis) < twentyFourHoursInMillis;
+        long age = currentTime - timestampMillis;
+        // A future time (wrong clock) kept the NEW badge until that date passed
+        return age >= 0 && age < twentyFourHoursInMillis;
     }
 
     /**

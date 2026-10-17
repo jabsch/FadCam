@@ -738,6 +738,8 @@ public class MainActivity extends AppCompatActivity {
                             frag.getLifecycle().addObserver(new androidx.lifecycle.DefaultLifecycleObserver() {
                                 @Override
                                 public void onResume(androidx.lifecycle.LifecycleOwner owner) {
+                                    // One-shot: otherwise every later resume reopened the theme sheet
+                                    owner.getLifecycle().removeObserver(this);
                                     View v = frag.getView();
                                     if (v != null) {
                                         View row = v.findViewById(R.id.row_theme);
