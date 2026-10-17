@@ -3482,4 +3482,6 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="whats_new_info">New features, improvements, and bug fixes in this version.</string>
     <string name="whats_new_reenable_hint">Re-enable in Settings → Show Intro</string>
     <string name="whats_new_got_it">Got It!</string>
+    <string name="forensics_snapshot_short">Snapshot</string>
+    <string name="forensics_just_now">Just now</string>
 </resources>

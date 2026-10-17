@@ -373,7 +373,8 @@ public class ForensicsGalleryAdapter extends RecyclerView.Adapter<RecyclerView.V
 
     private void bindItem(@NonNull ItemHolder holder, @NonNull ItemEntry entry, int position) {
         ForensicsSnapshotWithMedia row = entry.row;
-        boolean mediaMissing = row.mediaMissing || isMediaMissing(row.mediaUri);
+        // The gallery's background load checks every recording; this re-checked on the main thread
+        boolean mediaMissing = row.mediaMissing;
         boolean selected = selectionMode && selectedSnapshotIds.contains(snapshotId(row));
         String snapshotId = snapshotId(row);
         boolean tornTheme = isTornThemeEnabled(holder.itemView.getContext());
@@ -386,11 +387,12 @@ public class ForensicsGalleryAdapter extends RecyclerView.Adapter<RecyclerView.V
                 ? holder.itemView.getContext().getString(R.string.forensics_snapshot_only)
                 : holder.itemView.getContext().getString(R.string.forensics_video_linked);
         if (currentGridSpan >= 3) {
-            sourceLabel = mediaMissing ? "Snapshot" : "Video linked";
+            sourceLabel = holder.itemView.getContext().getString(mediaMissing
+                    ? R.string.forensics_snapshot_short : R.string.forensics_video_linked);
         }
         String sizeLabel = Formatter.formatShortFileSize(holder.itemView.getContext(), Math.max(0L, resolveImageSizeCached(row.imageUri)));
         String timeAgo = Utils.formatTimeAgo(row.capturedEpochMs);
-        holder.metaTime.setText((timeAgo == null || timeAgo.trim().isEmpty()) ? "Just now" : timeAgo);
+        holder.metaTime.setText((timeAgo == null || timeAgo.trim().isEmpty()) ? holder.itemView.getContext().getString(R.string.forensics_just_now) : timeAgo);
         holder.metaConfidence.setText(String.format(Locale.US, currentGridSpan >= 3 ? "%.1f" : "%.2f", row.confidence));
         holder.metaSource.setText(sourceLabel);
         holder.metaSize.setText(sizeLabel);
@@ -742,20 +744,6 @@ public class ForensicsGalleryAdapter extends RecyclerView.Adapter<RecyclerView.V
                 + "|" + safe(row.eventType)
                 + "|" + row.timelineMs
                 + "|" + row.capturedEpochMs;
-    }
-
-    private boolean isMediaMissing(@Nullable String mediaUri) {
-        if (mediaUri == null || mediaUri.isEmpty()) return true;
-        try {
-            Uri uri = Uri.parse(mediaUri);
-            if ("file".equalsIgnoreCase(uri.getScheme())) {
-                String path = uri.getPath();
-                return path == null || !(new java.io.File(path).exists());
-            }
-            return false;
-        } catch (Exception e) {
-            return true;
-        }
     }
 
     /**
