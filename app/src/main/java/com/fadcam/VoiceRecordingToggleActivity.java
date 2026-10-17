@@ -21,6 +21,10 @@ public class VoiceRecordingToggleActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (!ExternalTriggerGate.allows(this)) {
+            finish();
+            return;
+        }
         try {
             if (!TOGGLE_GUARD.tryAcquire(SystemClock.elapsedRealtime())) {
                 FLog.w(TAG, "Ignoring duplicate voice toggle request");

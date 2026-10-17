@@ -15,6 +15,10 @@ public class RecordingToggleActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (!ExternalTriggerGate.allows(this)) {
+            RecordingStartActivity.finishWithoutUi(this);
+            return;
+        }
 
         try {
             if (!TOGGLE_GUARD.tryAcquire(SystemClock.elapsedRealtime())) {

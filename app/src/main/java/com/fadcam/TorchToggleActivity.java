@@ -24,6 +24,10 @@ public class TorchToggleActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (!ExternalTriggerGate.allows(this)) {
+            finish();
+            return;
+        }
 
         try {
             Intent intent;

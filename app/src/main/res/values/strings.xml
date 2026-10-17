@@ -1566,6 +1566,10 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="trash_fragment_title_text">Recently Deleted</string>
 
     <!-- Fix Start: Cloak Recents strings -->
+    <string name="external_triggers_title">Allow Other Apps to Trigger</string>
+    <string name="external_triggers_switch">Allow other apps</string>
+    <string name="external_triggers_helper">Lets other apps start and stop recording, take a photo or screenshot, toggle voice recording or switch the torch through JaCam\'s shortcuts. Automation apps such as Tasker, and adb commands, need this. Turn it off so only you can trigger JaCam: your home screen shortcuts, widget, Quick Settings tiles and notifications keep working either way.\n(Default: Enabled)</string>
+    <string name="external_triggers_blocked_toast">Another app tried to trigger JaCam. Allow it in Settings &gt; Security.</string>
     <string name="setting_cloak_recents_title">Block Screenshots &amp; Hide in Recents</string>
     <string name="setting_cloak_recents_switch">Hide preview</string>
     <string name="setting_cloak_recents_helper">Hides app preview in recent apps and blocks screenshots within the app. This prevents sensitive content from being captured or visible in the app switcher.\n(Default: Disabled)</string>
