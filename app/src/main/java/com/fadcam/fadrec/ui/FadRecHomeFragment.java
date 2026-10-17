@@ -2752,6 +2752,24 @@ public class FadRecHomeFragment extends HomeFragment {
         // even when fragment is stopped but still in the backstack
     }
 
+    @Override
+    public void onDestroy() {
+        // Registered in onCreate on the Activity; left registered they kept a dead
+        // fragment alive and a recreated one received every broadcast twice.
+        Context context = getContext();
+        if (context != null) {
+            if (isScreenRecordingReceiverRegistered && screenRecordingStateReceiver != null) {
+                try { context.unregisterReceiver(screenRecordingStateReceiver); } catch (IllegalArgumentException ignored) {}
+            }
+            if (isAnnotationServiceReceiverRegistered && annotationServiceReceiver != null) {
+                try { context.unregisterReceiver(annotationServiceReceiver); } catch (IllegalArgumentException ignored) {}
+            }
+        }
+        isScreenRecordingReceiverRegistered = false;
+        isAnnotationServiceReceiverRegistered = false;
+        super.onDestroy();
+    }
+
     // ── Realtime audio-device monitoring ──
     // Keeps the audio-source picker's device list live: plugging in / unplugging
     // a USB/wired/BT mic refreshes the open sheet immediately, and if the

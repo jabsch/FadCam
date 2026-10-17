@@ -166,6 +166,7 @@ public class AnnotationService extends Service {
     private boolean isAnimating = false; // Track if menu is currently animating
     private boolean overlayVisible = true; // Controls if arrow overlay is shown
     private boolean annotationEnabled = false; // Controls if drawing is active (DEFAULT: OFF)
+    private int canvasVisibilityBeforeEditor = View.VISIBLE;
     private boolean hasShownStartupDialog = false; // Track if startup dialog already shown to prevent repeated prompts
     private boolean canvasHidden = false; // Controls if canvas drawings are hidden (except pinned layers)
     private long lastArrowHintTimestamp = 0L;
@@ -3519,6 +3520,7 @@ public class AnnotationService extends Service {
                 if (BaseTransparentEditorActivity.ACTION_EDITOR_STARTED.equals(action)) {
                     // Disable annotation canvas when editor starts
                     if (annotationView != null) {
+                        canvasVisibilityBeforeEditor = annotationView.getVisibility();
                         annotationView.setEnabled(false);
                         
                         // CRITICAL: Hide annotation overlay completely so it doesn't appear on top of editor
@@ -3532,18 +3534,19 @@ public class AnnotationService extends Service {
                         FLog.d(TAG, "Editor started - annotation canvas hidden (GONE), disabled, and NOT_TOUCHABLE flag set");
                     }
                 } else if (BaseTransparentEditorActivity.ACTION_EDITOR_FINISHED.equals(action)) {
-                    // Re-enable annotation canvas when editor finishes
+                    // Put the canvas back as it was: forcing it on left a full-screen,
+                    // touch-eating overlay while the Annotation toggle still said off
                     if (annotationView != null) {
-                        annotationView.setEnabled(true);
-                        
-                        // CRITICAL: Show annotation overlay again
-                        annotationView.setVisibility(View.VISIBLE);
-                        
-                        // Remove NOT_TOUCHABLE flag so overlay can receive touches again
-                        annotationCanvasParams.flags &= ~WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+                        annotationView.setEnabled(annotationEnabled);
+                        annotationView.setVisibility(canvasVisibilityBeforeEditor);
+                        if (annotationEnabled) {
+                            annotationCanvasParams.flags &= ~WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+                        } else {
+                            annotationCanvasParams.flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+                        }
                         windowManager.updateViewLayout(annotationView, annotationCanvasParams);
                         
-                        FLog.d(TAG, "Editor finished - annotation canvas shown (VISIBLE), enabled, and NOT_TOUCHABLE flag removed");
+                        FLog.d(TAG, "Editor finished - annotation canvas restored, touchable=" + annotationEnabled);
                     }
                 }
             }
