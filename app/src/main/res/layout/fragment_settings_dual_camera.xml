@@ -32,14 +32,14 @@ app:layout_constraintTop_toTopOf="parent"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_close"
             android:contentDescription="@string/universal_back"
-            android:tint="@android:color/white"/>
+            android:tint="?attr/colorTopBarContent"/>
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/dual_camera_pip_settings"
             android:textStyle="bold"
             android:textSize="20sp"
-            android:textColor="@android:color/white"
+            android:textColor="?attr/colorTopBarContent"
             android:layout_marginStart="12dp"/>
     </LinearLayout>
 

@@ -36,7 +36,7 @@
                 android:padding="2dp"
                 android:src="@drawable/ic_close"
                 android:contentDescription="@string/universal_close"
-                android:tint="@android:color/white"
+                android:tint="?attr/colorTopBarContent"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:visibility="gone" />
 
@@ -52,7 +52,7 @@
                     android:layout_height="wrap_content"
                     android:gravity="start|center_vertical"
                     android:text="@string/records_title"
-                    android:textColor="@android:color/white"
+                    android:textColor="?attr/colorTopBarContent"
                     android:textSize="20sp"
                     android:textStyle="bold" />
 
@@ -68,14 +68,14 @@
                         android:layout_width="12dp"
                         android:layout_height="12dp"
                         android:src="@drawable/ic_stat_playback"
-                        android:tint="#CCFFFFFF" />
+                        android:tint="?attr/colorTopBarContentSecondary" />
 
                     <com.fadcam.ui.utils.AnimatedTextView
                         android:id="@+id/text_records_stat_videos"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="3dp"
-                        android:textColor="#CCFFFFFF"
+                        android:textColor="?attr/colorTopBarContentSecondary"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         tools:text="82" />
@@ -85,14 +85,14 @@
                         android:layout_height="12dp"
                         android:layout_marginStart="10dp"
                         android:src="@drawable/ic_photo"
-                        android:tint="#CCFFFFFF" />
+                        android:tint="?attr/colorTopBarContentSecondary" />
 
                     <com.fadcam.ui.utils.AnimatedTextView
                         android:id="@+id/text_records_stat_photos"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="3dp"
-                        android:textColor="#CCFFFFFF"
+                        android:textColor="?attr/colorTopBarContentSecondary"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         tools:text="20" />
@@ -102,14 +102,14 @@
                         android:layout_height="12dp"
                         android:layout_marginStart="10dp"
                         android:src="@drawable/database_24px"
-                        android:tint="#CCFFFFFF" />
+                        android:tint="?attr/colorTopBarContentSecondary" />
 
                     <com.fadcam.ui.utils.AnimatedTextView
                         android:id="@+id/text_records_stat_size"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="3dp"
-                        android:textColor="#CCFFFFFF"
+                        android:textColor="?attr/colorTopBarContentSecondary"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         tools:text="1.8 GB" />
@@ -123,7 +123,7 @@
                 android:padding="2dp"
                 android:src="@drawable/ic_two_line_hamburger"
                 android:contentDescription="@string/more_options"
-                android:tint="@android:color/white"
+                android:tint="?attr/colorTopBarContent"
                 android:background="?attr/selectableItemBackgroundBorderless" />
 
             <FrameLayout
@@ -143,7 +143,7 @@
                     android:layout_height="20dp"
                     android:layout_gravity="center"
                     android:src="@drawable/avd_check_draw"
-                    android:tint="@android:color/white"
+                    android:tint="?attr/colorTopBarContent"
                     android:contentDescription="@string/trash_select_all" />
             </FrameLayout>
         </LinearLayout>
@@ -169,7 +169,7 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_delete_white"
-                    android:tint="@android:color/white" />
+                    android:tint="?attr/colorTopBarContent" />
 
                 <com.fadcam.ui.utils.AnimatedTextView
                     android:id="@+id/records_header_delete_title"
@@ -178,7 +178,7 @@
                     android:layout_marginStart="8dp"
                     android:layout_weight="1"
                     android:text="@string/records_delete_header_default_title"
-                    android:textColor="@android:color/white"
+                    android:textColor="?attr/colorTopBarContent"
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
@@ -240,7 +240,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="10dp"
-                    android:textColor="#CCFFFFFF"
+                    android:textColor="?attr/colorTopBarContentSecondary"
                     android:textSize="12sp"
                     tools:text="ETA 14s" />
             </LinearLayout>
@@ -250,7 +250,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
-                android:textColor="#CCFFFFFF"
+                android:textColor="?attr/colorTopBarContentSecondary"
                 android:textSize="12sp"
                 tools:text="2 of 3 complete • 1 failed" />
         </LinearLayout>

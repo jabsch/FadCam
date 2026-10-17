@@ -30,7 +30,7 @@
             android:padding="2dp"
             android:src="@drawable/ic_close"
             android:contentDescription="@string/watch_back_desc"
-            android:tint="@android:color/white"/>
+            android:tint="?attr/colorTopBarContent"/>
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -44,7 +44,7 @@
                 android:layout_height="wrap_content"
                 android:gravity="start|center_vertical"
                 android:text="@string/trash_fragment_title_text"
-                android:textColor="@android:color/white"
+                android:textColor="?attr/colorTopBarContent"
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
@@ -60,14 +60,14 @@
                     android:layout_width="12dp"
                     android:layout_height="12dp"
                     android:src="@drawable/ic_stat_playback"
-                    android:tint="#CCFFFFFF" />
+                    android:tint="?attr/colorTopBarContentSecondary" />
 
                 <TextView
                     android:id="@+id/text_trash_stat_videos"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="3dp"
-                    android:textColor="#CCFFFFFF"
+                    android:textColor="?attr/colorTopBarContentSecondary"
                     android:textSize="11sp"
                     android:textStyle="bold"
                     tools:text="5" />
@@ -77,14 +77,14 @@
                     android:layout_height="12dp"
                     android:layout_marginStart="10dp"
                     android:src="@drawable/ic_photo"
-                    android:tint="#CCFFFFFF" />
+                    android:tint="?attr/colorTopBarContentSecondary" />
 
                 <TextView
                     android:id="@+id/text_trash_stat_evidence"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="3dp"
-                    android:textColor="#CCFFFFFF"
+                    android:textColor="?attr/colorTopBarContentSecondary"
                     android:textSize="11sp"
                     android:textStyle="bold"
                     tools:text="2" />
@@ -94,14 +94,14 @@
                     android:layout_height="12dp"
                     android:layout_marginStart="10dp"
                     android:src="@drawable/database_24px"
-                    android:tint="#CCFFFFFF" />
+                    android:tint="?attr/colorTopBarContentSecondary" />
 
                 <TextView
                     android:id="@+id/text_trash_stat_size"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="3dp"
-                    android:textColor="#CCFFFFFF"
+                    android:textColor="?attr/colorTopBarContentSecondary"
                     android:textSize="11sp"
                     android:textStyle="bold"
                     tools:text="256 MB" />
@@ -118,7 +118,7 @@
                 android:padding="2dp"
                 android:src="@drawable/ic_settings"
                 android:contentDescription="@string/trash_menu_auto_delete_settings"
-                android:tint="@android:color/white"
+                android:tint="?attr/colorTopBarContent"
                 android:background="?attr/selectableItemBackgroundBorderless"/>
             <FrameLayout
                 android:id="@+id/action_select_all_container"
