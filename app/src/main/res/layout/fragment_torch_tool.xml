@@ -218,7 +218,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
                             android:text="@string/torch_screen_light_desc"
-                            android:textColor="?attr/colorOnSurface"
+                            android:textColor="?attr/pickerTextSecondary"
                             android:textSize="12sp"
                             android:alpha="0.6" />
 
@@ -298,7 +298,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
                             android:text="@string/torch_timer_desc"
-                            android:textColor="?attr/colorOnSurface"
+                            android:textColor="?attr/pickerTextSecondary"
                             android:textSize="12sp"
                             android:alpha="0.6" />
 
@@ -376,7 +376,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:text="@string/torch_screen_light_desc"
-                        android:textColor="?attr/colorOnSurface"
+                        android:textColor="?attr/pickerTextSecondary"
                         android:textSize="12sp"
                         android:alpha="0.6" />
 
@@ -452,7 +452,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:text="@string/torch_timer_desc"
-                        android:textColor="?attr/colorOnSurface"
+                        android:textColor="?attr/pickerTextSecondary"
                         android:textSize="12sp"
                         android:alpha="0.6" />
 

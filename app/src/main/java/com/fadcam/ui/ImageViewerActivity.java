@@ -75,20 +75,7 @@ public class ImageViewerActivity extends AppCompatActivity {
                 Constants.PREF_APP_THEME,
                 Constants.DEFAULT_APP_THEME
         );
-        if (savedTheme == null) savedTheme = Constants.DEFAULT_APP_THEME;
-        int styleRes;
-        switch (savedTheme) {
-            case "Faded Night":   styleRes = R.style.Theme_FadCam_Amoled;       break;
-            case "Midnight Dusk": styleRes = R.style.Theme_FadCam_MidnightDusk; break;
-            case "Premium Gold":  styleRes = R.style.Theme_FadCam_Gold;         break;
-            case "Silent Forest": styleRes = R.style.Theme_FadCam_SilentForest; break;
-            case "Shadow Alloy":  styleRes = R.style.Theme_FadCam_ShadowAlloy;  break;
-            case "Pookie Pink":   styleRes = R.style.Theme_FadCam_PookiePink;   break;
-            case "Snow Veil":     styleRes = R.style.Theme_FadCam_SnowVeil;     break;
-            case "Crimson Bloom":
-            default:              styleRes = R.style.Theme_FadCam_Red;          break;
-        }
-        setTheme(styleRes);
+        setTheme(com.fadcam.utils.AppThemeStyle.forName(savedTheme));
         super.onCreate(savedInstanceState);
         enableEdgeToEdge();
         setContentView(R.layout.activity_image_viewer);

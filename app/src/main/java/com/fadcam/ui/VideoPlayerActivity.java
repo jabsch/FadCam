@@ -282,13 +282,8 @@ public class VideoPlayerActivity extends AppCompatActivity {
                 Constants.DEFAULT_APP_THEME
             );
 
-        if ("Crimson Bloom".equals(savedTheme)) {
-            setTheme(R.style.Theme_FadCam_Red);
-        } else if ("Faded Night".equals(savedTheme)) {
-            setTheme(R.style.Theme_FadCam_Amoled);
-        } else {
-            setTheme(R.style.Base_Theme_FadCam);
-        }
+        // Every theme, not just two: the rest fell back to the base theme's accent and bars
+        setTheme(com.fadcam.utils.AppThemeStyle.forName(savedTheme));
 
         super.onCreate(savedInstanceState);
         setContentView(com.fadcam.R.layout.activity_video_player);
