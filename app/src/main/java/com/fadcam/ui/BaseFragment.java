@@ -38,37 +38,51 @@ public abstract class BaseFragment extends Fragment {
             @Override
             public void handleOnBackPressed() {
                 FLog.d("OverlayDebug","BaseFragment handleOnBackPressed fragment="+getClass().getSimpleName());
-                // First give the fragment a chance to handle the back press
-                if (!onBackPressed()) {
-                    // Check if overlay (settings/trash) is visible — let MainActivity handle it
-                    try {
-                        if (requireActivity() instanceof com.fadcam.MainActivity) {
-                            com.fadcam.MainActivity mainActivity = (com.fadcam.MainActivity) requireActivity();
-                            android.view.View overlay = mainActivity.findViewById(R.id.overlay_fragment_container);
-                            if (overlay != null && overlay.getVisibility() == android.view.View.VISIBLE) {
-                                // Overlay is visible — disable this callback and let MainActivity's handler take over
-                                setEnabled(false);
-                                requireActivity().getOnBackPressedDispatcher().onBackPressed();
-                                return;
-                            }
-                            if (mainActivity.getCurrentFragmentPosition() != 0) {
-                                mainActivity.switchFragment(0, true);
-                            } else {
-                                // If we're already on the home tab, disable this callback and let the system handle it
-                                setEnabled(false);
-                                // Use the dispatcher directly instead of the deprecated method
-                                requireActivity().getOnBackPressedDispatcher().onBackPressed();
-                            }
-                        }
-                    } catch (Exception e) {
-                        // If anything goes wrong, disable this callback and let the system handle it
-                        setEnabled(false);
-                        // Use the dispatcher directly instead of the deprecated method
-                        requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                try {
+                    android.view.View overlay = requireActivity().findViewById(R.id.overlay_fragment_container);
+                    boolean overlayVisible = overlay != null && overlay.getVisibility() == android.view.View.VISIBLE;
+                    // Hidden tabs stay resumed, and a tab under a visible settings/trash overlay must not
+                    // consume the press (e.g. clear a Records search instead of closing Settings)
+                    boolean inOverlay = getId() == R.id.overlay_fragment_container;
+                    if (isHidden() || (!inOverlay && overlayVisible)) {
+                        passToNext(this);
+                        return;
                     }
+                    // First give the fragment a chance to handle the back press
+                    if (onBackPressed()) {
+                        return;
+                    }
+                    if (overlayVisible || !(requireActivity() instanceof com.fadcam.MainActivity)) {
+                        // Let MainActivity's handler pop the overlay
+                        passToNext(this);
+                        return;
+                    }
+                    com.fadcam.MainActivity mainActivity = (com.fadcam.MainActivity) requireActivity();
+                    if (mainActivity.getCurrentFragmentPosition() != 0) {
+                        mainActivity.switchFragment(0, true);
+                    } else {
+                        // Home tab: MainActivity handles "press back again to exit"
+                        passToNext(this);
+                    }
+                } catch (Exception e) {
+                    passToNext(this);
                 }
             }
         });
+    }
+
+    /**
+     * Forwards this back press to the next callback, then re-enables {@code callback} so it keeps
+     * working on later presses (a permanent setEnabled(false) silently broke back handling).
+     */
+    private void passToNext(OnBackPressedCallback callback) {
+        if (getActivity() == null) return;
+        callback.setEnabled(false);
+        try {
+            getActivity().getOnBackPressedDispatcher().onBackPressed();
+        } finally {
+            callback.setEnabled(true);
+        }
     }
 
     @Override

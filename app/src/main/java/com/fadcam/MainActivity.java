@@ -645,6 +645,16 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             currentFragmentPosition = restoredPosition;
+            // The overlay container always starts GONE, so a restored settings/trash back stack would
+            // sit invisible and make later back presses land on stale screens (or a second
+            // Appearance after a theme change). Drop it; the theme path reopens Appearance itself.
+            if (fm.getBackStackEntryCount() > 0) {
+                try {
+                    fm.popBackStackImmediate(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                } catch (Exception e) {
+                    FLog.w("OverlayDebug", "Could not clear restored overlay back stack", e);
+                }
+            }
             scheduleTabPrewarm();
         }
 
@@ -962,6 +972,14 @@ public class MainActivity extends AppCompatActivity {
         return view;
     }
 
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        // singleTop: widget/notification taps while the app is open arrive here, not in onCreate
+        setIntent(intent);
+        handleWidgetIntent();
+    }
+
     private void handleWidgetIntent() {
         Intent intent = getIntent();
         if (intent != null) {
@@ -998,6 +1016,8 @@ public class MainActivity extends AppCompatActivity {
             
             // Handle widget intent to open shortcuts
             if (intent.getBooleanExtra("open_shortcuts_widgets", false)) {
+                // Clear it so a later theme/language recreate doesn't reopen the screen
+                intent.removeExtra("open_shortcuts_widgets");
                 // Navigate to Settings tab and then open Shortcuts & Widgets screen
                 switchFragment(4, false); // Settings tab
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {

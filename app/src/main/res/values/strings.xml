@@ -3406,4 +3406,10 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="fadrec_audio_source_mic_desc">Record audio from the device microphone</string>
     <string name="fadrec_audio_source_internal_desc">Record internal device audio</string>
     <string name="fadrec_audio_source_none_desc">No audio will be recorded</string>
+    <string name="home_back_recording_title">Recording in progress</string>
+    <string name="home_back_recording_message">Do you want to stop recording and exit?</string>
+    <string name="home_back_recording_stop_exit">Stop and exit</string>
+    <string name="home_back_recording_continue">Continue recording</string>
+    <string name="theme_midnight_dusk">Midnight Dusk</string>
+    <string name="theme_faded_night">Faded Night</string>
 </resources>

@@ -165,6 +165,8 @@ public class AppearanceSettingsFragment extends Fragment {
             case "Shadow Alloy": return getString(R.string.theme_shadowalloy);
             case "Pookie Pink": return getString(R.string.theme_pookiepink);
             case "Snow Veil": return getString(R.string.theme_snowveil);
+            case "Midnight Dusk": return getString(R.string.theme_midnight_dusk);
+            case "Faded Night": return getString(R.string.theme_faded_night);
             default: return id;
         }
     }
@@ -243,7 +245,7 @@ public class AppearanceSettingsFragment extends Fragment {
         items.add(
             new com.fadcam.ui.picker.OptionItem(
                 "Midnight Dusk",
-                "Midnight Dusk",
+                getString(R.string.theme_midnight_dusk),
                 null,
                 ContextCompat.getColor(requireContext(), R.color.gray)
             )
@@ -251,7 +253,7 @@ public class AppearanceSettingsFragment extends Fragment {
         items.add(
             new com.fadcam.ui.picker.OptionItem(
                 "Faded Night",
-                "Faded Night",
+                getString(R.string.theme_faded_night),
                 null,
                 ContextCompat.getColor(requireContext(), R.color.amoled_surface)
             )
