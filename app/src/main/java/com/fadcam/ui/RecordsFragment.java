@@ -5117,18 +5117,8 @@ public class RecordsFragment extends BaseFragment implements
         if (selectedUris != null)
             selectedUris.clear();
 
-        // Clear thumbnail caches
-        if (getContext() != null) {
-            Glide.get(getContext()).clearMemory();
-            // Schedule disk cache clearing on a background thread
-            new Thread(() -> {
-                try {
-                    Glide.get(getContext()).clearDiskCache();
-                } catch (Exception e) {
-                    FLog.e(TAG, "Error clearing Glide disk cache", e);
-                }
-            }).start();
-        }
+        // Glide's caches are app-wide and keep Records thumbnails instant on the next
+        // visit; Glide trims them itself when the system is low on memory.
 
         // Release references
         recordsAdapter = null;

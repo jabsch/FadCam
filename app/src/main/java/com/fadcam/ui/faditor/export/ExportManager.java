@@ -80,6 +80,8 @@ public class ExportManager {
 
     /** When true, the export was written to a temp file that needs to be copied to SAF. */
     private boolean pendingSafCopy = false;
+    // File the Transformer is still writing; null once it completes or fails
+    @Nullable private String transformerOutputPath;
     // Bumped by cancel(): a SAF copy still running for an older export stops and reports nothing
     private volatile int exportGeneration = 0;
 
@@ -180,6 +182,7 @@ public class ExportManager {
                 public void onCompleted(@NonNull Composition composition,
                                         @NonNull ExportResult result) {
                     stopProgressPolling();
+                    transformerOutputPath = null;
 
                     // If exported to temp for SAF, copy to custom storage now. The copy
                     // runs off the main thread (a whole export file); the export counts
@@ -223,12 +226,10 @@ public class ExportManager {
                     isExporting = false;
                     pendingSafCopy = false;
                     safExportFileName = null;
-                    // Clean up temp file on error
-                    File tempFile = new File(outputPath);
-                    if (tempFile.getParentFile() != null
-                            && tempFile.getParentFile().getName().equals("faditor_export")) {
-                        tempFile.delete();
-                    }
+                    transformerOutputPath = null;
+                    // A failed export is unplayable: remove it whether it was a temp
+                    // file or went straight into the recordings folder
+                    new File(outputPath).delete();
                     FLog.e(TAG, "Export failed", exception);
                     if (listener != null) {
                         listener.onExportError(exception);
@@ -242,6 +243,7 @@ public class ExportManager {
             Composition composition = buildComposition(project);
 
             // Start export
+            transformerOutputPath = outputPath;
             transformer.start(composition, outputPath);
 
             // Begin polling for progress (Transformer doesn't push progress via Listener)
@@ -276,6 +278,13 @@ public class ExportManager {
         if (transformer != null && isExporting) {
             stopProgressPolling();
             transformer.cancel();
+            // The cancelled Transformer leaves a partial, unplayable file behind
+            if (transformerOutputPath != null) {
+                if (new File(transformerOutputPath).delete()) {
+                    FLog.d(TAG, "Deleted partial export: " + transformerOutputPath);
+                }
+                transformerOutputPath = null;
+            }
             exportGeneration++;
             isExporting = false;
             FLog.d(TAG, "Export cancelled");

@@ -57,6 +57,9 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
     private long fileSize;
     private long lastModified;
     private Typeface materialIconsTypeface;
+    // Filled by the background probe; copy waits for it instead of probing on the main thread
+    @Nullable private VideoMetadata loadedMetadata;
+    @Nullable private String loadedFilePath;
 
     @Override
     public android.app.Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
@@ -167,58 +170,69 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
         container.removeAllViews();
 
         FLog.d(TAG, "Starting video metadata extraction for URI: " + videoUri);
-        FLog.d(TAG, "Video URI scheme: " + videoUri.getScheme());
-        FLog.d(TAG, "Video URI path: " + videoUri.getPath());
 
-        // Extract comprehensive video metadata
-        VideoMetadata metadata = extractVideoMetadata();
-
-        FLog.d(TAG, "Extracted metadata - Duration: " + metadata.duration +
-                ", Resolution: " + metadata.resolution +
-                ", FPS: " + metadata.frameRate +
-                ", Codec: " + metadata.codec +
-                ", Bitrate: " + metadata.bitrate +
-                ", Location: " + metadata.location);
-
-        // Add video information rows with icons
+        // Rows appear at once; FFprobe and the path lookup fill them in off the main thread
+        final String pending = "\u2026";
         addInfoRowWithIcon(container, "description", getString(R.string.video_info_file_name), getFileName());
         addInfoRowWithIcon(container, "storage", getString(R.string.video_info_file_size), getFormattedFileSize());
-        addInfoRowWithIcon(container, "folder", getString(R.string.video_info_file_path), getFilePath());
+        final TextView pathValue = addInfoRowWithIcon(container, "folder", getString(R.string.video_info_file_path), pending);
         addInfoRowWithIcon(container, "schedule", getString(R.string.video_info_last_modified),
                 getFormattedLastModified());
-        addInfoRowWithIcon(container, "timer", getString(R.string.video_info_duration), metadata.duration);
-        addInfoRowWithIcon(container, "aspect_ratio", getString(R.string.video_info_resolution), metadata.resolution);
-        addInfoRowWithIcon(container, "speed", getString(R.string.video_info_fps), metadata.frameRate);
-        addInfoRowWithIcon(container, "video_settings", getString(R.string.video_info_codec), metadata.codec);
-        addInfoRowWithIcon(container, "data_usage", getString(R.string.video_info_bitrate), metadata.bitrate);
-        
-        // Location: add raw coordinates first, then async geocode
-        String locationText = metadata.location;
-        addInfoRowWithIcon(container, "location_on", getString(R.string.video_info_geotag), locationText);
-        
-        // Launch async reverse geocoding if we have raw coordinates
-        if (locationText != null && locationText.contains(",")) {
+        final TextView durationValue = addInfoRowWithIcon(container, "timer", getString(R.string.video_info_duration), pending);
+        final TextView resolutionValue = addInfoRowWithIcon(container, "aspect_ratio", getString(R.string.video_info_resolution), pending);
+        final TextView fpsValue = addInfoRowWithIcon(container, "speed", getString(R.string.video_info_fps), pending);
+        final TextView codecValue = addInfoRowWithIcon(container, "video_settings", getString(R.string.video_info_codec), pending);
+        final TextView bitrateValue = addInfoRowWithIcon(container, "data_usage", getString(R.string.video_info_bitrate), pending);
+        final TextView locationValue = addInfoRowWithIcon(container, "location_on", getString(R.string.video_info_geotag), pending);
+
+        new Thread(() -> {
+            final VideoMetadata metadata;
+            final String filePath;
             try {
-                String[] parts = locationText.split(",");
-                double lat = Double.parseDouble(parts[0].trim());
-                double lon = Double.parseDouble(parts[1].trim());
-                View lastRow = container.getChildAt(container.getChildCount() - 1);
-                // Skip the divider (if any) and get the actual row
-                View rowView = lastRow instanceof LinearLayout ? lastRow : container.getChildAt(container.getChildCount() - 2);
-                if (rowView != null) {
-                    TextView valueView = rowView.findViewById(R.id.info_value);
-                    if (valueView != null) {
-                        asyncGeocode(lat, lon, valueView, locationText);
+                metadata = extractVideoMetadata();
+                filePath = getFilePath();
+            } catch (Exception e) {
+                FLog.w(TAG, "Video info extraction failed", e);
+                return;
+            }
+            container.post(() -> {
+                if (!isAdded()) return;
+                loadedMetadata = metadata;
+                loadedFilePath = filePath;
+                FLog.d(TAG, "Extracted metadata - Duration: " + metadata.duration +
+                        ", Resolution: " + metadata.resolution +
+                        ", FPS: " + metadata.frameRate +
+                        ", Codec: " + metadata.codec +
+                        ", Bitrate: " + metadata.bitrate +
+                        ", Location: " + metadata.location);
+                if (pathValue != null) pathValue.setText(filePath);
+                if (durationValue != null) durationValue.setText(metadata.duration);
+                if (resolutionValue != null) resolutionValue.setText(metadata.resolution);
+                if (fpsValue != null) fpsValue.setText(metadata.frameRate);
+                if (codecValue != null) codecValue.setText(metadata.codec);
+                if (bitrateValue != null) bitrateValue.setText(metadata.bitrate);
+                String locationText = metadata.location;
+                if (locationValue != null) {
+                    locationValue.setText(locationText);
+                    // Reverse-geocode raw coordinates
+                    if (locationText != null && locationText.contains(",")) {
+                        try {
+                            String[] parts = locationText.split(",");
+                            double lat = Double.parseDouble(parts[0].trim());
+                            double lon = Double.parseDouble(parts[1].trim());
+                            asyncGeocode(lat, lon, locationValue, locationText);
+                        } catch (Exception e) { FLog.d(TAG, "Geocode parse error", e); }
                     }
                 }
-            } catch (Exception e) { FLog.d(TAG, "Geocode parse error", e); }
-        }
+            });
+        }, "VideoInfoProbe").start();
     }
 
     /**
      * Adds an information row with icon to the container
      */
-    private void addInfoRowWithIcon(LinearLayout container, String iconLigature, String label, String value) {
+    @Nullable
+    private TextView addInfoRowWithIcon(LinearLayout container, String iconLigature, String label, String value) {
         // Divider before each row (except first) — matches ScanInfoBottomSheet
         if (container.getChildCount() > 0) {
             View div = new View(getContext());
@@ -247,6 +261,7 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
         }
 
         container.addView(rowView);
+        return valueView;
     }
 
     /**
@@ -590,8 +605,11 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
         if (getContext() == null)
             return;
 
-        VideoMetadata metadata = extractVideoMetadata();
-        String videoInfo = buildClipboardText(metadata);
+        if (loadedMetadata == null) {
+            // Still probing the file; the rows show "..." until it's done
+            return;
+        }
+        String videoInfo = buildClipboardText(loadedMetadata);
 
         ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
         if (clipboard != null) {
@@ -611,7 +629,8 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
         StringBuilder sb = new StringBuilder();
         sb.append(getString(R.string.video_info_file_name)).append(": ").append(getFileName()).append("\n");
         sb.append(getString(R.string.video_info_file_size)).append(": ").append(getFormattedFileSize()).append("\n");
-        sb.append(getString(R.string.video_info_file_path)).append(": ").append(getFilePath()).append("\n");
+        sb.append(getString(R.string.video_info_file_path)).append(": ")
+                .append(loadedFilePath != null ? loadedFilePath : getFilePath()).append("\n");
         sb.append(getString(R.string.video_info_last_modified)).append(": ").append(getFormattedLastModified())
                 .append("\n");
         sb.append(getString(R.string.video_info_duration)).append(": ").append(metadata.duration).append("\n");
