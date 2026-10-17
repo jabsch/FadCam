@@ -871,9 +871,10 @@ public class TrashManager {
             String targetFileName = getUniqueSafFileName(safDir, item.getOriginalDisplayName());
             String mimeType = getMimeTypeForFile(targetFileName);
 
+            DocumentFile newDoc = null;
             try {
                 // Create the document in the SAF directory
-                DocumentFile newDoc = safDir.createFile(mimeType, targetFileName);
+                newDoc = safDir.createFile(mimeType, targetFileName);
                 if (newDoc == null) {
                     FLog.e(TAG, "restoreItemsToSaf: Failed to create document in SAF for: " + targetFileName);
                     allSucceeded = false;
@@ -920,10 +921,15 @@ public class TrashManager {
 
             } catch (IOException e) {
                 FLog.e(TAG, "restoreItemsToSaf: IOException restoring " + item.getOriginalDisplayName(), e);
+                // Don't leave a half-copied duplicate in the user's folder
+                if (newDoc != null) newDoc.delete();
                 allSucceeded = false;
             } catch (SecurityException e) {
                 FLog.e(TAG, "restoreItemsToSaf: SecurityException restoring " + item.getOriginalDisplayName()
                         + ". SAF permission may have been revoked.", e);
+                if (newDoc != null) {
+                    try { newDoc.delete(); } catch (Exception ignored) { }
+                }
                 allSucceeded = false;
             }
         }
@@ -1004,31 +1010,31 @@ public class TrashManager {
      * @param items The list of trash items to check.
      * @return A list of available restore destinations.
      */
-    public static List<RestoreDestination> getAvailableRestoreDestinations(List<TrashItem> items) {
+    public static List<RestoreDestination> getAvailableRestoreDestinations(Context context, List<TrashItem> items) {
         List<RestoreDestination> destinations = new ArrayList<>();
 
         // Downloads folder is always available
         destinations.add(RestoreDestination.DOWNLOADS_FOLDER);
 
-        // Internal storage is always available
-        destinations.add(RestoreDestination.INTERNAL_STORAGE);
-
-        // SAF storage is available if any item was originally from SAF
-        boolean hasSafItems = false;
-        if (items != null) {
-            for (TrashItem item : items) {
-                if (item != null && item.isFromSaf()) {
-                    hasSafItems = true;
-                    break;
-                }
-            }
-        }
-
-        if (hasSafItems) {
+        // Records lists only the active storage, so offer just that one: internal files
+        // vanish while a custom folder is in use, and a SAF restore fails without one.
+        if (hasWritableSafFolder(context)) {
             destinations.add(RestoreDestination.SAF_STORAGE);
+        } else {
+            destinations.add(RestoreDestination.INTERNAL_STORAGE);
         }
 
         return destinations;
+    }
+
+    private static boolean hasWritableSafFolder(Context context) {
+        String safUriString = SharedPreferencesManager.getInstance(context).getCustomStorageUri();
+        if (safUriString == null || safUriString.isEmpty()) return false;
+        Uri safTreeUri = Uri.parse(safUriString);
+        for (android.content.UriPermission p : context.getContentResolver().getPersistedUriPermissions()) {
+            if (p.getUri().equals(safTreeUri) && p.isWritePermission()) return true;
+        }
+        return false;
     }
 
     /**

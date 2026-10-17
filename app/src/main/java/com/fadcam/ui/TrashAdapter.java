@@ -430,20 +430,27 @@ public class TrashAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
     }
 
     private void toggleSelectionInternal(TrashItem item) {
+        boolean wasSelecting = !selectedItems.isEmpty();
         boolean newState = !selectedItems.contains(item);
         if (newState) {
             selectedItems.add(item);
         } else {
             selectedItems.remove(item);
         }
-        
-        // Find the position of the item in entries and notify the adapter
-        int position = findEntryPosition(item);
-        if (position != -1) {
-            notifyItemChanged(position, "SELECTION_TOGGLE");
+
+        if (wasSelecting != !selectedItems.isEmpty()) {
+            // Entering or leaving selection mode changes every card's check circle
+            // and every month header's select control, not just this one
+            notifyItemRangeChanged(0, entries.size(), "SELECTION_TOGGLE");
+        } else {
+            // Find the position of the item in entries and notify the adapter
+            int position = findEntryPosition(item);
+            if (position != -1) {
+                notifyItemChanged(position, "SELECTION_TOGGLE");
+            }
+            // Also update the month header for this item's month
+            notifyMonthHeaderForItem(item);
         }
-        // Also update the month header for this item's month
-        notifyMonthHeaderForItem(item);
         
         if (interactionListener != null) {
             interactionListener.onItemCheckChanged(item, newState);
