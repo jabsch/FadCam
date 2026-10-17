@@ -387,76 +387,15 @@ public class RecordingService extends Service {
                 durationPreferenceListener);
     }
 
-    // --- Storage watchdog ---
-    // A full disk made every frame write fail silently: the recording kept "running"
-    // while saving nothing. Check free space now and then and stop cleanly instead,
-    // so the footage recorded so far is finalized.
-    private static final long STORAGE_WATCHDOG_INTERVAL_MS = 10_000L;
-    private static final long STORAGE_STOP_THRESHOLD_BYTES = 200L * 1024L * 1024L; // ~10 s of 4K at 100+ Mbps, plus finalizing
-    private java.util.concurrent.ExecutorService storageWatchdogExecutor;
-    private final Runnable storageWatchdogTick = new Runnable() {
-        @Override
-        public void run() {
-            if (recordingState != RecordingState.IN_PROGRESS && recordingState != RecordingState.PAUSED) {
-                return;
-            }
-            java.util.concurrent.ExecutorService exec = storageWatchdogExecutor;
-            if (exec == null || exec.isShutdown()) return;
-            try {
-                exec.execute(() -> {
-                    long free;
-                    try {
-                        com.fadcam.utils.StorageInfoCache.clearCache();
-                        free = com.fadcam.utils.StorageInfoCache.calculateAndCacheStorageInfo(
-                                getApplicationContext(), sharedPreferencesManager).availableBytes;
-                    } catch (Exception e) {
-                        FLog.w(TAG, "Storage watchdog: free space check failed", e);
-                        free = Long.MAX_VALUE;
-                    }
-                    final long freeBytes = free;
-                    mainHandler.post(() -> {
-                        if (recordingState != RecordingState.IN_PROGRESS
-                                && recordingState != RecordingState.PAUSED) {
-                            return;
-                        }
-                        if (freeBytes < STORAGE_STOP_THRESHOLD_BYTES && !isStreamOnlyRecording()) {
-                            FLog.w(TAG, "Storage watchdog: " + freeBytes + " bytes free, stopping recording");
-                            Toast.makeText(RecordingService.this, R.string.recording_stopped_storage_full,
-                                    Toast.LENGTH_LONG).show();
-                            stopRecording();
-                            return;
-                        }
-                        mainHandler.postDelayed(storageWatchdogTick, STORAGE_WATCHDOG_INTERVAL_MS);
+    // Stops the recording cleanly before the disk is full (writes otherwise fail silently)
+    private final com.fadcam.utils.RecordingStorageWatchdog storageWatchdog =
+            new com.fadcam.utils.RecordingStorageWatchdog(this,
+                    () -> recordingState == RecordingState.IN_PROGRESS
+                            || recordingState == RecordingState.PAUSED,
+                    () -> {
+                        Toast.makeText(this, R.string.recording_stopped_storage_full, Toast.LENGTH_LONG).show();
+                        stopRecording();
                     });
-                });
-            } catch (java.util.concurrent.RejectedExecutionException ignored) {
-            }
-        }
-    };
-
-    private boolean isStreamOnlyRecording() {
-        try {
-            return com.fadcam.streaming.RemoteStreamManager.getInstance().isStreamingEnabled()
-                    && sharedPreferencesManager.getStreamingMode()
-                    == com.fadcam.streaming.RemoteStreamManager.StreamingMode.STREAM_ONLY;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private void startStorageWatchdog() {
-        stopStorageWatchdog();
-        storageWatchdogExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
-        mainHandler.postDelayed(storageWatchdogTick, STORAGE_WATCHDOG_INTERVAL_MS);
-    }
-
-    private void stopStorageWatchdog() {
-        mainHandler.removeCallbacks(storageWatchdogTick);
-        if (storageWatchdogExecutor != null) {
-            storageWatchdogExecutor.shutdownNow();
-            storageWatchdogExecutor = null;
-        }
-    }
 
     private void startDurationLimitSession() {
         if (durationLimitController == null) {
@@ -2382,7 +2321,7 @@ public class RecordingService extends Service {
     @Override
     public void onDestroy() {
         FLog.d(TAG, "onDestroy: Service being destroyed...");
-        stopStorageWatchdog();
+        storageWatchdog.stop();
         // Safety net: drop any in-flight finalization guard (the process is
         // going away; a stale entry would block future repairs of this file).
         IN_FLIGHT_FINALIZATIONS.clear();
@@ -2494,7 +2433,7 @@ public class RecordingService extends Service {
     // --- Core Recording Logic ---
     private void stopRecording() {
         thermalGuard.stop();
-        stopStorageWatchdog();
+        storageWatchdog.stop();
         unregisterScreenStateReceiver();
         if (durationLimitController != null && durationLimitController.stopSession()) {
             FLog.d(TAG, "Cancelled maximum recording duration for current session");
@@ -7408,7 +7347,7 @@ public class RecordingService extends Service {
 
                 persistRecordingTimelineState();
                 startDurationLimitSession();
-                startStorageWatchdog();
+                storageWatchdog.start();
                 thermalGuard.start(getApplicationContext(),
                         com.fadcam.utils.RecordingPreset.isAutoFps(sharedPreferencesManager));
                 registerScreenStateReceiver();
