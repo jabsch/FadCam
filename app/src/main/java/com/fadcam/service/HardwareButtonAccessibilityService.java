@@ -76,7 +76,7 @@ public class HardwareButtonAccessibilityService extends AccessibilityService {
             return false;
         }
         if (isInCall() || cameraAppHasVolumeKeys()) {
-            detector.reset();
+            detector.finishPending();
             return false;
         }
         switch (event.getAction()) {

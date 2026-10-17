@@ -68,15 +68,16 @@ public final class VolumeKeyGestureDetector {
     public boolean onKeyDown(int keyCode, int repeatCount) {
         String hold = host.binding(keyCode, Gesture.HOLD);
         String doubleTap = host.binding(keyCode, Gesture.DOUBLE_TAP);
+        if (pendingTapKey != NO_KEY && pendingTapKey != keyCode) {
+            // Apply a waiting single tap before this key's own step, keeping their order
+            flushPendingTap();
+        }
         if (hold == null && doubleTap == null) {
             return keyCode == downKey;
         }
         if (repeatCount > 0) {
             // The hold repeat below steps the volume; a system repeat would double it
             return true;
-        }
-        if (pendingTapKey != NO_KEY && pendingTapKey != keyCode) {
-            flushPendingTap();
         }
         if (pendingTapKey == keyCode && doubleTap != null) {
             clearPendingTap();
@@ -130,6 +131,12 @@ public final class VolumeKeyGestureDetector {
             host.adjustVolume(keyCode);
         }
         return true;
+    }
+
+    /** Ends a press in progress but still applies a waiting single tap's volume step. */
+    public void finishPending() {
+        cancelHold();
+        flushPendingTap();
     }
 
     /** Drops any press in progress (service interrupted or destroyed). */

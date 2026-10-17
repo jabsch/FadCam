@@ -139,6 +139,27 @@ public class VolumeKeyGestureDetectorTest {
     }
 
     @Test
+    public void unboundKeyFlushesPendingTapFirst() {
+        bind(UP, Gesture.DOUBLE_TAP, "photo");
+        tap(UP);
+        advance(50);
+        // DOWN is unbound, so the system applies it right away; UP's step goes first
+        assertFalse(detector.onKeyDown(DOWN, 0));
+        assertEquals(List.of("vol " + UP), log);
+        advance(DOUBLE_MS);
+        assertEquals(List.of("vol " + UP), log);
+    }
+
+    @Test
+    public void finishPendingAppliesWaitingTap() {
+        bind(UP, Gesture.DOUBLE_TAP, "photo");
+        tap(UP);
+        detector.finishPending();
+        advance(DOUBLE_MS);
+        assertEquals(List.of("vol " + UP), log);
+    }
+
+    @Test
     public void holdingKeyWithOnlyDoubleBoundStepsVolume() {
         bind(UP, Gesture.DOUBLE_TAP, "photo");
         detector.onKeyDown(UP, 0);
