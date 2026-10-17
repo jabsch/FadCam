@@ -115,9 +115,18 @@ public final class PhotoStorageHelper {
                 FLog.w(TAG, "saveJpegBitmap: SAF save failed, falling back to internal.");
             }
         }
+        boolean safFailed = result == null && customTreeUri != null && !customTreeUri.trim().isEmpty();
         if (result == null) {
             result = saveToInternal(context, fileName, prepared, shotSource);
             FLog.d(TAG, "saveJpegBitmap: internal save result uri=" + result);
+            if (safFailed && result != null) {
+                // Every caller only says "Photo saved", so say here where it really went
+                final Context appContext = context.getApplicationContext();
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
+                        android.widget.Toast.makeText(appContext,
+                                com.fadcam.R.string.photo_saved_internal_fallback,
+                                android.widget.Toast.LENGTH_LONG).show());
+            }
         }
         if (prepared != bitmap && !prepared.isRecycled()) {
             prepared.recycle();

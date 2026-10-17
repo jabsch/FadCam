@@ -3440,4 +3440,6 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="qr_scanner_busy_recording">Stop the recording first. The scanner needs the camera it is using.</string>
     <string name="faditor_unknown_error">Unknown error</string>
     <string name="faditor_export_saf_failed">Could not save the export to your storage folder. Check the folder in Storage settings and export again.</string>
+    <string name="photo_capture_resume_first">Resume the recording to take a photo</string>
+    <string name="photo_saved_internal_fallback">Could not write to your storage folder, so this photo was saved in JaCam\'s own folder</string>
 </resources>
