@@ -1880,6 +1880,10 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 if (newUri != null) {
                     renameSuccess = true;
                     appliedName = finalName;
+                    // The provider may pick "name (1).mp4" itself on a clash; show the real name
+                    DocumentFile renamedDoc = DocumentFile.fromSingleUri(context, newUri);
+                    String actualName = renamedDoc != null ? renamedDoc.getName() : null;
+                    if (actualName != null && !actualName.isEmpty()) appliedName = actualName;
                     FLog.i(TAG, "Renamed SAF document successfully to: " + finalName + ", New URI: " + newUri);
                 } else {
                     FLog.w(TAG, "DocumentsContract.renameDocument returned null for: " + videoUri + " to '" + finalName

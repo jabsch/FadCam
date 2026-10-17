@@ -240,7 +240,11 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
                     ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
             dlp.setMargins(dp(14), 0, dp(12), 0);
             div.setLayoutParams(dlp);
-            div.setBackgroundColor(0xff404040);
+            // Dark line on dark themes, light grey on Snow Veil
+            int bg = com.google.android.material.color.MaterialColors.getColor(
+                    div, android.R.attr.colorBackground, 0xff000000);
+            div.setBackgroundColor(androidx.core.graphics.ColorUtils.calculateLuminance(bg) > 0.5
+                    ? 0xffD6D6D6 : 0xff404040);
             container.addView(div);
         }
 
@@ -454,7 +458,8 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
             } catch (Exception e) {
                 FLog.w(TAG, "Could not extract data with MediaMetadataRetriever", e);
                 if (getString(R.string.video_info_unknown).equals(metadata.location) || metadata.location == null) {
-                    metadata.location = getString(R.string.video_info_no_location);
+                    // MediaMetadataRetriever rejects JPEGs, so photos read their geotag from EXIF
+                    metadata.location = extractLocationFromExif();
                 }
             } finally {
                 try {
@@ -516,18 +521,17 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
      */
     @SuppressWarnings("deprecation") // ExifInterface.getLatLong(float[]) has no non-deprecated Java equivalent on all supported APIs
     private String extractLocationFromExif() {
-        if (!"file".equals(videoUri.getScheme())) {
-            return getString(R.string.video_info_no_location);
-        }
-
-        try {
-            ExifInterface exif = new ExifInterface(videoUri.getPath());
+        if (getContext() == null) return getString(R.string.video_info_no_location);
+        // Stream-based so photos in a custom (content://) folder work too
+        try (java.io.InputStream in = getContext().getContentResolver().openInputStream(videoUri)) {
+            if (in == null) return getString(R.string.video_info_no_location);
+            ExifInterface exif = new ExifInterface(in);
             float[] latLong = new float[2];
 
             if (exif.getLatLong(latLong)) {
                 return formatLocationCoordinates(latLong[0], latLong[1]);
             }
-        } catch (IOException e) {
+        } catch (IOException | SecurityException e) {
             FLog.d(TAG, "Could not read EXIF data for location", e);
         }
 
@@ -616,6 +620,7 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
 
         if (loadedMetadata == null) {
             // Still probing the file; the rows show "..." until it's done
+            Toast.makeText(getContext(), R.string.video_info_still_loading, Toast.LENGTH_SHORT).show();
             return;
         }
         String videoInfo = buildClipboardText(loadedMetadata);
@@ -624,10 +629,10 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
         if (clipboard != null) {
             ClipData clip = ClipData.newPlainText("Video Info", videoInfo);
             clipboard.setPrimaryClip(clip);
-            Toast.makeText(getContext(), "Video info copied to clipboard", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), R.string.qr_scanner_copied, Toast.LENGTH_SHORT).show();
         } else {
             FLog.e(TAG, "ClipboardManager service is null");
-            Toast.makeText(getContext(), "Could not access clipboard", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), R.string.video_info_clipboard_unavailable, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -774,22 +779,11 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
     }
 
     private String getRelativeTime(Date date) {
-        long diff = System.currentTimeMillis() - date.getTime();
-        long sec = diff / 1000;
-        if (sec < 0) return "";
-        if (sec < 60) return "just now";
-        long min = sec / 60;
-        if (min < 60) return min + " min ago";
-        long hr = min / 60;
-        if (hr < 24) return hr + " hr ago";
-        long day = hr / 24;
-        if (day < 7) return day + " day" + (day > 1 ? "s" : "") + " ago";
-        long week = day / 7;
-        if (week < 5) return week + " week" + (week > 1 ? "s" : "") + " ago";
-        long month = day / 30;
-        if (day < 365) return Math.max(1, month) + " month" + (month > 1 ? "s" : "") + " ago";
-        long year = day / 365;
-        return year + " year" + (year > 1 ? "s" : "") + " ago";
+        long now = System.currentTimeMillis();
+        if (date.getTime() > now) return "";
+        // Localized ("5 minutes ago", "vor 5 Minuten", ...)
+        return android.text.format.DateUtils.getRelativeTimeSpanString(
+                date.getTime(), now, android.text.format.DateUtils.MINUTE_IN_MILLIS).toString();
     }
 
     private String formatFileSize(long bytes) {

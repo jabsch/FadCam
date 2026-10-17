@@ -520,15 +520,10 @@ public class HomeSidebarFragment extends DialogFragment {
         try {
             ArrayList<OptionItem> items = new ArrayList<>();
             items.add(new OptionItem("profiles",
-                    "Set up multiple profiles with different configurations and switch between them instantly.\n\n"
-                    + "Example use cases:\n"
-                    + "• Low storage mode — reduced resolution & bitrate\n"
-                    + "• High quality mode — max resolution & FPS\n"
-                    + "• Night mode — optimized exposure settings\n"
-                    + "• Share profiles across devices", (String) null));
+                    getString(R.string.profiles_coming_soon_desc), (String) null));
             PickerBottomSheetFragment picker = PickerBottomSheetFragment.newInstance(
-                    "Profiles", items, "profiles", "profile_coming_soon",
-                    "Coming in a future update", true);
+                    getString(R.string.profiles_title), items, "profiles", "profile_coming_soon",
+                    getString(R.string.mini_app_coming_soon_desc), true);
             picker.show(getParentFragmentManager(), "profiles_coming_soon");
         } catch (Exception e) {
             FLog.w("HomeSidebar", "Failed to show profiles info", e);

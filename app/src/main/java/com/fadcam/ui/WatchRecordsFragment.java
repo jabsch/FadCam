@@ -322,7 +322,9 @@ public class WatchRecordsFragment extends Fragment {
                 final String ext = dot >= 0 ? fn.substring(dot) : "";
                 final File newFile = new File(entry.file.getParentFile(), sanitized + ext);
                 executor.execute(() -> {
-                    final boolean ok = entry.file.renameTo(newFile);
+                    // renameTo replaces an existing file, which would destroy that recording
+                    final boolean ok = (newFile.equals(entry.file) || !newFile.exists())
+                            && entry.file.renameTo(newFile);
                     mainHandler.post(() -> {
                         if (!isAdded()) return;
                         if (!ok) Toast.makeText(requireContext(),
