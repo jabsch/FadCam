@@ -132,6 +132,7 @@ public class AudioSettingsFragment extends Fragment {
                 return;
             }
             com.fadcam.utils.AudioChannelMode.save(prefs, picked);
+            clampAudioBitrateToFormat();
             refreshAllValues();
         });
         com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(getString(R.string.setting_audio_channels_title),
@@ -436,7 +437,7 @@ public class AudioSettingsFragment extends Fragment {
         getParentFragmentManager().setFragmentResultListener(rk, this, (k,b)->{
             if(b.containsKey(com.fadcam.ui.picker.MaterialNumberPickerBottomSheetFragment.RESULT_NUMBER)){
                 int br = b.getInt(com.fadcam.ui.picker.MaterialNumberPickerBottomSheetFragment.RESULT_NUMBER);
-                prefs.setAudioBitrate(br);
+                prefs.setAudioBitrate(Math.min(br, maxAudioBitrate()));
                 refreshAllValues();
             }
         });
@@ -445,7 +446,7 @@ public class AudioSettingsFragment extends Fragment {
     String highMsg = getString(R.string.helper_audio_bitrate_high_hint);
     // Build sheet with reset & description (including recommended value marker)
     com.fadcam.ui.picker.MaterialNumberPickerBottomSheetFragment sheet = com.fadcam.ui.picker.MaterialNumberPickerBottomSheetFragment.newInstance(
-        getString(R.string.dialog_audio_bitrate_label), 64000, 384000, prefs.getAudioBitrate(), getString(R.string.helper_audio_bitrate_detail) + " " + getString(R.string.label_recommended) + ": 192000", 128000, 320000, lowMsg, highMsg, rk);
+        getString(R.string.dialog_audio_bitrate_label), 64000, maxAudioBitrate(), Math.min(prefs.getAudioBitrate(), maxAudioBitrate()), getString(R.string.helper_audio_bitrate_detail) + " " + getString(R.string.label_recommended) + ": 192000", 128000, 320000, lowMsg, highMsg, rk);
     // Add extra args for reset
     if(sheet.getArguments()!=null){
         sheet.getArguments().putBoolean(com.fadcam.ui.picker.MaterialNumberPickerBottomSheetFragment.ARG_SHOW_RESET, true);
@@ -454,6 +455,21 @@ public class AudioSettingsFragment extends Fragment {
     sheet.getArguments().putString(com.fadcam.ui.picker.MaterialNumberPickerBottomSheetFragment.ARG_FOOTER, getString(R.string.audio_bitrate_footer));
     }
         sheet.show(getParentFragmentManager(), "audio_bitrate_input");
+    }
+
+    /**
+     * AAC-LC carries about 6 bits per sample per channel, so mono tops out well
+     * below 384 kbps; above that the encoder clamps silently or fails to start.
+     */
+    private int maxAudioBitrate() {
+        int channels = Math.max(1, com.fadcam.utils.AudioChannelMode.current(prefs).channelCount);
+        long max = 6L * prefs.getAudioSamplingRate() * channels;
+        return (int) Math.max(64000L, Math.min(384000L, max));
+    }
+
+    private void clampAudioBitrateToFormat() {
+        int max = maxAudioBitrate();
+        if (prefs.getAudioBitrate() > max) prefs.setAudioBitrate(max);
     }
 
     private void showSamplingRateInputSheet(){
@@ -466,6 +482,7 @@ public class AudioSettingsFragment extends Fragment {
             } else if(sel.equals("48000")) {
                 prefs.setAudioSamplingRate(48000);
             }
+            clampAudioBitrateToFormat();
             refreshAllValues();
         });
         ArrayList<com.fadcam.ui.picker.OptionItem> items = new ArrayList<>();

@@ -3451,4 +3451,6 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="video_info_still_loading">Still reading the file, try again in a moment</string>
     <string name="video_info_clipboard_unavailable">Could not access clipboard</string>
     <string name="profiles_coming_soon_desc">Set up multiple profiles with different configurations and switch between them instantly.\n\nExample use cases:\n• Low storage mode: reduced resolution and bitrate\n• High quality mode: max resolution and FPS\n• Night mode: optimized exposure settings\n• Share profiles across devices</string>
+    <string name="video_setting_applies_next_recording">A recording is running. This change applies from the next recording.</string>
+    <string name="video_split_min_size">Split size set to the minimum of %1$d MB</string>
 </resources>
