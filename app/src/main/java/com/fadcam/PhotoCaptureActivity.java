@@ -71,7 +71,7 @@ public class PhotoCaptureActivity extends ComponentActivity {
         }
 
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(this);
-        if (prefs != null && prefs.isRecordingInProgress()) {
+        if (prefs != null && com.fadcam.RecordingShortcutDispatcher.hasActiveSession(this)) {
             Intent intent = new Intent(
                     this,
                     prefs.getCameraSelection() != null && prefs.getCameraSelection().isDual()

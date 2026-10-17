@@ -1809,6 +1809,9 @@ public class GLRecordingPipeline {
                 rolloverRequestedByDrain = false;
                 return;
             }
+            // Clear the old output so the guard below catches a callback that sets nothing
+            currentOutputFilePath = null;
+            currentOutputFd = null;
             segmentCallback.onSegmentRollover(segmentNumber);
 
             if (currentOutputFilePath == null && currentOutputFd == null) {
@@ -2412,6 +2415,9 @@ public class GLRecordingPipeline {
             // conflict on Samsung (or any other SAF provider).
             if (segmentCallback != null) {
                 FLog.d(TAG, "Calling segment callback for next segment");
+                // Clear the old output so a callback that sets nothing cannot reuse (and truncate) it
+                currentOutputFilePath = null;
+                currentOutputFd = null;
                 segmentCallback.onSegmentRollover(segmentNumber);
             } else {
                 FLog.e(TAG, "Segment callback is null, cannot continue rollover");
