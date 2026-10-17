@@ -606,6 +606,8 @@ public class RemoteStreamService extends Service {
             return null;
         }
         String ipAddress = getLocalIpAddress();
+        // No network: "N/A" made copyable http://N/A:8080/... endpoint URLs
+        if (ipAddress == null || "N/A".equals(ipAddress)) return null;
         return ipAddress + ":" + activePort;
     }
     

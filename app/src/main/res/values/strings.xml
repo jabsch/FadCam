@@ -3459,4 +3459,10 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="records_item_selected">Selected</string>
     <string name="records_item_not_selected">Not selected</string>
     <string name="settings_haptics_preview_desc">Preview: %1$s</string>
+    <string name="e2e_password_empty">Password cannot be empty</string>
+    <string name="e2e_link_account_first">Link your FadSec ID account first</string>
+    <string name="e2e_setup_dashboard_first">Set up E2E encryption in the dashboard first, then link this device again</string>
+    <string name="e2e_configured">E2E encryption configured</string>
+    <string name="e2e_password_incorrect">Incorrect password, please try again</string>
+    <string name="e2e_setup_failed">Setup failed: %1$s</string>
 </resources>

@@ -88,6 +88,19 @@ public class InputActionBottomSheetFragment extends BottomSheetDialogFragment {
         return this;
     }
 
+    /** Masks the input and keeps it out of keyboard learning (password sheets showed it in plain text). */
+    public InputActionBottomSheetFragment withPasswordInput() {
+        Bundle args = getArguments();
+        if (args == null) {
+            args = new Bundle();
+            setArguments(args);
+        }
+        args.putBoolean(ARG_PASSWORD_INPUT, true);
+        return this;
+    }
+
+    private static final String ARG_PASSWORD_INPUT = "password_input";
+
     /**
      * Optional convenience to attach helper text (shown under the title) from callers
      * without exposing internal argument keys.
@@ -263,6 +276,10 @@ public class InputActionBottomSheetFragment extends BottomSheetDialogFragment {
     private void buildInput(LinearLayout parent, String initialValue, String hint) {
         final EditText input = new EditText(requireContext());
         input.setSingleLine(true);
+        if (getArguments() != null && getArguments().getBoolean(ARG_PASSWORD_INPUT, false)) {
+            input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                    | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        }
         if (initialValue != null)
             input.setText(initialValue);
         if (hint != null)
@@ -288,12 +305,22 @@ public class InputActionBottomSheetFragment extends BottomSheetDialogFragment {
         final String finalActionTitle = actionTitle != null ? actionTitle : getString(R.string.prefs_reset_label);
         final String finalActionSubtitle = actionSubtitle != null ? actionSubtitle : "";
 
-        parent.addView(actionRow(actionIcon, finalActionTitle, finalActionSubtitle, false, v -> {
+        View confirmRow = actionRow(actionIcon, finalActionTitle, finalActionSubtitle, false, v -> {
             String val = input.getText().toString().trim();
             if (callbacks != null) {
                 callbacks.onInputConfirmed(val);
             }
-        }));
+        });
+        parent.addView(confirmRow);
+        // The keyboard's Done key confirms, like tapping the action row
+        input.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+        input.setOnEditorActionListener((tv, actionId, ev) -> {
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                confirmRow.performClick();
+                return true;
+            }
+            return false;
+        });
     }
 
     private void buildPreview(LinearLayout parent, String jsonStr) {

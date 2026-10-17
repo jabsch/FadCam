@@ -73,13 +73,9 @@ public class ClientDataAdapter extends RecyclerView.Adapter<ClientDataAdapter.Vi
             );
             
             // Data served
-            long mb = metrics.getTotalMBServed();
-            if (mb > 0) {
-                dataServedText.setText(mb + " MB");
-            } else {
-                long kb = metrics.getTotalBytesServed() / 1024;
-                dataServedText.setText(kb + " KB");
-            }
+            // Same formatter as the total above, so the rows add up to it
+            dataServedText.setText(android.text.format.Formatter.formatShortFileSize(
+                    itemView.getContext(), metrics.getTotalBytesServed()));
             
             // Session duration
             long seconds = metrics.getSessionDurationSeconds();
