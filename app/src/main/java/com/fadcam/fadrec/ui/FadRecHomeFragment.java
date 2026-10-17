@@ -62,6 +62,8 @@ public class FadRecHomeFragment extends HomeFragment {
 
     // MediaProjection permission handling
     private MediaProjectionHelper mediaProjectionHelper;
+    /** Start was tapped and consent/start is under way; blocks a second consent request. */
+    private long startPendingUntilMs;
     private ActivityResultLauncher<Intent> screenCapturePermissionLauncher;
     private ActivityResultLauncher<String> audioPermissionLauncher;
     private ActivityResultLauncher<Intent> overlayPermissionLauncher;
@@ -171,6 +173,7 @@ public class FadRecHomeFragment extends HomeFragment {
                         syncMuteUiState();
                     }
                 } else {
+                    startPendingUntilMs = 0L;
                     pendingPreviewOnlyPermission = false;
                     updateUIForRecordingState();
                     pendingPreviewOnlyPermission = false;
@@ -593,8 +596,13 @@ public class FadRecHomeFragment extends HomeFragment {
                 cardFloatingControls.findViewById(com.fadcam.R.id.switchFloatingControls);
             
             if (switchFloatingControls != null) {
-                // Set initial state from SharedPreferences
-                boolean isEnabled = sharedPreferencesManager.isFloatingControlsEnabled();
+                // Set initial state from SharedPreferences; overlay permission revoked in
+                // Settings showed the switch on with no overlay, needing two taps
+                boolean canDraw = android.provider.Settings.canDrawOverlays(requireContext());
+                if (!canDraw && sharedPreferencesManager.isFloatingControlsEnabled()) {
+                    sharedPreferencesManager.setFloatingControlsEnabled(false);
+                }
+                boolean isEnabled = sharedPreferencesManager.isFloatingControlsEnabled() && canDraw;
                 switchFloatingControls.setChecked(isEnabled);
                 
                 // Handle switch toggle
@@ -947,6 +955,10 @@ public class FadRecHomeFragment extends HomeFragment {
                 lastClickTime = currentTime;
                 
                 if (screenRecordingState == ScreenRecordingState.NONE) {
+                    // Until STARTED arrives the button still says Start; a second tap asked
+                    // for screen-capture consent again and wasted that grant
+                    if (currentTime < startPendingUntilMs) return;
+                    startPendingUntilMs = currentTime + 10_000L;
                     if (buttonPauseResume != null) {
                         buttonPauseResume.setEnabled(false);
                         buttonPauseResume.setAlpha(0.5f);
@@ -1215,6 +1227,7 @@ public class FadRecHomeFragment extends HomeFragment {
                     
                     switch (action) {
                         case Constants.BROADCAST_ON_SCREEN_RECORDING_STARTED:
+                            startPendingUntilMs = 0L;
                             timerHandler.removeCallbacks(pendingStopStateReconcileRunnable);
                             screenRecordingState = ScreenRecordingState.IN_PROGRESS;
                             isScreenPreviewOnlyActive = false;
@@ -1226,6 +1239,7 @@ public class FadRecHomeFragment extends HomeFragment {
                             break;
                             
                         case Constants.BROADCAST_ON_SCREEN_RECORDING_STOPPED:
+                            startPendingUntilMs = 0L;
                             timerHandler.removeCallbacks(pendingStopStateReconcileRunnable);
                             screenRecordingState = ScreenRecordingState.NONE;
                             isScreenPreviewOnlyActive = false;
@@ -1302,6 +1316,7 @@ public class FadRecHomeFragment extends HomeFragment {
                         
                         // Permission denied in TransparentPermissionActivity (a grant starts the service there)
                         case Constants.ACTION_SCREEN_RECORDING_PERMISSION_DENIED:
+                            startPendingUntilMs = 0L;
                             pendingPreviewOnlyPermission = false;
                             pendingPreviewOpenUntilSurfaceReady = false;
                             updateUIForRecordingState();
@@ -1435,6 +1450,10 @@ public class FadRecHomeFragment extends HomeFragment {
                     AppCompatResources.getDrawable(requireContext(), com.fadcam.R.drawable.play_button_rounded)
                 );
             }
+            // TalkBack said "Pause" while the button showed play
+            buttonPauseResume.setContentDescription(getString(
+                    screenRecordingState == ScreenRecordingState.PAUSED
+                            ? R.string.button_resume : R.string.button_pause));
         }
 
         if (buttonFadRecMute != null) {
@@ -1501,13 +1520,12 @@ public class FadRecHomeFragment extends HomeFragment {
         TextView muteIcon = getView() != null ? getView().findViewById(com.fadcam.R.id.fadrec_mute_icon) : null;
         if (muteIcon != null) muteIcon.setText(iconLigature);
 
-        // Button always enabled - behavior changes based on recording state
-        buttonFadRecMute.setEnabled(true);
-        buttonFadRecMute.setAlpha(1.0f);
+        // Enabled state is set by syncMuteUiState (disabled when a recording has no audio);
+        // re-enabling it here undid that every time
 
         // Content description reflects the CURRENT selection (not a static hint).
         if (isRecordingActive) {
-            buttonFadRecMute.setContentDescription("Toggle mute (during recording)");
+            buttonFadRecMute.setContentDescription(getString(R.string.fadrec_mute_toggle_desc));
         } else if (Constants.AUDIO_SOURCE_NONE.equals(audioSource)) {
             buttonFadRecMute.setContentDescription(getString(R.string.fadrec_audio_source_none));
         } else if (Constants.AUDIO_SOURCE_INTERNAL.equals(audioSource)) {
@@ -1784,7 +1802,7 @@ public class FadRecHomeFragment extends HomeFragment {
         // Add mute/unmute options with icons
         items.add(new OptionItem(
             "unmute",
-            "Audio On",
+            getString(R.string.fadrec_mute_option_on),
             null,
             null,
             null,
@@ -1795,7 +1813,7 @@ public class FadRecHomeFragment extends HomeFragment {
         ));
         items.add(new OptionItem(
             "mute",
-            "Mute",
+            getString(R.string.fadrec_mute_option_mute),
             null,
             null,
             null,
@@ -1815,6 +1833,13 @@ public class FadRecHomeFragment extends HomeFragment {
                 if (sharedPreferencesManager != null) {
                     sharedPreferencesManager.setScreenRecordingMuted(shouldMute);
                     FLog.d(TAG, "Mute toggled to: " + shouldMute);
+                    // Only the pref changed before: the badge said MUTED while the running
+                    // recording kept the mic. The service mutes the pipeline and broadcasts back.
+                    boolean recordingActive = screenRecordingState == ScreenRecordingState.IN_PROGRESS
+                            || screenRecordingState == ScreenRecordingState.PAUSED;
+                    if (recordingActive && mediaProjectionHelper != null) {
+                        mediaProjectionHelper.setScreenRecordingMuted(shouldMute);
+                    }
                     updateMuteButtonUi();
                 }
             }
@@ -1822,11 +1847,11 @@ public class FadRecHomeFragment extends HomeFragment {
         
         String currentId = isMuted ? "mute" : "unmute";
         PickerBottomSheetFragment picker = PickerBottomSheetFragment.newInstance(
-            "Audio Control",
+            getString(R.string.fadrec_mute_picker_title),
             items,
             currentId,
             resultKey,
-            "Mute or unmute audio during recording"
+            getString(R.string.fadrec_mute_picker_helper)
         );
         picker.show(getParentFragmentManager(), "mute_toggle_picker");
     }

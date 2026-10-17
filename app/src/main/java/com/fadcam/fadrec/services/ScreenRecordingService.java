@@ -1069,7 +1069,11 @@ public class ScreenRecordingService extends Service {
             sharedPreferencesManager.setScreenRecordingState(ScreenRecordingState.NONE.name());
             recordingState = ScreenRecordingState.NONE;
             releaseProjectionIfIdle();
-            mainHandler.post(() -> stopSelf());
+            // Without STOPPED the screen kept showing Stop for a recording that had ended
+            mainHandler.post(() -> {
+                broadcastRecordingStopped();
+                stopSelf();
+            });
         }
     }
 
