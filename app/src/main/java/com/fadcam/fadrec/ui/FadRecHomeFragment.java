@@ -1620,17 +1620,19 @@ public class FadRecHomeFragment extends HomeFragment {
             null,
             "mic"  // Material Symbol icon
         ));
-        items.add(new OptionItem(
-            Constants.AUDIO_SOURCE_INTERNAL,
-            getString(R.string.fadrec_audio_source_internal),
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            "speaker"  // Material Symbol icon
-        ));
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) { // internal capture is Android 10+
+            items.add(new OptionItem(
+                Constants.AUDIO_SOURCE_INTERNAL,
+                getString(R.string.fadrec_audio_source_internal),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "speaker"  // Material Symbol icon
+            ));
+        }
         
         // ── External audio input device options (independent cast prefs) ──
         // "Default" = system routing (no forced device) — the reliable option for

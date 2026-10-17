@@ -172,7 +172,7 @@ public class AudioSettingsFragment extends Fragment {
         // Advanced summary (bitrate + sampling)
         int br = prefs.getAudioBitrate();
         int sr = prefs.getAudioSamplingRate();
-        valueAdvancedSummary.setText(String.format(Locale.getDefault(), getString(R.string.setting_audio_advanced_summary), br, sr));
+        valueAdvancedSummary.setText(String.format(Locale.getDefault(), getString(R.string.setting_audio_advanced_summary), br / 1000, sr));
     // Enable/disable dependent rows (mic & advanced) when recording disabled
     updateDependentRowStates(rec);
     }

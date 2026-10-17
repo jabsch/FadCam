@@ -47,6 +47,8 @@ public final class PreferencesBackupUtil {
         set.add(com.fadcam.Constants.PREF_RECORDING_START_TIME);
         set.add(com.fadcam.Constants.PREF_RECORDING_PAUSE_STARTED_AT);
         set.add(com.fadcam.Constants.PREF_RECORDING_ACCUMULATED_PAUSED_DURATION);
+        // Live remote-access login tokens: never write them into an export file
+        set.add(com.fadcam.Constants.PREF_REMOTE_AUTH_SESSIONS);
         // Add more runtime/transient keys here if discovered later
         EXCLUDED_KEYS = java.util.Collections.unmodifiableSet(set);
     }

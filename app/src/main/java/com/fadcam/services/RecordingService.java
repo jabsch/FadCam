@@ -1952,7 +1952,7 @@ public class RecordingService extends Service {
                 try {
                     NotificationCompat.Builder minimalBuilder = new NotificationCompat.Builder(this, CHANNEL_ID)
                             .setContentTitle(getString(R.string.app_name))
-                            .setContentText("Torch toggled")
+                            .setContentText(getString(R.string.torch_toggled_notification))
                             .setSmallIcon(R.drawable.ic_notification_icon);
                     startForeground(NOTIFICATION_ID, minimalBuilder.build());
                     // Stop the service immediately after torch toggle since we're not recording
@@ -5824,10 +5824,22 @@ public class RecordingService extends Service {
 
         // STEP 1: Show a simple, fast notification immediately to satisfy the OS
         // requirement.
+        // Uses the chosen preset's title, text, icon and tap action so a discreet preset never
+        // flashes "Video recording" (this also runs on every resume/reconfigure); only the
+        // slow large icon is left to step 2
+        String immediatePreset = sharedPreferencesManager.getNotificationPreset();
+        String immediateTitle = sharedPreferencesManager.getNotificationTitle();
+        String immediateText = sharedPreferencesManager.getNotificationText(false);
         NotificationCompat.Builder immediateBuilder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_notification_icon)
-                .setContentTitle(getString(R.string.notification_video_recording))
-                .setContentText("Initializing...");
+                .setSmallIcon(presetSmallIcon(immediatePreset))
+                .setContentTitle(immediateTitle != null ? immediateTitle
+                        : getString(R.string.notification_video_recording))
+                .setContentText(immediateText != null ? immediateText
+                        : getString(R.string.notification_video_recording_progress_description))
+                .setContentIntent(presetContentIntent(immediatePreset))
+                .setOngoing(true)
+                .setSilent(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // Check CAMERA and RECORD_AUDIO permissions before declaring service types (Android 14+ requirement)
@@ -5932,24 +5944,7 @@ public class RecordingService extends Service {
                 .setSilent(true) // Suppress sound/vibration defaults
                 .setPriority(NotificationCompat.PRIORITY_LOW);
 
-        // Choose appropriate icon based on notification preset
-        int smallIconResId;
-        switch (preset) {
-            case SharedPreferencesManager.NOTIFICATION_PRESET_SYSTEM_UPDATE:
-                smallIconResId = android.R.drawable.stat_sys_download;
-                break;
-            case SharedPreferencesManager.NOTIFICATION_PRESET_DOWNLOADING:
-                smallIconResId = android.R.drawable.stat_sys_download;
-                break;
-            case SharedPreferencesManager.NOTIFICATION_PRESET_SYNCING:
-                smallIconResId = android.R.drawable.stat_notify_sync;
-                break;
-            default:
-                smallIconResId = R.drawable.ic_notification_icon;
-                break;
-        }
-
-        builder.setSmallIcon(smallIconResId);
+        builder.setSmallIcon(presetSmallIcon(preset));
 
         // method(createBaseNotificationBuilder_large_icon)-----------
         // Set custom large icon based on currently selected app icon for discretion
@@ -5965,19 +5960,32 @@ public class RecordingService extends Service {
         }
         // method(createBaseNotificationBuilder_large_icon)-----------
 
-        // Set a generic content intent that doesn't reveal the app
-        if (!SharedPreferencesManager.NOTIFICATION_PRESET_DEFAULT.equals(preset)) {
-            // For non-default presets, use a blank PendingIntent that does nothing
-            Intent emptyIntent = new Intent();
-            PendingIntent emptyPendingIntent = PendingIntent.getActivity(this, 0, emptyIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-            builder.setContentIntent(emptyPendingIntent);
-        } else {
-            // For default preset, use normal app opening intent
-            builder.setContentIntent(createOpenAppIntent());
-        }
+        builder.setContentIntent(presetContentIntent(preset));
 
         return builder;
+    }
+
+    /** Status-bar icon for the notification preset (disguised presets use system icons). */
+    private int presetSmallIcon(String preset) {
+        if (preset == null) return R.drawable.ic_notification_icon;
+        switch (preset) {
+            case SharedPreferencesManager.NOTIFICATION_PRESET_SYSTEM_UPDATE:
+            case SharedPreferencesManager.NOTIFICATION_PRESET_DOWNLOADING:
+                return android.R.drawable.stat_sys_download;
+            case SharedPreferencesManager.NOTIFICATION_PRESET_SYNCING:
+                return android.R.drawable.stat_notify_sync;
+            default:
+                return R.drawable.ic_notification_icon;
+        }
+    }
+
+    /** Tap action: opens the app for the default preset, does nothing for disguised presets. */
+    private PendingIntent presetContentIntent(String preset) {
+        if (!SharedPreferencesManager.NOTIFICATION_PRESET_DEFAULT.equals(preset)) {
+            return PendingIntent.getActivity(this, 0, new Intent(),
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        }
+        return createOpenAppIntent();
     }
 
     // method(getCurrentAppIconResourceId)-----------
