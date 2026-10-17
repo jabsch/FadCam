@@ -1804,6 +1804,7 @@ public class HomeFragment extends BaseFragment {
                 R.drawable.pause_rounded
             )
         );
+        buttonPauseResume.setContentDescription(buttonPauseResume.getContext().getString(R.string.button_pause));
         buttonPauseResume.setEnabled(true);
 
         applyButtonTransition(buttonStartStop, getString(R.string.button_stop),
@@ -1840,6 +1841,7 @@ public class HomeFragment extends BaseFragment {
         buttonPauseResume.setIcon(
             AppCompatResources.getDrawable(requireContext(), R.drawable.play_button_rounded)
         );
+        buttonPauseResume.setContentDescription(buttonPauseResume.getContext().getString(R.string.button_resume));
         buttonPauseResume.setEnabled(true);
 
         // Keep camera switch button ENABLED for live switching even when paused
@@ -2017,6 +2019,7 @@ public class HomeFragment extends BaseFragment {
                         R.drawable.pause_rounded
                     )
                 );
+                buttonPauseResume.setContentDescription(buttonPauseResume.getContext().getString(R.string.button_pause));
             }
             if (buttonCamSwitch != null) {
                 buttonCamSwitch.setEnabled(true);
@@ -2923,6 +2926,7 @@ public class HomeFragment extends BaseFragment {
                     R.drawable.pause_rounded
                 )
             );
+            buttonPauseResume.setContentDescription(buttonPauseResume.getContext().getString(R.string.button_pause));
             buttonPauseResume.setAlpha(1.0f); // Make fully visible when enabled
             buttonPauseResume.setBackgroundResource(R.drawable.control_button_bg_orange);;
 
@@ -2965,7 +2969,8 @@ public class HomeFragment extends BaseFragment {
                     requireContext(),
                     R.drawable.play_button_rounded
                 )
-            ); // Show
+            );
+            buttonPauseResume.setContentDescription(buttonPauseResume.getContext().getString(R.string.button_resume)); // Show
             // Play
             // icon for
             // RESUME
@@ -3018,6 +3023,7 @@ public class HomeFragment extends BaseFragment {
                     R.drawable.pause_rounded
                 )
             );
+            buttonPauseResume.setContentDescription(buttonPauseResume.getContext().getString(R.string.button_pause));
 
             // Disable camera switch (camera not available)
             if (buttonCamSwitch != null) {
@@ -5706,6 +5712,7 @@ public class HomeFragment extends BaseFragment {
         FLog.d(TAG, "pauseDualRecording: Pausing dual video recording");
         buttonPauseResume.setIcon(
                 AppCompatResources.getDrawable(requireContext(), R.drawable.play_button_rounded));
+        buttonPauseResume.setContentDescription(buttonPauseResume.getContext().getString(R.string.button_resume));
         buttonPauseResume.setEnabled(false);
 
         Intent intent = new Intent(getContext(), DualCameraRecordingService.class);
@@ -5720,6 +5727,7 @@ public class HomeFragment extends BaseFragment {
         FLog.d(TAG, "resumeDualRecording: Resuming dual video recording");
         buttonPauseResume.setIcon(
                 AppCompatResources.getDrawable(requireContext(), R.drawable.pause_rounded));
+        buttonPauseResume.setContentDescription(buttonPauseResume.getContext().getString(R.string.button_pause));
         buttonPauseResume.setEnabled(false);
 
         Intent intent = new Intent(getContext(), DualCameraRecordingService.class);
@@ -8193,6 +8201,7 @@ public class HomeFragment extends BaseFragment {
         buttonPauseResume.setIcon(
             AppCompatResources.getDrawable(requireContext(), R.drawable.play_button_rounded)
         );
+        buttonPauseResume.setContentDescription(buttonPauseResume.getContext().getString(R.string.button_resume));
         buttonPauseResume.setEnabled(false);
 
         // Keep camera switch button ENABLED for live switching during pause
@@ -8219,6 +8228,7 @@ public class HomeFragment extends BaseFragment {
                 R.drawable.pause_rounded
             )
         );
+        buttonPauseResume.setContentDescription(buttonPauseResume.getContext().getString(R.string.button_pause));
         buttonPauseResume.setEnabled(false);
 
         // Keep camera switch button ENABLED for live switching during resume
@@ -10199,6 +10209,8 @@ public class HomeFragment extends BaseFragment {
                             )
                         );
                         buttonTorchSwitch.setSelected(isOn); // This controls the visual feedback (e.g., tint)
+                        androidx.core.view.ViewCompat.setStateDescription(buttonTorchSwitch,
+                                getString(isOn ? R.string.torch_status_on : R.string.torch_status_off));
                         // Yellow border when the torch is ON.
                         buttonTorchSwitch.setBackgroundResource(isOn
                                 ? R.drawable.control_button_bg_yellow
@@ -13308,6 +13320,9 @@ public class HomeFragment extends BaseFragment {
         CharSequence currentText = buttonStartStop.getText();
         String currentValue = currentText != null ? currentText.toString() : "";
         boolean currentShowsTimer = isElapsedTimerDisplayText(currentText);
+        // While the timer replaces the text, TalkBack would read "00:12" instead of "Stop"
+        buttonStartStop.setContentDescription(showTimerOnButton
+                ? buttonStartStop.getContext().getString(R.string.button_stop) : null);
 
         if (showTimerOnButton) {
             if (!currentShowsTimer) {

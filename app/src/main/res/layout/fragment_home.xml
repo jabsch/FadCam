@@ -49,7 +49,8 @@
         </FrameLayout>
 
         <!-- App Title (centered) -->
-        <ImageView android:id="@+id/ivAppTitle" android:layout_width="@dimen/home_header_logo_w" android:layout_height="@dimen/home_header_logo_h" android:src="@drawable/menu_icon_unknown" android:translationX="2dp" android:focusable="true" android:nextFocusUp="@+id/btnHamburgerMenu" android:nextFocusDown="@+id/btnGetPro" app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
+        <ImageView android:id="@+id/ivAppTitle"
+        android:contentDescription="@string/home_logo_desc" android:layout_width="@dimen/home_header_logo_w" android:layout_height="@dimen/home_header_logo_h" android:src="@drawable/menu_icon_unknown" android:translationX="2dp" android:focusable="true" android:nextFocusUp="@+id/btnHamburgerMenu" android:nextFocusDown="@+id/btnGetPro" app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
 
         <!-- Golden Pro Button with Shimmer and Badge -->
         <FrameLayout
@@ -147,7 +148,8 @@
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="@dimen/home_row_padding_h" android:paddingTop="@dimen/home_row_padding_v" android:paddingEnd="@dimen/home_row_padding_h" android:paddingBottom="@dimen/home_row_padding_v" android:clipChildren="false" android:clipToPadding="false">
 
                         <FrameLayout android:layout_width="@dimen/home_row_icon_container_w" android:layout_height="@dimen/home_row_icon_container_h" android:layout_marginEnd="@dimen/home_row_icon_margin_end" android:clipChildren="false" android:clipToPadding="false">
-                            <com.fadcam.ui.utils.AnimatedTextView android:id="@+id/ivCameraIcon" android:layout_width="@dimen/home_row_icon_size" android:layout_height="@dimen/home_row_icon_size" android:layout_gravity="center" android:fontFamily="@font/materialicons" android:text="camera_alt" android:textColor="#4CAF50" android:textSize="@dimen/home_text_row_icon" android:gravity="center" />
+                            <com.fadcam.ui.utils.AnimatedTextView android:id="@+id/ivCameraIcon"
+        android:importantForAccessibility="no" android:layout_width="@dimen/home_row_icon_size" android:layout_height="@dimen/home_row_icon_size" android:layout_gravity="center" android:fontFamily="@font/materialicons" android:text="camera_alt" android:textColor="#4CAF50" android:textSize="@dimen/home_text_row_icon" android:gravity="center" />
                         </FrameLayout>
 
                         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:clipChildren="false" android:clipToPadding="false">
@@ -158,7 +160,7 @@
 
                         </LinearLayout>
 
-                        <ImageView android:layout_width="@dimen/home_chevron_size" android:layout_height="@dimen/home_chevron_size" android:layout_marginStart="2dp" android:src="@drawable/ic_arrow_right" android:tint="?attr/homeRailTextSecondary" android:contentDescription="@string/desc_open_settings" />
+                        <ImageView android:layout_width="@dimen/home_chevron_size" android:layout_height="@dimen/home_chevron_size" android:layout_marginStart="2dp" android:src="@drawable/ic_arrow_right" android:tint="?attr/homeRailTextSecondary" android:importantForAccessibility="no" />
 
                     </LinearLayout>
 
@@ -192,7 +194,7 @@
 
                         </LinearLayout>
 
-                        <ImageView android:layout_width="@dimen/home_chevron_size" android:layout_height="@dimen/home_chevron_size" android:layout_marginStart="2dp" android:src="@drawable/ic_arrow_right" android:tint="?attr/homeRailTextSecondary" android:contentDescription="@string/desc_open_settings" />
+                        <ImageView android:layout_width="@dimen/home_chevron_size" android:layout_height="@dimen/home_chevron_size" android:layout_marginStart="2dp" android:src="@drawable/ic_arrow_right" android:tint="?attr/homeRailTextSecondary" android:importantForAccessibility="no" />
 
                     </LinearLayout>
 
@@ -232,7 +234,7 @@
 
                         </LinearLayout>
 
-                        <ImageView android:layout_width="@dimen/home_chevron_size" android:layout_height="@dimen/home_chevron_size" android:layout_marginStart="2dp" android:src="@drawable/ic_arrow_right" android:tint="?attr/homeRailTextSecondary" android:contentDescription="@string/desc_open_settings" />
+                        <ImageView android:layout_width="@dimen/home_chevron_size" android:layout_height="@dimen/home_chevron_size" android:layout_marginStart="2dp" android:src="@drawable/ic_arrow_right" android:tint="?attr/homeRailTextSecondary" android:importantForAccessibility="no" />
 
                     </LinearLayout>
 
@@ -705,6 +707,7 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnPreviewZoomReset"
+        android:contentDescription="@string/desc_reset_zoom"
                     style="@style/Widget.Material3.Button"
                     android:layout_width="@dimen/home_zoom_reset_btn"
                     android:layout_height="@dimen/home_zoom_reset_btn"
@@ -812,6 +815,7 @@
 
                     <TextView
                         android:id="@+id/ivQuickMuteIcon"
+        android:importantForAccessibility="no"
                         android:layout_width="@dimen/home_quick_icon_size"
                         android:layout_height="@dimen/home_quick_icon_size"
                         android:background="@drawable/fullscreen_icon_bg_gradient"
@@ -820,7 +824,7 @@
                         android:text="mic"
                         android:textSize="@dimen/home_quick_mute_icon"
                         android:textColor="@android:color/white"
-                        android:contentDescription="@string/quick_mute_label" />
+                        android:contentDescription="@null" />
 
                     <TextView
                         android:id="@+id/tvQuickMuteLabel"
@@ -929,12 +933,14 @@
             android:layout_height="@dimen/home_control_btn_size"
             android:layout_marginEnd="@dimen/home_control_gap" android:clipChildren="false" android:clipToPadding="false">
 
-        <com.google.android.material.button.MaterialButton android:id="@+id/buttonTorchSwitch" android:layout_width="match_parent" android:layout_height="match_parent" style="@style/Widget.MaterialComponents.Button.OutlinedButton" app:icon="@drawable/ic_flashlight_on" app:iconSize="@dimen/home_control_icon_torch" app:iconTint="@color/button_icon_tint_selector" app:iconGravity="textStart" app:iconPadding="0dp" android:insetLeft="0dp" android:insetTop="0dp" android:insetRight="0dp" android:insetBottom="0dp" android:paddingStart="0dp" android:paddingEnd="0dp" app:rippleColor="#22FFFFFF" android:background="@drawable/control_button_bg" android:enabled="false" app:cornerRadius="@dimen/home_control_corner"
+        <com.google.android.material.button.MaterialButton android:id="@+id/buttonTorchSwitch"
+        android:contentDescription="@string/torch_shortcut_short_label" android:layout_width="match_parent" android:layout_height="match_parent" style="@style/Widget.MaterialComponents.Button.OutlinedButton" app:icon="@drawable/ic_flashlight_on" app:iconSize="@dimen/home_control_icon_torch" app:iconTint="@color/button_icon_tint_selector" app:iconGravity="textStart" app:iconPadding="0dp" android:insetLeft="0dp" android:insetTop="0dp" android:insetRight="0dp" android:insetBottom="0dp" android:paddingStart="0dp" android:paddingEnd="0dp" app:rippleColor="#22FFFFFF" android:background="@drawable/control_button_bg" android:enabled="false" app:cornerRadius="@dimen/home_control_corner"
             android:nextFocusUp="@+id/cardElapsedHero"
             android:nextFocusDown="@+id/buttonStartStop" />
 
             <TextView
                 android:id="@+id/torch_status_label"
+        android:importantForAccessibility="no"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="bottom|end"
@@ -969,7 +975,8 @@
             android:nextFocusUp="@+id/cardElapsedHero"
             android:nextFocusDown="@+id/buttonPauseResume" />
 
-        <com.google.android.material.button.MaterialButton android:id="@+id/buttonPauseResume" android:layout_width="@dimen/home_control_btn_size" android:layout_height="@dimen/home_control_btn_size" android:layout_marginStart="@dimen/home_control_gap" app:icon="@drawable/pause_rounded" app:iconSize="@dimen/home_control_icon_pause" app:iconGravity="textStart" app:iconPadding="0dp" android:enabled="false" android:background="@drawable/control_button_bg_orange" app:iconTint="@color/white" app:cornerRadius="@dimen/home_control_corner"
+        <com.google.android.material.button.MaterialButton android:id="@+id/buttonPauseResume"
+        android:contentDescription="@string/button_pause" android:layout_width="@dimen/home_control_btn_size" android:layout_height="@dimen/home_control_btn_size" android:layout_marginStart="@dimen/home_control_gap" app:icon="@drawable/pause_rounded" app:iconSize="@dimen/home_control_icon_pause" app:iconGravity="textStart" app:iconPadding="0dp" android:enabled="false" android:background="@drawable/control_button_bg_orange" app:iconTint="@color/white" app:cornerRadius="@dimen/home_control_corner"
             android:nextFocusUp="@+id/cardElapsedHero"
             android:nextFocusDown="@+id/buttonCamSwitch" />
 
@@ -984,6 +991,7 @@
 
             <TextView
                 android:id="@+id/fadrec_mute_icon"
+        android:importantForAccessibility="no"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
@@ -994,6 +1002,7 @@
 
             <TextView
                 android:id="@+id/fadrec_mute_status_label"
+        android:importantForAccessibility="no"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="bottom|end"
@@ -1009,7 +1018,8 @@
         </FrameLayout>
 
 
-        <com.google.android.material.button.MaterialButton android:id="@+id/buttonCamSwitch" android:layout_width="@dimen/home_control_btn_size" android:layout_height="@dimen/home_control_btn_size" android:layout_marginStart="@dimen/home_control_gap" app:icon="@drawable/cam_switch" app:iconSize="@dimen/home_control_icon_cam" app:iconGravity="textStart" app:iconPadding="0dp" android:enabled="false" android:background="@drawable/control_button_bg" app:cornerRadius="@dimen/home_control_corner"
+        <com.google.android.material.button.MaterialButton android:id="@+id/buttonCamSwitch"
+        android:contentDescription="@string/fullscreen_camera_switch" android:layout_width="@dimen/home_control_btn_size" android:layout_height="@dimen/home_control_btn_size" android:layout_marginStart="@dimen/home_control_gap" app:icon="@drawable/cam_switch" app:iconSize="@dimen/home_control_icon_cam" app:iconGravity="textStart" app:iconPadding="0dp" android:enabled="false" android:background="@drawable/control_button_bg" app:cornerRadius="@dimen/home_control_corner"
             android:nextFocusUp="@+id/cardElapsedHero"
             android:nextFocusDown="@+id/buttonMirrorSwitch" />
 
@@ -1027,6 +1037,7 @@
 
             <TextView
                 android:id="@+id/mirror_status_label"
+        android:importantForAccessibility="no"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="bottom|end"
