@@ -268,11 +268,17 @@ public class ProjectFileManager {
                 throw new IOException("Project folder is not writable. Check MANAGE_EXTERNAL_STORAGE permission.");
             }
             
-            // Write to project.fadrec file
+            // Write a temp file, then rename it over project.fadrec: writing in place left a
+            // truncated, unloadable project if the app was killed mid-write
             File projectFile = getProjectFile(projectName);
-            FileWriter writer = new FileWriter(projectFile);
-            writer.write(project.toString(2)); // Pretty print with indent
-            writer.close();
+            File tempFile = new File(projectFile.getParentFile(), projectFile.getName() + ".tmp");
+            try (FileWriter writer = new FileWriter(tempFile)) {
+                writer.write(project.toString(2)); // Pretty print with indent
+            }
+            if (!tempFile.renameTo(projectFile)) {
+                tempFile.delete();
+                throw new IOException("Unable to replace project file: " + projectFile.getAbsolutePath());
+            }
             
             // CRITICAL: Update folder's lastModified timestamp so getOrCreateCurrentProject() finds latest correctly
             // Note: We update the FILE timestamp, not folder (folder timestamp doesn't always update reliably)
