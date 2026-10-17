@@ -30,12 +30,18 @@ public class WidgetPreferences {
     public static final String DATE_FORMAT_SHORT_DAY_NO_YEAR = "EEE, dd MMM"; // Wed, 13 Aug
     
     private final SharedPreferences prefs;
+    private final Context appContext;
     
     public WidgetPreferences(Context context) {
+        appContext = context.getApplicationContext();
         prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
     
     public boolean is24HourFormat() {
+        if (!prefs.contains(KEY_TIME_FORMAT)) {
+            // Until a format is picked, follow the phone's 12/24-hour setting
+            return android.text.format.DateFormat.is24HourFormat(appContext);
+        }
         return "24h".equals(prefs.getString(KEY_TIME_FORMAT, "12h"));
     }
     

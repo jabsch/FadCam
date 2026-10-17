@@ -3,6 +3,7 @@
     android:id="@+id/clock_root_preview"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@drawable/widget_black_background"
     android:padding="8dp">
 
     <ImageView
@@ -34,7 +35,7 @@
             android:textColor="@android:color/white"
             android:fontFamily="@font/ubuntu_regular"
             android:textSize="32sp"
-            android:text="8:05"
+            android:text="20:05"
             android:maxLines="1"/>
 
         <TextView
@@ -47,6 +48,7 @@
             android:fontFamily="@font/ubuntu_regular"
             android:textSize="10sp"
             android:text="PM"
+            android:visibility="gone"
             android:maxLines="1"/>
     </LinearLayout>
 
@@ -68,7 +70,7 @@
             android:textColor="#E0E0E0"
             android:fontFamily="@font/ubuntu_regular"
             android:textSize="12sp"
-            android:text="Wed, 13 Aug"
+            android:text="@string/widget_preview_date"
             android:maxLines="2"
             android:gravity="end"
             android:breakStrategy="simple"

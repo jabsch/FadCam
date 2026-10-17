@@ -114,8 +114,13 @@ public class ClockWidgetProvider extends AppWidgetProvider {
             + "|" + prefs.showArabicDate() + "|" + (prefs.showArabicDate()
                     ? ArabicDateUtils.getArabicDate(prefs.getArabicDateFormat()) : "")
             + "|" + prefs.hasBlackBackground() + "|" + prefs.showBranding() + "|" + widgetSize;
+    // The text is drawn into bitmaps, so TalkBack needs it spelled out
+    String spokenTime = new SimpleDateFormat(use24h ? "HH:mm" : "h:mm a", Locale.getDefault()).format(now)
+            + (prefs.showDate()
+                    ? ", " + new SimpleDateFormat(prefs.getDateFormat(), Locale.getDefault()).format(now) : "");
     if (minuteTick && fullKey.equals(lastFullUpdateKeys.get(appWidgetId))) {
         RemoteViews timeOnly = new RemoteViews(context.getPackageName(), R.layout.widget_clock);
+        timeOnly.setContentDescription(R.id.clock_root, spokenTime);
         timeOnly.setImageViewBitmap(R.id.clock_time, renderTextBitmap(context, timeText, timeSizeSp,
                 Color.WHITE, true, false, 0, ResourcesCompat.getFont(context, R.font.ubuntu_regular)));
         manager.partiallyUpdateAppWidget(appWidgetId, timeOnly);
@@ -221,6 +226,7 @@ public class ClockWidgetProvider extends AppWidgetProvider {
         launch.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent pi = PendingIntent.getActivity(context, 0, launch, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         views.setOnClickPendingIntent(R.id.clock_root, pi);
+        views.setContentDescription(R.id.clock_root, spokenTime);
 
     manager.updateAppWidget(appWidgetId, views);
     lastFullUpdateKeys.put(appWidgetId, fullKey);
@@ -266,8 +272,11 @@ public class ClockWidgetProvider extends AppWidgetProvider {
         int maxWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 250);
         int maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 110);
         
-        // Use max dimensions for better scaling
-        return new android.util.Size(maxWidth, maxHeight);
+        // Portrait shows the widget at min width x max height, landscape at max width x min height
+        boolean portrait = context.getResources().getConfiguration().orientation
+                != android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+        return portrait ? new android.util.Size(minWidth, maxHeight)
+                : new android.util.Size(maxWidth, minHeight);
     }
 
     private float calculateScaleFactor(android.util.Size widgetSize) {
@@ -295,8 +304,14 @@ public class ClockWidgetProvider extends AppWidgetProvider {
                 context.getResources().getDisplayMetrics()));
         if (typeface != null) paint.setTypeface(typeface);
 
+        // Density-scaled shadow keeps the white text readable on light wallpapers; the
+        // bitmap gets padding for it so the glow isn't clipped at the edges.
+        float density = context.getResources().getDisplayMetrics().density;
+        int pad = 0;
         if (addShadow) {
-            paint.setShadowLayer(1.5f, 1f, 1f, Color.BLACK);
+            float radius = 3f * density;
+            paint.setShadowLayer(radius, 0f, density, 0xCC000000);
+            pad = (int) Math.ceil(radius + density);
         }
 
         // Measure text
@@ -308,9 +323,9 @@ public class ClockWidgetProvider extends AppWidgetProvider {
         int bmpWidth = (int) Math.ceil(textWidth);
         int bmpHeight = (int) Math.ceil(textHeight * 1.3f);
 
-        if (maxWidthPx > 0 && bmpWidth > maxWidthPx) {
+        if (maxWidthPx > 0 && bmpWidth > maxWidthPx - 2 * pad) {
             // Simple ellipsizing to fit max width
-            String ellipsized = android.text.TextUtils.ellipsize(text, paint, maxWidthPx, android.text.TextUtils.TruncateAt.END).toString();
+            String ellipsized = android.text.TextUtils.ellipsize(text, paint, Math.max(1, maxWidthPx - 2 * pad), android.text.TextUtils.TruncateAt.END).toString();
             text = ellipsized;
             paint.getTextBounds(text, 0, text.length(), bounds);
             textWidth = paint.measureText(text);
@@ -320,15 +335,17 @@ public class ClockWidgetProvider extends AppWidgetProvider {
 
         if (bmpWidth <= 0) bmpWidth = 1;
         if (bmpHeight <= 0) bmpHeight = (int) Math.ceil(textSizeSp);
+        bmpWidth += 2 * pad;
+        bmpHeight += 2 * pad;
 
         Bitmap bmp = Bitmap.createBitmap(bmpWidth, bmpHeight, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bmp);
         canvas.drawColor(Color.TRANSPARENT);
 
         Paint.FontMetrics fm = paint.getFontMetrics();
-        float x = 0f;
+        float x = pad;
         if (rtl) {
-            x = bmpWidth; // drawText with align RIGHT for RTL
+            x = bmpWidth - pad; // drawText with align RIGHT for RTL
             paint.setTextAlign(Paint.Align.RIGHT);
         }
         float y = bmpHeight - (bmpHeight - (bounds.bottom - bounds.top)) / 2f - bounds.bottom;
