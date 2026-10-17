@@ -3428,4 +3428,6 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="prefs_import_storage_reset">Settings imported. The backup\'s custom storage folder isn\'t accessible on this install, so recordings now save to internal storage. Pick the folder again in Storage settings.</string>
     <string name="notification_dual_recording">Dual camera recording…</string>
     <string name="torch_notification_toggling">Toggling torch…</string>
+    <string name="video_bitrate_summary_custom">%1$.1f Mbps (Custom)</string>
+    <string name="video_bitrate_summary_auto">%1$.1f Mbps (Auto)</string>
 </resources>

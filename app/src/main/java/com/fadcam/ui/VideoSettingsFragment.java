@@ -582,6 +582,10 @@ public class VideoSettingsFragment extends Fragment {
 
     private void refreshAllValues() {
         CameraType cam = prefs.getCameraSelection();
+        // Support depends on the camera and lens, which can change on this screen
+        if (isAdded()) {
+            videoStabilizationSupported = isVideoStabilizationHardwareSupported();
+        }
         if (cam == CameraType.DUAL_PIP) {
             valueCamera.setText(getString(R.string.button_settings_cam_dual));
         } else {
@@ -676,7 +680,7 @@ public class VideoSettingsFragment extends Fragment {
         valueResolution.setText(buildResolutionLabel(res));
 
         // Frame rate (stored per camera)
-        int fps = prefs.getSpecificVideoFrameRate(cam);
+        int fps = prefs.getSpecificVideoFrameRate(frameRateCamera(cam));
         valueFrameRate.setText(fps + " fps");
 
         // Codec
@@ -686,7 +690,8 @@ public class VideoSettingsFragment extends Fragment {
         int bitrate = getCurrentBitrate();
         boolean isCustom = getBitrateMode();
         valueBitrate.setText(
-                String.format(Locale.getDefault(), "%d Mbps %s", bitrate / 1000, isCustom ? "(Custom)" : "(Auto)"));
+                getString(isCustom ? R.string.video_bitrate_summary_custom : R.string.video_bitrate_summary_auto,
+                        bitrate / 1000f));
         // Bitrate helper removed from persistent UI
 
         // Zoom Ratio
@@ -940,8 +945,20 @@ public class VideoSettingsFragment extends Fragment {
         // method(showResolutionBottomSheet)-----------
     }
 
+    /**
+     * The camera whose frame rate a dual recording uses: its primary one, which is what
+     * DualCameraRecordingService reads. Other selections are their own camera.
+     */
+    private CameraType frameRateCamera(CameraType cam) {
+        if (cam == null || !cam.isDual()) {
+            return cam;
+        }
+        return prefs.getDualCameraConfig().getPrimaryCamera()
+                == com.fadcam.dualcam.DualCameraConfig.PrimaryCamera.FRONT ? CameraType.FRONT : CameraType.BACK;
+    }
+
     private void showFrameRateBottomSheet() {
-        CameraType cam = prefs.getCameraSelection();
+        CameraType cam = frameRateCamera(prefs.getCameraSelection());
         java.util.List<Integer> rates = getHardwareSupportedFrameRates(cam);
         int current = prefs.getSpecificVideoFrameRate(cam);
         java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
@@ -1701,6 +1718,16 @@ public class VideoSettingsFragment extends Fragment {
             return null;
         CameraManager manager = (CameraManager) ctx.getSystemService(Context.CAMERA_SERVICE);
         try {
+            // Recording opens the lens picked in Lens, so its lists must come from that lens
+            // too: the first back camera offered sizes and zoom the ultra-wide or tele can't do
+            String selectedBack = type == CameraType.BACK ? prefs.getSelectedBackCameraId() : null;
+            if (selectedBack != null) {
+                for (String id : manager.getCameraIdList()) {
+                    if (id.equals(selectedBack)) {
+                        return id;
+                    }
+                }
+            }
             for (String id : manager.getCameraIdList()) {
                 CameraCharacteristics ch = manager.getCameraCharacteristics(id);
                 Integer facing = ch.get(CameraCharacteristics.LENS_FACING);
@@ -1791,7 +1818,7 @@ public class VideoSettingsFragment extends Fragment {
      */
     private int getDefaultBitrate() {
         Size resolution = prefs.getCameraResolution();
-        int framerate = prefs.getSpecificVideoFrameRate(prefs.getCameraSelection());
+        int framerate = prefs.getSpecificVideoFrameRate(frameRateCamera(prefs.getCameraSelection()));
         return com.fadcam.Utils.estimateBitrate(resolution, framerate) / 1000;
     }
 
