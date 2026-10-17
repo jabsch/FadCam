@@ -93,14 +93,17 @@ public final class PlayerHolder {
             
             // Create player with audio attributes set in builder
             // This is critical - setting audio attrs after build may not work on all devices
+            int seekSec = com.fadcam.SharedPreferencesManager.getInstance(appContext).getPlayerSeekSeconds();
+            long seekMs = (seekSec > 0 ? seekSec : com.fadcam.Constants.DEFAULT_PLAYER_SEEK_SECONDS) * 1000L;
             player = new ExoPlayer.Builder(appContext)
                     // ExoPlayer requests and abandons focus itself, so music apps resume
                     // after the video stops and a call pauses playback
                     .setAudioAttributes(audioAttrs, /* handleAudioFocus= */ true)
                     .setHandleAudioBecomingNoisy(true) // pause when headphones are unplugged
                     .setLoadControl(loadControl)
-                    .setSeekBackIncrementMs(10000) // 10 second seek back
-                    .setSeekForwardIncrementMs(10000) // 10 second seek forward
+                    // Headset and system seek commands use the Seek Amount setting
+                    .setSeekBackIncrementMs(seekMs)
+                    .setSeekForwardIncrementMs(seekMs)
                     .build();
             
             // Use CLOSEST_SYNC for fast seeking to nearest keyframe

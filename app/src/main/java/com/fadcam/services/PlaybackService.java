@@ -56,8 +56,6 @@ public class PlaybackService extends Service {
     private static final int NOTIFICATION_ID = 6001;
     private static final String CHANNEL_ID = "playback_channel_v2";
     private static final int PROGRESS_UPDATE_INTERVAL = 1000; // Update every second
-    private static final int REWIND_MS = 10000; // 10 seconds
-    private static final int FAST_FORWARD_MS = 30000; // 30 seconds
 
     private ExoPlayer player;
     private boolean isForeground = false;
@@ -287,10 +285,16 @@ public class PlaybackService extends Service {
         } catch (Exception e) { FLog.e("PlaybackService", "play/pause failed", e); }
     }
     
+    /** Same step as the player's skip buttons and double tap (Settings > Video Player > Seek Amount). */
+    private long seekStepMs() {
+        int sec = com.fadcam.SharedPreferencesManager.getInstance(this).getPlayerSeekSeconds();
+        return (sec > 0 ? sec : com.fadcam.Constants.DEFAULT_PLAYER_SEEK_SECONDS) * 1000L;
+    }
+
     private void handleRewind() {
         try {
             if (player != null) {
-                long newPosition = Math.max(0, player.getCurrentPosition() - REWIND_MS);
+                long newPosition = Math.max(0, player.getCurrentPosition() - seekStepMs());
                 player.seekTo(newPosition);
                 buildAndShowNotification();
             }
@@ -301,7 +305,7 @@ public class PlaybackService extends Service {
         try {
             if (player != null) {
                 long duration = player.getDuration();
-                long target = player.getCurrentPosition() + FAST_FORWARD_MS;
+                long target = player.getCurrentPosition() + seekStepMs();
                 // TIME_UNSET is negative: min() made it seek to the start
                 long newPosition = duration == C.TIME_UNSET ? target : Math.min(duration, target);
                 player.seekTo(newPosition);
