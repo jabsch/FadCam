@@ -107,6 +107,10 @@ public class FingerprintLockService extends LockService {
             public void onAuthenticationError(int errMsgId, CharSequence errString) {
                 super.onAuthenticationError(errMsgId, errString);
                 Log.d(TAG, "onAuthenticationError: " + errMsgId + ", " + errString);
+                // Our own cancel (activity paused) isn't a failure; it arrived late and
+                // overwrote the "paused" text
+                if (errMsgId == android.hardware.fingerprint.FingerprintManager.FINGERPRINT_ERROR_CANCELED)
+                    return;
                 delegate.onResolutionRequired(R.string.applock__fingerprint_error_unknown);
             }
             @Override

@@ -1120,13 +1120,17 @@ public class RecordingService extends Service {
             sensorNY = ny;
         }
 
-        int x = activeArray.left + (int) (sensorNX * activeArray.width());
-        int y = activeArray.top + (int) (sensorNY * activeArray.height());
+        // Map over the visible crop: when zoomed (SCALER_CROP_REGION) the preview shows only
+        // that part of the sensor, so mapping over the whole array put the region off-screen
+        Rect base = captureRequestBuilder.get(CaptureRequest.SCALER_CROP_REGION);
+        if (base == null || base.isEmpty() || !activeArray.contains(base)) base = activeArray;
+        int x = base.left + (int) (sensorNX * base.width());
+        int y = base.top + (int) (sensorNY * base.height());
 
-        // Clamp coordinates to active array bounds before creating rectangle
+        // Clamp coordinates to the visible area before creating rectangle
         // This prevents IllegalArgumentException when normalized coords go out of bounds (>1.0)
-        x = Math.max(activeArray.left, Math.min(activeArray.right, x));
-        y = Math.max(activeArray.top, Math.min(activeArray.bottom, y));
+        x = Math.max(base.left, Math.min(base.right, x));
+        y = Math.max(base.top, Math.min(base.bottom, y));
 
         FLog.d(TAG, "Mapped to sensor coords: " + x + ", " + y + " (active array: " + activeArray + ")");
 
@@ -4068,7 +4072,12 @@ public class RecordingService extends Service {
     private int getDisplayToSensorRotation() {
         int displayRotationDeg = 0;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            android.view.Display display = getDisplay();
+            // Context.getDisplay() throws in a Service (no associated display), which sent
+            // tap-to-focus and pan down the unrotated fallback
+            android.hardware.display.DisplayManager dm = (android.hardware.display.DisplayManager)
+                    getSystemService(Context.DISPLAY_SERVICE);
+            android.view.Display display = dm != null
+                    ? dm.getDisplay(android.view.Display.DEFAULT_DISPLAY) : null;
             if (display != null) {
                 displayRotationDeg = 90 * display.getRotation();
             }

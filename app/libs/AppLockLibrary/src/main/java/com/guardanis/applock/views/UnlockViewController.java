@@ -13,6 +13,7 @@ import com.guardanis.applock.AppLock;
 import com.guardanis.applock.password.PasswordInputController;
 import com.guardanis.applock.pin.PINInputController;
 import com.guardanis.applock.services.FingerprintLockService;
+import com.guardanis.applock.services.PINLockService;
 import com.guardanis.applock.services.PasswordLockService;
 
 import java.lang.ref.WeakReference;
@@ -180,9 +181,33 @@ public class UnlockViewController extends AppLockViewController implements AppLo
 
     @Override
     public void onResolutionRequired(int errorCode) {
+        // Fingerprint unusable (lockout, removed, sensor error): fall back to the password or
+        // PIN the user also set up, instead of leaving only an error on screen
+        if (displayVariant == DisplayVariant.FINGERPRINT_AUTHENTICATION && switchToKnowledgeUnlock()) {
+            setDescription(getDescriptionResIdForError(errorCode));
+            return;
+        }
         setDescription(getDescriptionResIdForError(errorCode));
         updateActionSettings(errorCode);
         handleInitialErrorPrompt(errorCode);
+    }
+
+    /** Shows password or PIN entry when one is enrolled; false when neither is. */
+    protected boolean switchToKnowledgeUnlock() {
+        View parent = this.parent.get();
+        if (parent == null)
+            return false;
+
+        AppLock appLock = AppLock.getInstance(parent.getContext());
+        if (appLock.getLockService(PasswordLockService.class).isEnrolled(parent.getContext())) {
+            setupPasswordUnlock();
+            return true;
+        }
+        if (appLock.getLockService(PINLockService.class).isEnrolled(parent.getContext())) {
+            setupPINUnlock();
+            return true;
+        }
+        return false;
     }
 
     @Override

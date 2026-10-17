@@ -816,7 +816,7 @@
             android:layout_width="80dp"
             android:layout_height="80dp"
             android:src="@drawable/ic_no_videos"
-            app:tint="#80FFFFFF"
+            app:tint="?android:attr/textColorSecondary"
             android:contentDescription="@string/no_videos_found"
             android:layout_marginBottom="16dp"/>
         <TextView
@@ -825,7 +825,7 @@
             android:layout_height="wrap_content"
             android:text="@string/no_recordings_yet"
             android:textSize="18sp"
-            android:textColor="#80FFFFFF"
+            android:textColor="?android:attr/textColorSecondary"
             android:gravity="center"/>
     </LinearLayout>
 

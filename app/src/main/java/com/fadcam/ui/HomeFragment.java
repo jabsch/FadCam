@@ -2894,6 +2894,7 @@ public class HomeFragment extends BaseFragment {
             // Even if state updates happen right after a switch, keep it enabled
             if (buttonCamSwitch != null) {
                 buttonCamSwitch.setEnabled(true);
+                buttonCamSwitch.setAlpha(1.0f); // waiting-for-camera dimmed it
             }
             if (buttonTorchSwitch != null) {
                 boolean hasFlash = getCameraWithFlashQuietly() != null;
@@ -2939,6 +2940,7 @@ public class HomeFragment extends BaseFragment {
             // Even during pause, allow camera switch to resume recording
             if (buttonCamSwitch != null) {
                 buttonCamSwitch.setEnabled(true);
+                buttonCamSwitch.setAlpha(1.0f); // waiting-for-camera dimmed it
             }
             if (buttonTorchSwitch != null) {
                 boolean hasFlash = getCameraWithFlashQuietly() != null;
@@ -8645,9 +8647,16 @@ public class HomeFragment extends BaseFragment {
     private List<Float> buildZoomRatioOptions(CameraType cam) {
         List<Float> list = new ArrayList<>();
         float max = getHardwareSupportedMaxZoomRatio(cam);
+        // Lenses without ultra-wide (front, min 1.0) were offered a 0.5x the camera clamps away
+        float min = getHardwareSupportedMinZoomRatio(cam);
+        if (min < 1.0f) {
+            list.add(((float) Math.round(min * 10)) / 10f);
+        }
 
         for (float z = 0.5f; z <= max + 0.001f; z += 0.5f) {
-            list.add(((float) Math.round(z * 10)) / 10f);
+            if (z < min - 0.001f) continue;
+            float rounded = ((float) Math.round(z * 10)) / 10f;
+            if (!list.contains(rounded)) list.add(rounded);
         }
         if (!list.contains(1.0f)) {
             list.add(1.0f);
@@ -8661,7 +8670,7 @@ public class HomeFragment extends BaseFragment {
         CameraType cam = sharedPreferencesManager.getCameraSelection();
         if (cam == null || cam.isDual()) return;
 
-        float minZoom = 0.5f;
+        float minZoom = getHardwareSupportedMinZoomRatio(cam);
         float maxZoom = getHardwareSupportedMaxZoomRatio(cam);
         float base = previewPinchZoomRatio > 0f
             ? previewPinchZoomRatio
@@ -9191,6 +9200,23 @@ public class HomeFragment extends BaseFragment {
      * Get hardware supported maximum zoom ratio for the given camera type.
      * Uses the same logic as VideoSettingsFragment.
      */
+    /** Lower end of CONTROL_ZOOM_RATIO_RANGE (below 1.0 only with an ultra-wide), else 1.0. */
+    private float getHardwareSupportedMinZoomRatio(CameraType cam) {
+        Context ctx = getContext();
+        if (ctx == null || Build.VERSION.SDK_INT < 30) return 1.0f;
+        try {
+            CameraManager manager = (CameraManager) ctx.getSystemService(Context.CAMERA_SERVICE);
+            String id = getActualCameraIdForType(cam);
+            if (manager == null || id == null) return 1.0f;
+            Range<Float> range = manager.getCameraCharacteristics(id)
+                .get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE);
+            if (range != null) return Math.min(1.0f, range.getLower());
+        } catch (Exception e) {
+            FLog.w(TAG, "Min zoom ratio query failed: " + e.getMessage());
+        }
+        return 1.0f;
+    }
+
     private float getHardwareSupportedMaxZoomRatio(CameraType cam) {
         final float defaultMaxZoom = 5.0f; // legacy default
         Context ctx = getContext();
@@ -9398,6 +9424,13 @@ public class HomeFragment extends BaseFragment {
         }
 
         CameraType targetType = (currentType == CameraType.BACK) ? CameraType.FRONT : CameraType.BACK;
+
+        // The service only live-switches while recording; a paused switch only changed the
+        // preference, so resume reopened the other camera without the switch handling
+        if (isPaused()) {
+            Toast.makeText(getContext(), R.string.camera_switch_resume_first, Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         // Check if recording or preview-only is active
         if (isRecording() || isPreviewOnlyActive) {

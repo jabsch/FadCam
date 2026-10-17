@@ -5201,8 +5201,15 @@ public class RecordsFragment extends BaseFragment implements
         if (isEmpty) {
             if (recyclerView != null)
                 recyclerView.setVisibility(View.GONE);
-            if (emptyStateContainer != null)
+            if (emptyStateContainer != null) {
                 emptyStateContainer.setVisibility(View.VISIBLE);
+                // An empty filter chip isn't "no recordings yet"
+                TextView emptyText = emptyStateContainer.findViewById(R.id.empty_state_text);
+                if (emptyText != null) {
+                    boolean filteredOut = activeFilter != VideoItem.Category.ALL && !allLoadedItems.isEmpty();
+                    emptyText.setText(filteredOut ? R.string.records_empty_filter : R.string.no_recordings_yet);
+                }
+            }
             // Hide navigation FAB when empty
             if (fabScrollNavigation != null)
                 fabScrollNavigation.setVisibility(View.GONE);
