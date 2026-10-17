@@ -360,8 +360,8 @@ public class SecuritySettingsFragment extends Fragment {
         new LockCreationDialogBuilder(requireActivity())
                 .onCanceled(() -> { /* no-op */ })
                 .onLockCreated(() -> {
-                    // Always enable immediately after creating a PIN; its own toast says so
-                    setAppLockEnabled(true, false);
+                    // New PINs turn the lock on; changing the PIN keeps the current on/off state
+                    if (enableAfterCreation) setAppLockEnabled(true, false);
                     Toast.makeText(requireContext(), R.string.applock_pin_created, Toast.LENGTH_SHORT).show();
                     refreshAppLockValue();
                     // After first creation, reopen config for further actions (change/remove)

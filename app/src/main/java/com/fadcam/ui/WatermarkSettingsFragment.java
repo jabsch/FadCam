@@ -190,7 +190,16 @@ public class WatermarkSettingsFragment extends Fragment {
         if (switchSpeed != null) {
             switchSpeed.setChecked(prefs.isSpeedEnabled());
             switchSpeed.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                prefs.setSpeedEnabled(isChecked);
+                if (isChecked) {
+                    // These lines come from GPS, so turning one on asks for location like the location row
+                    ensurePermissionThen(() -> {
+                        prefs.setSpeedEnabled(true);
+                        refreshExtendedRowValues();
+                    });
+                } else {
+                    prefs.setSpeedEnabled(false);
+                }
+                // Snaps the switch back off while permission is still missing
                 refreshExtendedRowValues();
             });
         }
@@ -198,7 +207,16 @@ public class WatermarkSettingsFragment extends Fragment {
         if (switchAltitude != null) {
             switchAltitude.setChecked(prefs.isAltitudeEnabled());
             switchAltitude.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                prefs.setAltitudeEnabled(isChecked);
+                if (isChecked) {
+                    // These lines come from GPS, so turning one on asks for location like the location row
+                    ensurePermissionThen(() -> {
+                        prefs.setAltitudeEnabled(true);
+                        refreshExtendedRowValues();
+                    });
+                } else {
+                    prefs.setAltitudeEnabled(false);
+                }
+                // Snaps the switch back off while permission is still missing
                 refreshExtendedRowValues();
             });
         }
@@ -206,7 +224,16 @@ public class WatermarkSettingsFragment extends Fragment {
         if (switchAccuracy != null) {
             switchAccuracy.setChecked(prefs.isAccuracyEnabled());
             switchAccuracy.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                prefs.setAccuracyEnabled(isChecked);
+                if (isChecked) {
+                    // These lines come from GPS, so turning one on asks for location like the location row
+                    ensurePermissionThen(() -> {
+                        prefs.setAccuracyEnabled(true);
+                        refreshExtendedRowValues();
+                    });
+                } else {
+                    prefs.setAccuracyEnabled(false);
+                }
+                // Snaps the switch back off while permission is still missing
                 refreshExtendedRowValues();
             });
         }
@@ -676,8 +703,24 @@ public class WatermarkSettingsFragment extends Fragment {
     private void refreshLocationIntervalValue(){
         if(valueLocationInterval==null) return;
         long intervalMs = prefs.getWatermarkUpdateInterval();
-        double seconds = intervalMs / 1000.0;
-        valueLocationInterval.setText(String.format("%.1f seconds", seconds));
+        valueLocationInterval.setText(formatLocationInterval(intervalMs));
+    }
+
+    private String formatLocationInterval(long intervalMs) {
+        android.content.res.Resources res = getResources();
+        if (intervalMs >= 3600000L && intervalMs % 3600000L == 0) {
+            int hours = (int) (intervalMs / 3600000L);
+            return res.getQuantityString(R.plurals.watermark_interval_hours, hours, hours);
+        }
+        if (intervalMs >= 60000L && intervalMs % 60000L == 0) {
+            int minutes = (int) (intervalMs / 60000L);
+            return res.getQuantityString(R.plurals.watermark_interval_minutes, minutes, minutes);
+        }
+        if (intervalMs % 1000L == 0) {
+            int seconds = (int) (intervalMs / 1000L);
+            return res.getQuantityString(R.plurals.watermark_interval_seconds, seconds, seconds);
+        }
+        return String.format(java.util.Locale.getDefault(), "%.1f s", intervalMs / 1000.0);
     }
 
     private String buildTimezoneLabel(java.util.TimeZone tz, String format) {
@@ -989,17 +1032,18 @@ public class WatermarkSettingsFragment extends Fragment {
             }
         });
         java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
-        items.add(new com.fadcam.ui.picker.OptionItem("1000", "1 second (minimum — respects Nominatim API rate limit)", (String) null));
-        items.add(new com.fadcam.ui.picker.OptionItem("2000", "2 seconds", (String) null));
-        items.add(new com.fadcam.ui.picker.OptionItem("5000", "5 seconds (Default)", (String) null));
-        items.add(new com.fadcam.ui.picker.OptionItem("10000", "10 seconds", (String) null));
-        items.add(new com.fadcam.ui.picker.OptionItem("15000", "15 seconds", (String) null));
-        items.add(new com.fadcam.ui.picker.OptionItem("30000", "30 seconds", (String) null));
-        items.add(new com.fadcam.ui.picker.OptionItem("60000", "1 minute", (String) null));
-        items.add(new com.fadcam.ui.picker.OptionItem("180000", "3 minutes", (String) null));
-        items.add(new com.fadcam.ui.picker.OptionItem("300000", "5 minutes", (String) null));
-        items.add(new com.fadcam.ui.picker.OptionItem("600000", "10 minutes", (String) null));
-        items.add(new com.fadcam.ui.picker.OptionItem("3600000", "1 hour", (String) null));
+        long[] intervalOptions = {1000L, 2000L, 5000L, 10000L, 15000L, 30000L, 60000L, 180000L, 300000L, 600000L, 3600000L};
+        for (long ms : intervalOptions) {
+            String label;
+            if (ms == 1000L) {
+                label = getString(R.string.watermark_interval_minimum);
+            } else if (ms == 5000L) {
+                label = getString(R.string.watermark_interval_default, formatLocationInterval(ms));
+            } else {
+                label = formatLocationInterval(ms);
+            }
+            items.add(new com.fadcam.ui.picker.OptionItem(String.valueOf(ms), label, (String) null));
+        }
         String currentMs = String.valueOf(prefs.getWatermarkUpdateInterval());
         com.fadcam.ui.picker.PickerBottomSheetFragment sheet = com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(
             getString(R.string.location_update_interval_title), items, currentMs, resultKey, getString(R.string.location_update_interval_helper));

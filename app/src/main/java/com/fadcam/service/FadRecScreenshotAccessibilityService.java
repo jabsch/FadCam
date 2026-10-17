@@ -224,7 +224,16 @@ public class FadRecScreenshotAccessibilityService extends AccessibilityService {
                 return false;
             }
             ComponentName componentName = new ComponentName(context, FadRecScreenshotAccessibilityService.class);
-            boolean enabledForApp = enabledServices.contains(componentName.flattenToString());
+            // Compare parsed entries so the short "pkg/.Class" form also counts
+            boolean enabledForApp = false;
+            android.text.TextUtils.SimpleStringSplitter splitter = new android.text.TextUtils.SimpleStringSplitter(':');
+            splitter.setString(enabledServices);
+            for (String entry : splitter) {
+                if (componentName.equals(ComponentName.unflattenFromString(entry))) {
+                    enabledForApp = true;
+                    break;
+                }
+            }
             FLog.d(TAG, "isServiceEnabled=" + enabledForApp + ", enabledServices=" + enabledServices);
             return enabledForApp;
         } catch (Exception e) {

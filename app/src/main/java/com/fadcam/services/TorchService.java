@@ -277,7 +277,15 @@ public class TorchService extends Service {
         // Android 8+ requires startForeground() within 5 seconds of startForegroundService().
         // Call it immediately here — manageServiceNotification() will update it later on the
         // background thread once the actual torch state is known.
-        startForegroundNow();
+        try {
+            startForegroundNow();
+        } catch (Exception e) {
+            // Android 14+ refuses a camera foreground service started while the app is in
+            // the background; stop cleanly instead of crashing the process.
+            FLog.e(TAG, "startForeground refused, torch toggle skipped", e);
+            stopSelf();
+            return START_NOT_STICKY;
+        }
 
         String action = intent.getAction();
         FLog.d(TAG, "onStartCommand received action: " + action);
