@@ -5699,14 +5699,10 @@ public class HomeFragment extends BaseFragment {
                 .setNegativeButton(android.R.string.cancel, (dialog, which) -> {
                     FLog.d(TAG, "User cancelled recording due to codec incompatibility");
                     dialog.dismiss();
+                    // The tap already flipped the button to Stop; nothing was sent to the service
+                    resetUIButtonsToIdleState();
                 })
-                // The tap already flipped the button to Stop; nothing was sent to the service
                 .setOnCancelListener(dialog -> resetUIButtonsToIdleState())
-                .setOnDismissListener(dialog -> {
-                    if (recordingState == RecordingState.NONE && !isMyServiceRunning(RecordingService.class)) {
-                        resetUIButtonsToIdleState();
-                    }
-                })
                 .setCancelable(true)
                 .show();
     }
