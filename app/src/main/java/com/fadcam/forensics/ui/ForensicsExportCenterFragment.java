@@ -33,6 +33,8 @@ import java.util.zip.ZipOutputStream;
 public class ForensicsExportCenterFragment extends Fragment {
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    // Background work uses this: requireContext() threw once the screen was left mid-export
+    private android.content.Context appContext;
     private MaterialButton exportButton;
     private MaterialButton pathButton;
     private TextView status;
@@ -66,6 +68,7 @@ public class ForensicsExportCenterFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        appContext = requireContext().getApplicationContext();
         View back = view.findViewById(R.id.back_button);
         if (back != null) {
             back.setOnClickListener(v -> OverlayNavUtil.popLevel(requireActivity()));
@@ -91,7 +94,7 @@ public class ForensicsExportCenterFragment extends Fragment {
 
     private void refreshStats() {
         executor.execute(() -> {
-            List<ForensicsSnapshotWithMedia> rows = ForensicsDatabase.getInstance(requireContext())
+            List<ForensicsSnapshotWithMedia> rows = ForensicsDatabase.getInstance(appContext)
                     .aiEventSnapshotDao()
                     .getGallerySnapshots(null, 0f, null, 0L, 20000);
             cachedRows = rows;
@@ -135,7 +138,7 @@ public class ForensicsExportCenterFragment extends Fragment {
             try {
                 List<ForensicsSnapshotWithMedia> rows = cachedRows;
                 if (rows == null) {
-                    rows = ForensicsDatabase.getInstance(requireContext())
+                    rows = ForensicsDatabase.getInstance(appContext)
                             .aiEventSnapshotDao()
                             .getGallerySnapshots(null, 0f, null, 0L, 20000);
                 }
@@ -175,7 +178,7 @@ public class ForensicsExportCenterFragment extends Fragment {
     }
 
     private void writeExportZip(@NonNull Uri exportUri, @Nullable List<ForensicsSnapshotWithMedia> rows) throws Exception {
-        try (OutputStream out = requireContext().getContentResolver().openOutputStream(exportUri, "w")) {
+        try (OutputStream out = appContext.getContentResolver().openOutputStream(exportUri, "w")) {
             if (out == null) {
                 throw new IllegalStateException("Unable to open selected export path");
             }
@@ -234,7 +237,7 @@ public class ForensicsExportCenterFragment extends Fragment {
         }
         String name = "snapshots/" + sanitize(row.snapshotUid) + ext;
         zos.putNextEntry(new ZipEntry(name));
-        try (InputStream in = requireContext().getContentResolver().openInputStream(Uri.parse(row.imageUri))) {
+        try (InputStream in = appContext.getContentResolver().openInputStream(Uri.parse(row.imageUri))) {
             if (in != null) {
                 byte[] buffer = new byte[8192];
                 int read;
@@ -277,7 +280,7 @@ public class ForensicsExportCenterFragment extends Fragment {
                 File file = new File(uri.getPath());
                 return file.exists() ? file.length() : 0L;
             }
-            try (android.content.res.AssetFileDescriptor afd = requireContext().getContentResolver().openAssetFileDescriptor(uri, "r")) {
+            try (android.content.res.AssetFileDescriptor afd = appContext.getContentResolver().openAssetFileDescriptor(uri, "r")) {
                 if (afd != null && afd.getLength() > 0L) {
                     return afd.getLength();
                 }
@@ -285,5 +288,12 @@ public class ForensicsExportCenterFragment extends Fragment {
         } catch (Throwable ignored) {
         }
         return 0L;
+    }
+
+    @Override
+    public void onDestroy() {
+        // Lets a running export finish, then frees the thread (one leaked per visit before)
+        executor.shutdown();
+        super.onDestroy();
     }
 }

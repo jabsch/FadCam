@@ -1831,7 +1831,15 @@ import fi.iki.elonen.NanoHTTPD;
             }
 
             byte[] buffer = new byte[Math.min(contentLength, 1024 * 1024)]; // Max 1MB
-            int bytesRead = session.getInputStream().read(buffer, 0, buffer.length);
+            // One read() returns only what has arrived so far, so a larger history was cut
+            // off and failed to parse: read until the whole body is in
+            java.io.InputStream in = session.getInputStream();
+            int bytesRead = 0;
+            while (bytesRead < buffer.length) {
+                int n = in.read(buffer, bytesRead, buffer.length - bytesRead);
+                if (n < 0) break;
+                bytesRead += n;
+            }
             String body = new String(buffer, 0, bytesRead, "UTF-8");
 
             org.json.JSONObject request = new org.json.JSONObject(body);
