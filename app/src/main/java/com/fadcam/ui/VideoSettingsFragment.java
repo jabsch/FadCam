@@ -478,7 +478,8 @@ public class VideoSettingsFragment extends Fragment {
             CameraManager cm = (CameraManager) requireContext().getSystemService(Context.CAMERA_SERVICE);
             if (cm == null) return false;
 
-            CameraType cam = prefs.getCameraSelection();
+            // Dual mode records stabilization on its primary camera
+            CameraType cam = frameRateCamera(prefs.getCameraSelection());
             String cameraId = null;
             if (cam == CameraType.BACK) {
                 cameraId = prefs.getSelectedBackCameraId();
@@ -805,6 +806,7 @@ public class VideoSettingsFragment extends Fragment {
     // -------------- Additional methods for location embedding end -----------
 
     private void showCameraBottomSheet() {
+        noteAppliesFromNextRecording();
         CameraType current = prefs.getCameraSelection();
         java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
         items.add(new com.fadcam.ui.picker.OptionItem(CameraType.FRONT.toString(),
@@ -866,6 +868,7 @@ public class VideoSettingsFragment extends Fragment {
     }
 
     private void showLensBottomSheet() {
+        noteAppliesFromNextRecording();
         CameraType cam = prefs.getCameraSelection();
         if (cam == CameraType.FRONT || cam.isDual()) {
             return;
@@ -896,6 +899,7 @@ public class VideoSettingsFragment extends Fragment {
     }
 
     private void showResolutionBottomSheet() {
+        noteAppliesFromNextRecording();
         // method(showResolutionBottomSheet)-----------
         CameraType cam = prefs.getCameraSelection();
         java.util.List<ResolutionInfo> resolutions = getCompatiblesVideoResolutionsWithFlags(cam);
@@ -958,6 +962,15 @@ public class VideoSettingsFragment extends Fragment {
      * The camera whose frame rate a dual recording uses: its primary one, which is what
      * DualCameraRecordingService reads. Other selections are their own camera.
      */
+    /** Recording settings are read when a recording starts; say so instead of implying a live change. */
+    private void noteAppliesFromNextRecording() {
+        Context ctx = getContext();
+        if (ctx != null && com.fadcam.RecordingShortcutDispatcher.hasActiveSession(ctx)) {
+            android.widget.Toast.makeText(ctx, R.string.video_setting_applies_next_recording,
+                    android.widget.Toast.LENGTH_LONG).show();
+        }
+    }
+
     private CameraType frameRateCamera(CameraType cam) {
         if (cam == null || !cam.isDual()) {
             return cam;
@@ -967,6 +980,7 @@ public class VideoSettingsFragment extends Fragment {
     }
 
     private void showFrameRateBottomSheet() {
+        noteAppliesFromNextRecording();
         CameraType cam = frameRateCamera(prefs.getCameraSelection());
         java.util.List<Integer> rates = getHardwareSupportedFrameRates(cam);
         int current = prefs.getSpecificVideoFrameRate(cam);
@@ -1000,6 +1014,7 @@ public class VideoSettingsFragment extends Fragment {
     }
 
     private void showCodecBottomSheet() {
+        noteAppliesFromNextRecording();
         VideoCodec saved = prefs.getVideoCodec();
         java.util.List<VideoCodec> codes = getCompatiblesVideoCodecs();
         java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
@@ -1023,6 +1038,7 @@ public class VideoSettingsFragment extends Fragment {
     }
 
     private void showBitrateBottomSheet() {
+        noteAppliesFromNextRecording();
         boolean custom = getBitrateMode();
         int currentValueMbps = getBitrateCustomValue() / 1000;
         java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
@@ -1074,6 +1090,7 @@ public class VideoSettingsFragment extends Fragment {
     // sheet picker
 
     private void showOrientationBottomSheet() {
+        noteAppliesFromNextRecording();
         // method(showOrientationBottomSheet)-----------
         ArrayList<com.fadcam.ui.picker.OptionItem> items = new ArrayList<>();
         items.add(new com.fadcam.ui.picker.OptionItem(SharedPreferencesManager.ORIENTATION_PORTRAIT,
@@ -1885,9 +1902,15 @@ public class VideoSettingsFragment extends Fragment {
     private List<Float> buildZoomRatioOptions(CameraType cam) {
         List<Float> list = new ArrayList<>();
         float max = getHardwareSupportedMaxZoomRatio(cam);
+        // Cameras without an ultra-wide can't go below 1.0x; don't offer 0.5x there
+        float min = prefs.getMinSupportedZoomRatio(cam);
         for (float z = 0.5f; z <= max + 0.001f; z += 0.5f) {
+            if (z + 0.001f < min) continue;
             list.add(((float) Math.round(z * 10)) / 10f);
         }
+        float roundedMin = ((float) Math.round(min * 10)) / 10f;
+        if (roundedMin > 0f && roundedMin < 1.0f && !list.contains(roundedMin))
+            list.add(roundedMin);
         if (!list.contains(1.0f))
             list.add(1.0f);
         java.util.Collections.sort(list);
@@ -2140,6 +2163,8 @@ public class VideoSettingsFragment extends Fragment {
         // method(showVideoSplitSizeBottomSheet)-----------
     }
 
+    private static final int MIN_CUSTOM_SPLIT_MB = 100;
+
     private void showCustomSplitSizeBottomSheet() {
         // method(showCustomSplitSizeBottomSheet)-----------
         // Two-column MB | GB wheel — the same pattern as the timer's H:M:S
@@ -2152,6 +2177,13 @@ public class VideoSettingsFragment extends Fragment {
         getParentFragmentManager().setFragmentResultListener(resultKey, this, (k, b) -> {
             if (b.containsKey(com.fadcam.ui.picker.MaterialNumberPickerBottomSheetFragment.RESULT_NUMBER)) {
                 int mb = b.getInt(com.fadcam.ui.picker.MaterialNumberPickerBottomSheetFragment.RESULT_NUMBER);
+                // 0 MB never split, and a few MB at 4K made a new file every second
+                if (mb < MIN_CUSTOM_SPLIT_MB) {
+                    mb = MIN_CUSTOM_SPLIT_MB;
+                    android.widget.Toast.makeText(requireContext(),
+                            getString(R.string.video_split_min_size, MIN_CUSTOM_SPLIT_MB),
+                            android.widget.Toast.LENGTH_SHORT).show();
+                }
                 prefs.setVideoSplitSizeMb(mb);
                 refreshAllValues();
             }
