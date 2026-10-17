@@ -180,7 +180,6 @@
     <string name="up_to_date_description">Stasu pehla na latest version bandi de.</string>
     <string name="up_to_date_loading">Updates check kegi sabr…</string>
     <string name="update_available_title">Update Mojood de</string>
-    <string name="update_available_message">Yo nawe version (%1$s) milaoshu. Update kolo dapara, F-Droid store ya GitHub repository na download kae. </string>
     <string name="visit_fdroid">F-Droid kolao ka</string>
     <string name="visit_github">GitHub kolao ka</string>
     <string name="delete_all_videos_title">Tol Videos pa Daz Ola</string>

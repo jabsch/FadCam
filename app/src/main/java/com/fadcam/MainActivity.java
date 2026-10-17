@@ -1076,7 +1076,7 @@ public class MainActivity extends AppCompatActivity {
      * The old code discarded createConfigurationContext() and called recreate(), so the UI never
      * changed and a non-system language recreated MainActivity in an endless loop.
      */
-    public void applyLanguage(@androidx.annotation.Nullable String languageCode) {
+    public boolean applyLanguage(@androidx.annotation.Nullable String languageCode) {
         getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE).edit()
                 .putString(LANGUAGE_APPLIED_KEY, languageCode).apply();
         androidx.core.os.LocaleListCompat current = AppCompatDelegate.getApplicationLocales();
@@ -1086,7 +1086,7 @@ public class MainActivity extends AppCompatActivity {
         } else if (current.isEmpty()
                 && languageCode.equals(getResources().getConfiguration().getLocales().get(0).getLanguage())) {
             // Already showing the system language the user picked; avoid a needless recreate
-            return;
+            return false;
         } else {
             // values-zh-rCN holds the Chinese strings
             target = androidx.core.os.LocaleListCompat.forLanguageTags("zh".equals(languageCode) ? "zh-CN" : languageCode);
@@ -1094,7 +1094,9 @@ public class MainActivity extends AppCompatActivity {
         if (!target.equals(current)) {
             FLog.d("MainActivity", "Applying language: " + languageCode);
             AppCompatDelegate.setApplicationLocales(target); // recreates the activity itself
+            return true;
         }
+        return false;
     }
 
     @Override

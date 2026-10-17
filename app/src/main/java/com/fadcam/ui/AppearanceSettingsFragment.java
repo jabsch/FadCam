@@ -375,13 +375,16 @@ public class AppearanceSettingsFragment extends Fragment {
                                 )
                             ) {
                                 saveLanguagePreference(code);
-                                // The locale change recreates the activity; come back to Appearance
+                                // The locale change recreates the activity; come back to Appearance.
+                                // Set before applying (the recreate reads it), and cleared when no
+                                // recreate happens, or the next cold start opened Appearance.
                                 sharedPreferencesManager.sharedPreferences.edit()
                                         .putBoolean("reopen_appearance_after_theme", true).apply();
-                                if (getActivity() instanceof MainActivity) {
-                                    ((MainActivity) requireActivity()).applyLanguage(
-                                        code
-                                    );
+                                boolean recreating = getActivity() instanceof MainActivity
+                                        && ((MainActivity) requireActivity()).applyLanguage(code);
+                                if (!recreating) {
+                                    sharedPreferencesManager.sharedPreferences.edit()
+                                            .remove("reopen_appearance_after_theme").apply();
                                 }
                             }
                             String[] langs = getResources().getStringArray(

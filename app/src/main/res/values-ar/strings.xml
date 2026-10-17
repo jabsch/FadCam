@@ -166,7 +166,6 @@
     <string name="up_to_date_description">أنت تستخدم بالفعل أحدث إصدار.</string>
     <string name="up_to_date_loading">التحقق من وجود تحديثات...</string>
     <string name="update_available_title">تحديث متاح</string>
-    <string name="update_available_message">إصدار جديد (%1$s) متاح. للتحديث، يرجى زيارة متجر F-Droid أو مستودع GitHub الخاص بنا لمزيد من التفاصيل.</string>
     <string name="visit_fdroid">زيارة F-Droid</string>
     <string name="visit_github">زيارة GitHub</string>
     <string name="delete_all_videos_title">حذف جميع مقاطع الفيديو</string>
