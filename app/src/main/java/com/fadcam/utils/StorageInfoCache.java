@@ -26,6 +26,7 @@ public class StorageInfoCache {
     private static long cachedTotalBytes = -1;
     private static boolean cachedUsingCustomStorage = false;
     private static boolean cachedCustomIsOnPrimary = true;
+    private static long cachedAtElapsed = 0;
     
     // Thread-safe access
     private static final Object cacheLock = new Object();
@@ -35,13 +36,16 @@ public class StorageInfoCache {
         public final long totalBytes;
         public final boolean usingCustomStorage;
         public final boolean customIsOnPrimary;
+        /** elapsedRealtime of the StatFs reading; bytes written before it are already excluded */
+        public final long capturedAtElapsed;
         
         public StorageInfo(long availableBytes, long totalBytes, 
-                          boolean usingCustomStorage, boolean customIsOnPrimary) {
+                          boolean usingCustomStorage, boolean customIsOnPrimary, long capturedAtElapsed) {
             this.availableBytes = availableBytes;
             this.totalBytes = totalBytes;
             this.usingCustomStorage = usingCustomStorage;
             this.customIsOnPrimary = customIsOnPrimary;
+            this.capturedAtElapsed = capturedAtElapsed;
         }
         
         public double getAvailableGB() {
@@ -60,7 +64,7 @@ public class StorageInfoCache {
         synchronized (cacheLock) {
             if (isCacheValid()) {
                 return new StorageInfo(cachedAvailableBytes, cachedTotalBytes, 
-                                     cachedUsingCustomStorage, cachedCustomIsOnPrimary);
+                                     cachedUsingCustomStorage, cachedCustomIsOnPrimary, cachedAtElapsed);
             }
             return null;
         }
@@ -133,8 +137,10 @@ public class StorageInfoCache {
             }
         }
         
+        long capturedAt = android.os.SystemClock.elapsedRealtime();
         // Cache the results
         synchronized (cacheLock) {
+            cachedAtElapsed = capturedAt;
             cachedAvailableBytes = bytesAvailable;
             cachedTotalBytes = bytesTotal;
             cachedUsingCustomStorage = usingCustomStorage;
@@ -145,7 +151,7 @@ public class StorageInfoCache {
                       + " GB, Total: " + (bytesTotal / (1024.0 * 1024.0 * 1024.0)) + " GB");
         }
         
-        return new StorageInfo(bytesAvailable, bytesTotal, usingCustomStorage, customIsOnPrimary);
+        return new StorageInfo(bytesAvailable, bytesTotal, usingCustomStorage, customIsOnPrimary, capturedAt);
     }
     
     /**

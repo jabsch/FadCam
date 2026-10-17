@@ -1993,7 +1993,11 @@ public class FadRecHomeFragment extends HomeFragment {
                 long bitrateBps = calculateScreenRecordingBitrateBps();
                 long estimatedBytesUsed = 0;
                 if (elapsedTime > 0 && bitrateBps > 0) {
-                    estimatedBytesUsed = (elapsedTime * bitrateBps) / 8000L;
+                    // Only time since the cached StatFs reading; earlier bytes are already excluded
+                    long sinceSnapshot = storageInfo.capturedAtElapsed > 0
+                        ? Math.max(0, SystemClock.elapsedRealtime() - storageInfo.capturedAtElapsed)
+                        : elapsedTime;
+                    estimatedBytesUsed = (Math.min(elapsedTime, sinceSnapshot) * bitrateBps) / 8000L;
                     estimatedBytesUsed = Math.min(estimatedBytesUsed, storageInfo.availableBytes);
                 }
                 adjustedAvailable = Math.max(0, storageInfo.availableBytes - estimatedBytesUsed);

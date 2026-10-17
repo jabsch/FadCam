@@ -6757,7 +6757,12 @@ public class HomeFragment extends BaseFragment {
             }
 
             if (elapsedTime > 0 && effectiveBitrate > 0) {
-                estimatedBytesUsed = (elapsedTime * effectiveBitrate) / 8000;
+                // StatFs already excludes what was written before the cached reading, so only
+                // count recording time since then (the cache refreshes every 30 s)
+                long sinceSnapshot = storageInfo.capturedAtElapsed > 0
+                    ? Math.max(0, SystemClock.elapsedRealtime() - storageInfo.capturedAtElapsed)
+                    : elapsedTime;
+                estimatedBytesUsed = (Math.min(elapsedTime, sinceSnapshot) * effectiveBitrate) / 8000;
                 estimatedBytesUsed = Math.min(
                     estimatedBytesUsed,
                     storageInfo.availableBytes
@@ -6856,24 +6861,10 @@ public class HomeFragment extends BaseFragment {
         int selectedFps = sharedPreferencesManager.getVideoFrameRate();
         long selectedBitrate;
         try {
-            boolean customMode =
-                sharedPreferencesManager.sharedPreferences.getBoolean(
-                    "bitrate_mode_custom",
-                    false
-                );
-            if (customMode) {
-                int customKbps =
-                    sharedPreferencesManager.sharedPreferences.getInt(
-                        "bitrate_custom_value",
-                        16000
-                    );
-                selectedBitrate = (long) customKbps * 1000L;
-            } else {
-                selectedBitrate = Utils.estimateBitrate(
-                    selectedRes,
-                    selectedFps
-                );
-            }
+            // Same figure the live estimate uses (recording camera's fps + audio), so
+            // "time left" doesn't jump when recording starts
+            selectedBitrate = (long) sharedPreferencesManager.getCurrentBitrate()
+                + sharedPreferencesManager.getAudioBitrate();
         } catch (Exception e) {
             selectedBitrate = Utils.estimateBitrate(selectedRes, selectedFps);
         }
