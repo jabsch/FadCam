@@ -25,7 +25,6 @@ import com.google.gson.JsonSerializer;
 
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -88,14 +87,38 @@ public class ProjectStorage {
             return false;
         }
 
-        File file = new File(projectDir, PROJECT_FILE);
-        try (FileWriter writer = new FileWriter(file)) {
+        // Written to a temp file and swapped in, so a kill mid-save (saves run on
+        // every edit) can't leave a truncated project that no longer opens
+        android.util.AtomicFile file = new android.util.AtomicFile(new File(projectDir, PROJECT_FILE));
+        java.io.FileOutputStream out = null;
+        try {
+            out = file.startWrite();
+            java.io.Writer writer = new java.io.OutputStreamWriter(out, java.nio.charset.StandardCharsets.UTF_8);
             gson.toJson(project, writer);
+            writer.flush();
+            file.finishWrite(out);
             return true;
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
+            if (out != null) file.failWrite(out);
             FLog.e(TAG, "Failed to save project: " + project.getId(), e);
             return false;
         }
+    }
+
+    /**
+     * On older Android versions AtomicFile moves the file to a backup while writing; if
+     * the app died mid-write, opening it through AtomicFile puts the backup back.
+     */
+    @NonNull
+    private static File restoreInterruptedWrite(@NonNull File file) {
+        if (!file.exists()) {
+            try {
+                new android.util.AtomicFile(file).openRead().close();
+            } catch (IOException ignored) {
+                // No file and no backup
+            }
+        }
+        return file;
     }
 
     /**
@@ -106,7 +129,7 @@ public class ProjectStorage {
      */
     @Nullable
     public FaditorProject load(@NonNull String projectId) {
-        File file = new File(getProjectDir(projectId), PROJECT_FILE);
+        File file = restoreInterruptedWrite(new File(getProjectDir(projectId), PROJECT_FILE));
         if (!file.exists()) {
             FLog.d(TAG, "No saved project found: " + projectId);
             return null;
@@ -133,7 +156,7 @@ public class ProjectStorage {
         if (dirs == null) return result;
 
         for (File dir : dirs) {
-            File file = new File(dir, PROJECT_FILE);
+            File file = restoreInterruptedWrite(new File(dir, PROJECT_FILE));
             if (!file.exists()) continue;
 
             try (FileReader reader = new FileReader(file)) {
@@ -204,10 +227,9 @@ public class ProjectStorage {
                         // Extract filename from URI to use as cache prefix
                         String filename = extractFilename(sourceUri.toString());
                         if (filename != null) {
-                            String baseName = filename.substring(0, Math.max(filename.lastIndexOf('.'), filename.length()));
                             com.fadcam.playback.FragmentedMp4Remuxer remuxer =
                                     new com.fadcam.playback.FragmentedMp4Remuxer(context);
-                            int deleted = remuxer.deleteCacheForPrefix(baseName);
+                            int deleted = remuxer.deleteCacheForPrefix(remuxCachePrefix(filename));
                             if (deleted > 0) {
                                 FLog.d(TAG, "Cleared " + deleted + " cache files for clip: " + filename);
                             }
@@ -223,10 +245,9 @@ public class ProjectStorage {
                     if (audioClip != null && audioClip.getSourceUri() != null) {
                         String filename = extractFilename(audioClip.getSourceUri().toString());
                         if (filename != null) {
-                            String baseName = filename.substring(0, Math.max(filename.lastIndexOf('.'), filename.length()));
                             com.fadcam.playback.FragmentedMp4Remuxer remuxer =
                                     new com.fadcam.playback.FragmentedMp4Remuxer(context);
-                            int deleted = remuxer.deleteCacheForPrefix(baseName);
+                            int deleted = remuxer.deleteCacheForPrefix(remuxCachePrefix(filename));
                             if (deleted > 0) {
                                 FLog.d(TAG, "Cleared " + deleted + " cache files for audio: " + filename);
                             }
@@ -261,17 +282,28 @@ public class ProjectStorage {
      * @return the filename, or null if extraction failed
      */
     @Nullable
+    /**
+     * Prefix of the remux cache files for a source file, which the remuxer names
+     * "&lt;name without extension&gt;-remuxed-&lt;hash&gt;.mp4". The old prefix kept the
+     * extension, so it never matched and deleted projects left their cache behind.
+     */
+    @NonNull
+    private static String remuxCachePrefix(@NonNull String filename) {
+        int dot = filename.lastIndexOf('.');
+        return (dot > 0 ? filename.substring(0, dot) : filename) + "-remuxed-";
+    }
+
     private String extractFilename(@NonNull String uri) {
         try {
             if (uri.startsWith("file://")) {
                 uri = uri.substring(7);  // Remove "file://" prefix
             } else if (uri.startsWith("content://")) {
-                // For content URIs, try to extract the last path segment
-                int lastSlash = uri.lastIndexOf('/');
-                if (lastSlash >= 0) {
-                    return uri.substring(lastSlash + 1);
-                }
-                return null;
+                // The last segment is encoded ("primary%3ADCIM%2Fclip.mp4"); decode it
+                // and keep only the part after the last ':' or '/'
+                String seg = Uri.parse(uri).getLastPathSegment();
+                if (seg == null) return null;
+                int cut = Math.max(seg.lastIndexOf('/'), seg.lastIndexOf(':'));
+                return seg.substring(cut + 1);
             }
             
             int lastSlash = uri.lastIndexOf('/');
@@ -345,8 +377,11 @@ public class ProjectStorage {
             return false;
         }
 
-        File file = new File(projectDir, UNDO_HISTORY_FILE);
-        try (FileWriter writer = new FileWriter(file)) {
+        android.util.AtomicFile file = new android.util.AtomicFile(new File(projectDir, UNDO_HISTORY_FILE));
+        java.io.FileOutputStream out = null;
+        try {
+            out = file.startWrite();
+            java.io.Writer writer = new java.io.OutputStreamWriter(out, java.nio.charset.StandardCharsets.UTF_8);
             JsonArray historyArray = new JsonArray();
             int count = Math.min(descriptions.size(), snapshots.size());
             for (int i = 0; i < count; i++) {
@@ -356,9 +391,12 @@ public class ProjectStorage {
                 historyArray.add(entry);
             }
             gson.toJson(historyArray, writer);
+            writer.flush();
+            file.finishWrite(out);
             FLog.d(TAG, "Saved " + count + " undo history entries for: " + projectId);
             return true;
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
+            if (out != null) file.failWrite(out);
             FLog.e(TAG, "Failed to save undo history: " + projectId, e);
             return false;
         }
@@ -375,7 +413,7 @@ public class ProjectStorage {
     public boolean loadUndoHistory(@NonNull String projectId,
                                    @NonNull List<String> outDescriptions,
                                    @NonNull List<String> outSnapshots) {
-        File file = new File(getProjectDir(projectId), UNDO_HISTORY_FILE);
+        File file = restoreInterruptedWrite(new File(getProjectDir(projectId), UNDO_HISTORY_FILE));
         if (!file.exists()) {
             FLog.d(TAG, "No undo history found for: " + projectId);
             return false;
@@ -635,7 +673,9 @@ public class ProjectStorage {
 
             // Restore canvas preset
             if (obj.has("canvasPreset")) {
-                project.setCanvasPreset(obj.get("canvasPreset").getAsString());
+                // setCanvasPreset touches lastModified, which made every opened project
+                // jump to the top of the list as if it had been edited
+                project.restoreCanvasPreset(obj.get("canvasPreset").getAsString());
             }
 
             // Restore export settings

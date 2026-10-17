@@ -201,10 +201,9 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * @param newTrimEndMs the corrected out-point in absolute source milliseconds
      */
     public void updateTrimEndOnly(long newTrimEndMs) {
+        // Player state only. Callers already set the clip's out-point; writing it here
+        // too truncated the pre-split clip, so undoing a split lost the second half.
         this.trimEndMs = newTrimEndMs;
-        if (currentClip != null) {
-            this.currentClip.setOutPointMs(newTrimEndMs);
-        }
         FLog.d(TAG, "Trim end updated (no seek): trimEnd=" + newTrimEndMs + "ms");
     }
 
