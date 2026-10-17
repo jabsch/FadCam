@@ -464,7 +464,7 @@ public class PlaybackService extends Service {
                 .setSmallIcon(R.drawable.ic_stat_playback)
                 .setContentTitle(videoTitle != null && !videoTitle.isEmpty() ? videoTitle : getString(R.string.app_name))
                 .setContentText(playing ? getString(R.string.universal_playing) : getString(R.string.universal_paused))
-                .setSubText((timeInfo != null && !timeInfo.isEmpty()) ? (timeInfo + (remainingInfo!=null? " • "+remainingInfo+" left":"")) : (remainingInfo!=null? remainingInfo+" left":"")) // Show time info and optional remaining auto-stop countdown
+                .setSubText((timeInfo != null && !timeInfo.isEmpty()) ? (timeInfo + (remainingInfo!=null? " • "+getString(R.string.playback_time_left, remainingInfo):"")) : (remainingInfo!=null? getString(R.string.playback_time_left, remainingInfo):"")) // Show time info and optional remaining auto-stop countdown
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setOngoing(playing)
                 .setOnlyAlertOnce(true) // Prevent sounds on updates
@@ -518,9 +518,11 @@ public class PlaybackService extends Service {
     private void ensureChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-            if (nm != null && nm.getNotificationChannel(CHANNEL_ID) == null) {
-                android.app.NotificationChannel ch = new android.app.NotificationChannel(CHANNEL_ID, "FadCam Playback", android.app.NotificationManager.IMPORTANCE_LOW); // Use LOW importance to prevent sounds
-                ch.setDescription("Background media playback controls");
+            // Created every time: for an existing channel this only updates the name and
+            // description, so they follow the app language (and no longer say FadCam)
+            if (nm != null) {
+                android.app.NotificationChannel ch = new android.app.NotificationChannel(CHANNEL_ID, getString(R.string.playback_channel_name), android.app.NotificationManager.IMPORTANCE_LOW); // Use LOW importance to prevent sounds
+                ch.setDescription(getString(R.string.playback_channel_desc));
                 ch.setShowBadge(false);
                 ch.setSound(null, null); // No sound for the channel
                 ch.enableVibration(false); // No vibration

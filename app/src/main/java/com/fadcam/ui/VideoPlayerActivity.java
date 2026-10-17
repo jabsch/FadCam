@@ -258,6 +258,8 @@ public class VideoPlayerActivity extends AppCompatActivity {
     private static final String STATE_WAS_PLAYING = "vp_was_playing";
     private static final String STATE_SPEED = "vp_speed";
     private boolean restoredFromRecreate = false;
+    /** A saved position was restored on open; check once it loads whether it sits at the end. */
+    private boolean resumeAtEndCheckPending = false;
     private boolean restoredWasPlaying = true;
     private float restoredSpeed = -1f;
     // Guard to keep single-tap from being treated as part of double-tap or
@@ -1368,6 +1370,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
                 if (savedMs > 0) {
                     FLog.d(TAG, "Seeking to saved position on init: " + savedMs + "ms");
                     player.seekTo(savedMs);
+                    resumeAtEndCheckPending = !restoredFromRecreate;
                 }
             } catch (Exception ignored) {}
             if (restoredFromRecreate) {
@@ -1386,10 +1389,16 @@ public class VideoPlayerActivity extends AppCompatActivity {
                 }
                 player.addListener(
                     seekPositionListener = new Player.Listener() {
-                        public void onSeekProcessed() {
-                            // Save and broadcast immediately when user finishes a seek
-                            FLog.d(TAG, "onSeekProcessed() - saving current playback position");
-                            saveCurrentPlaybackPosition();
+                        @Override
+                        public void onPositionDiscontinuity(
+                                @androidx.annotation.NonNull Player.PositionInfo oldPosition,
+                                @androidx.annotation.NonNull Player.PositionInfo newPosition,
+                                int reason) {
+                            // Save and broadcast immediately when the user seeks (media3 no
+                            // longer calls onSeekProcessed, so seeks were only saved every 5 s)
+                            if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+                                saveCurrentPlaybackPosition();
+                            }
                         }
                         @Override
                         public void onEvents(Player p, Player.Events events) {
@@ -1454,6 +1463,13 @@ public class VideoPlayerActivity extends AppCompatActivity {
                         @Override
                         public void onPlayerError(androidx.media3.common.PlaybackException error) {
                             FLog.e(TAG, "Player error: " + error.getMessage(), error);
+                            // Otherwise a missing or broken file is just a black screen
+                            runOnUiThread(() -> {
+                                if (!isFinishing()) {
+                                    Toast.makeText(VideoPlayerActivity.this,
+                                            R.string.player_error_playing, Toast.LENGTH_LONG).show();
+                                }
+                            });
                         }
                         @Override
                         public void onAudioSessionIdChanged(int audioSessionId) {
@@ -1474,6 +1490,18 @@ public class VideoPlayerActivity extends AppCompatActivity {
                                 default: stateName = "UNKNOWN(" + state + ")"; break;
                             }
                             FLog.i(TAG, "onPlaybackStateChanged(): " + stateName);
+                            if (resumeAtEndCheckPending && player != null
+                                    && (state == Player.STATE_READY || state == Player.STATE_ENDED)) {
+                                // A video watched to the end saved its full length, so reopening
+                                // it landed on the last frame. Start it from the top instead.
+                                resumeAtEndCheckPending = false;
+                                long dur = player.getDuration();
+                                long pos = player.getCurrentPosition();
+                                if (state == Player.STATE_ENDED
+                                        || (dur > 0 && dur != C.TIME_UNSET && pos >= dur - 1000)) {
+                                    player.seekTo(0);
+                                }
+                            }
                             // When ready after seeking, clear lastSeekPositionMs to sync with actual player position
                             // This handles fragmented MP4s where seek lands on keyframe, not exact position
                             if (state == Player.STATE_READY && lastSeekPositionMs >= 0 && player != null) {
@@ -3454,6 +3482,12 @@ public class VideoPlayerActivity extends AppCompatActivity {
             try {
                 isPlaying = player.isPlaying();
             } catch (Exception ignored) {}
+            if (isFinishing()) {
+                // Leaving the player (Back): background playback is for Home/screen off,
+                // not for carrying on over Records, and a late handoff could swap a newly
+                // opened video for this one. The branch below pauses and detaches.
+                bg = false;
+            }
             if (bg && isPlaying && hasPostNotificationsPermission()) {
                 // Only handoff to background service if currently playing
                 try {
