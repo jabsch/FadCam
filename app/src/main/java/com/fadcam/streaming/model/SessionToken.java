@@ -46,48 +46,25 @@ public class SessionToken {
     }
     
     /**
-     * Convert to JSON string for storage
+     * Convert to a JSON object for storage. org.json escapes deviceInfo (it holds the
+     * browser's User-Agent, which can contain quotes); the old format string did not.
      */
-    public String toJson() {
-        return String.format(java.util.Locale.US,
-            "{\"token\":\"%s\",\"createdAt\":%d,\"expiresAt\":%d,\"deviceInfo\":\"%s\"}",
-            token, createdAtMs, expiresAtMs, deviceInfo
-        );
+    public org.json.JSONObject toJson() throws org.json.JSONException {
+        org.json.JSONObject o = new org.json.JSONObject();
+        o.put("token", token);
+        o.put("createdAt", createdAtMs);
+        o.put("expiresAt", expiresAtMs);
+        o.put("deviceInfo", deviceInfo != null ? deviceInfo : "");
+        return o;
     }
-    
+
     /**
-     * Parse from JSON string
+     * Parse from a stored JSON object, or null if it is incomplete.
      */
-    public static SessionToken fromJson(String json) {
-        try {
-            // Simple JSON parsing without external library
-            String token = extractJsonValue(json, "token");
-            long createdAt = Long.parseLong(extractJsonValue(json, "createdAt"));
-            long expiresAt = Long.parseLong(extractJsonValue(json, "expiresAt"));
-            String deviceInfo = extractJsonValue(json, "deviceInfo");
-            return new SessionToken(token, createdAt, expiresAt, deviceInfo);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-    
-    private static String extractJsonValue(String json, String key) {
-        String searchKey = "\"" + key + "\":";
-        int startIndex = json.indexOf(searchKey);
-        if (startIndex == -1) return "";
-        
-        startIndex += searchKey.length();
-        
-        // Handle string values
-        if (json.charAt(startIndex) == '"') {
-            startIndex++;
-            int endIndex = json.indexOf('"', startIndex);
-            return json.substring(startIndex, endIndex);
-        }
-        
-        // Handle numeric values
-        int endIndex = json.indexOf(',', startIndex);
-        if (endIndex == -1) endIndex = json.indexOf('}', startIndex);
-        return json.substring(startIndex, endIndex).trim();
+    public static SessionToken fromJson(org.json.JSONObject o) {
+        String token = o.optString("token", null);
+        if (token == null || token.isEmpty()) return null;
+        return new SessionToken(token, o.optLong("createdAt"), o.optLong("expiresAt"),
+                o.optString("deviceInfo", ""));
     }
 }
