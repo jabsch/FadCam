@@ -208,6 +208,9 @@ public class MiniAppsReorderBottomSheet extends BottomSheetDialogFragment {
     private int indexForY(float y) {
         int n = rowViews.size();
         if (n == 0) return 0;
+        // render() re-inflates the rows on every move; until the next layout pass their
+        // bottoms are 0, which sent the dragged app to the last slot (and saved that)
+        if (rowViews.get(n - 1).getBottom() == 0) return -1;
         for (int i = 0; i < n; i++) {
             if (y < rowViews.get(i).getBottom()) return i;
         }

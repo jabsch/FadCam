@@ -72,6 +72,7 @@
 
             <TextView android:layout_width="24dp" android:layout_height="24dp"
                 android:layout_marginEnd="16dp" android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no"
                 android:text="account_circle" android:textColor="?attr/colorHeading"
                 android:textSize="18sp" android:gravity="center"/>
 
@@ -154,6 +155,7 @@
 
                     <TextView android:layout_width="24dp" android:layout_height="24dp"
                         android:layout_marginEnd="10dp" android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no"
                         android:text="verified" android:textColor="#FFFFFF" android:textSize="18sp"
                         android:gravity="center"/>
 
@@ -212,6 +214,7 @@
 
                     <TextView android:layout_width="24dp" android:layout_height="24dp"
                         android:layout_marginEnd="10dp" android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no"
                         android:text="science" android:textColor="#FFFFFF" android:textSize="18sp"
                         android:gravity="center"/>
 
@@ -337,6 +340,7 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no"
                     android:text="visibility"
                     android:textColor="?attr/colorHeading"
                     android:textSize="18sp"
@@ -402,6 +406,7 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no"
                     android:text="widgets"
                     android:textColor="?attr/colorHeading"
                     android:textSize="18sp"
@@ -466,6 +471,7 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no"
                     android:text="grid_on"
                     android:textColor="?attr/colorHeading"
                     android:textSize="18sp"
@@ -587,6 +593,7 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no"
                     android:text="flashlight_on"
                     android:textColor="?attr/colorHeading"
                     android:textSize="18sp"
@@ -659,7 +666,8 @@
                     android:text="qr_code_scanner"
                     android:textSize="20sp"
                     android:textColor="?attr/colorHeading"
-                    android:fontFamily="@font/materialicons" />
+                    android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -722,6 +730,7 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no"
                     android:text="explore"
                     android:textColor="?attr/colorHeading"
                     android:textSize="18sp"
@@ -815,6 +824,7 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no"
                     android:text="graphic_eq"
                     android:textColor="?attr/colorHeading"
                     android:textSize="18sp"
@@ -908,6 +918,7 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no"
                     android:text="sensors"
                     android:textColor="?attr/colorHeading"
                     android:textSize="18sp"
@@ -991,7 +1002,8 @@
                     android:text="speed"
                     android:textSize="22sp"
                     android:textColor="?attr/colorHeading"
-                    android:fontFamily="@font/materialicons" />
+                    android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no" />
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -1044,7 +1056,8 @@
                     android:text="architecture"
                     android:textSize="22sp"
                     android:textColor="?attr/colorHeading"
-                    android:fontFamily="@font/materialicons" />
+                    android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no" />
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -1097,7 +1110,8 @@
                     android:text="directions_walk"
                     android:textSize="22sp"
                     android:textColor="?attr/colorHeading"
-                    android:fontFamily="@font/materialicons" />
+                    android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no" />
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -1150,7 +1164,8 @@
                     android:text="travel_explore"
                     android:textSize="22sp"
                     android:textColor="?attr/colorHeading"
-                    android:fontFamily="@font/materialicons" />
+                    android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no" />
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -1203,7 +1218,8 @@
                     android:text="location_on"
                     android:textSize="22sp"
                     android:textColor="?attr/colorHeading"
-                    android:fontFamily="@font/materialicons" />
+                    android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no" />
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -1256,7 +1272,8 @@
                     android:text="qr_code_2"
                     android:textSize="22sp"
                     android:textColor="?attr/colorHeading"
-                    android:fontFamily="@font/materialicons" />
+                    android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no" />
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -1312,6 +1329,7 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no"
                     android:text="apps"
                     android:textColor="?attr/colorHeading"
                     android:textSize="18sp"
@@ -1391,6 +1409,7 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no"
                     android:text="new_releases"
                     android:textColor="?attr/colorHeading"
                     android:textSize="18sp"
@@ -1481,6 +1500,7 @@
                     android:layout_height="24dp"
                     android:layout_marginEnd="16dp"
                     android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no"
                     android:text="lightbulb"
                     android:textColor="?attr/colorHeading"
                     android:textSize="18sp"

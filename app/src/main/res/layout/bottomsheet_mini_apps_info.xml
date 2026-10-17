@@ -74,7 +74,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Mini Apps are small utility applications within FadCam that provide useful tools and features for quick access."
+                android:text="@string/mini_apps_about_desc"
                 android:textColor="?attr/pickerTextPrimary"
                 android:textSize="14sp"
                 android:lineSpacingExtra="4dp" />
@@ -98,7 +98,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="• Torch: A modernized flashlight tool with custom patterns.\n• QR Scanner: Scan QR codes and barcodes instantly."
+                android:text="@string/mini_apps_current_tools_desc"
                 android:textColor="?attr/pickerTextPrimary"
                 android:textSize="13sp"
                 android:lineSpacingExtra="4dp" />
@@ -122,7 +122,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="When you scan a code, FadCam automatically saves the captured frame image along with its raw data metadata to your records. This ensures you have a permanent reference and never lose scanned information."
+                android:text="@string/mini_apps_qr_reference_desc"
                 android:textColor="?attr/pickerTextPrimary"
                 android:textSize="13sp"
                 android:lineSpacingExtra="4dp" />
