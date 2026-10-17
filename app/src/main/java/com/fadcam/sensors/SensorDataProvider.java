@@ -98,7 +98,11 @@ public class SensorDataProvider implements SensorEventListener {
 
         if (initialLocation != null) {
             currentLocation = initialLocation;
-            lastLocationTime = System.currentTimeMillis();
+            // Same clock as updateLocation (elapsed realtime); wall-clock ms here made every
+            // later fix look older, so the distance/time speed fallback never ran
+            lastLocationTime = initialLocation.getElapsedRealtimeNanos() > 0
+                    ? initialLocation.getElapsedRealtimeNanos() / 1_000_000L
+                    : System.currentTimeMillis();
             // Consider the seed "fresh" so the speed read isn't instantly
             // treated as stale after pause/resume.
             lastLocationUpdateTime = System.currentTimeMillis();

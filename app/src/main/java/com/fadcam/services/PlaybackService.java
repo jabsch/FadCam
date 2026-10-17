@@ -37,6 +37,15 @@ public class PlaybackService extends Service {
     public static final String ACTION_PLAY_PAUSE = "com.fadcam.action.PLAY_PAUSE";
     public static final String ACTION_REWIND = "com.fadcam.action.REWIND";
     public static final String ACTION_FAST_FORWARD = "com.fadcam.action.FAST_FORWARD";
+    /** The player screen took playback back: drop notification and sleep timer, leave the player as is. */
+    public static final String ACTION_DETACH = "com.fadcam.action.DETACH_BACKGROUND_PLAYBACK";
+    private static volatile boolean active = false;
+    private boolean detaching = false;
+
+    /** True while background playback owns the shared player (between START and destroy). */
+    public static boolean isActive() {
+        return active;
+    }
     public static final String EXTRA_URI = "extra_uri";
     public static final String EXTRA_SPEED = "extra_speed";
     public static final String EXTRA_MUTED = "extra_muted";
@@ -85,10 +94,19 @@ public class PlaybackService extends Service {
             try { com.fadcam.Utils.stopForegroundCompat(PlaybackService.this, false); } catch (Exception ignored) {}
             isForeground = false;
         }
+
+        // The progress loop ends on the first non-playing tick (buffering after a seek,
+        // focus loss, unplugged headphones) and nothing restarted it or the play/pause icon
+        @Override
+        public void onIsPlayingChanged(boolean isPlaying) {
+            if (isPlaying) startProgressUpdates(); else stopProgressUpdates();
+            if (isForeground) buildAndShowNotification();
+        }
     };
 
     private static final String AUTO_STOP_ALARM_ACTION = "com.fadcam.action.AUTO_STOP_ALARM";
     private String videoTitle = ""; // Store the video filename/title
+    private Uri playingUri; // so the notification tap reopens this video, not an empty player
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -115,6 +133,16 @@ public class PlaybackService extends Service {
             return START_NOT_STICKY;
         }
 
+        if (ACTION_DETACH.equals(action)) {
+            detaching = true;
+            stopProgressUpdates();
+            cancelAutoStop();
+            com.fadcam.Utils.stopForegroundCompat(this, true);
+            isForeground = false;
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+
         if (ACTION_PLAY_PAUSE.equals(action)) {
             handlePlayPause();
             return START_STICKY;
@@ -136,6 +164,9 @@ public class PlaybackService extends Service {
             boolean muted = intent.getBooleanExtra(EXTRA_MUTED, false);
             long pos = intent.getLongExtra(EXTRA_POSITION_MS, 0L);
             boolean playWhenReady = intent.getBooleanExtra(EXTRA_PLAY_WHEN_READY, true);
+            if (uri != null) playingUri = uri;
+            active = true;
+            detaching = false;
             ensureChannel();
             initPlayer(uri, speed, muted, pos, playWhenReady);
             buildAndShowNotification();
@@ -270,7 +301,9 @@ public class PlaybackService extends Service {
         try {
             if (player != null) {
                 long duration = player.getDuration();
-                long newPosition = Math.min(duration, player.getCurrentPosition() + FAST_FORWARD_MS);
+                long target = player.getCurrentPosition() + FAST_FORWARD_MS;
+                // TIME_UNSET is negative: min() made it seek to the start
+                long newPosition = duration == C.TIME_UNSET ? target : Math.min(duration, target);
                 player.seekTo(newPosition);
                 buildAndShowNotification();
             }
@@ -458,6 +491,7 @@ public class PlaybackService extends Service {
         }
 
         Intent open = new Intent(this, VideoPlayerActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        if (playingUri != null) open.setData(playingUri);
         PendingIntent openPi = PendingIntent.getActivity(this, 2, open, flags);
         nb.setContentIntent(openPi);
 
@@ -504,8 +538,10 @@ public class PlaybackService extends Service {
         if (player != null) {
             try { player.removeListener(endedListener); } catch (Exception ignored) {}
         }
-        // Make sure playback is stopped when service is destroyed
-        if (player != null) {
+        active = false;
+        // Make sure playback is stopped when service is destroyed (not when the
+        // player screen took it back: it keeps playing there)
+        if (player != null && !detaching) {
             try {
                 player.pause(); // Ensure playback is stopped
             } catch (Exception ignored) {}

@@ -190,10 +190,9 @@ public class SeekableFragmentedMp4MediaSourceFactory {
                         ExtractorsFactory extractorsFactory = () -> new Extractor[] {
                             new SeekMapInjectingExtractor(index)
                         };
+                        // The index is built; DefaultDataSource opens the URI itself, so the
+                        // PFD is closed in finally (keeping it only leaked a descriptor)
                         DataSource.Factory ds = new DefaultDataSource.Factory(context);
-                        // Keep PFD open for the lifetime of playback
-                        final android.os.ParcelFileDescriptor keptPfd = pfd;
-                        pfd = null; // Prevent closing in finally
                         return new ProgressiveMediaSource.Factory(ds, extractorsFactory)
                                 .createMediaSource(mediaItem);
                     }
