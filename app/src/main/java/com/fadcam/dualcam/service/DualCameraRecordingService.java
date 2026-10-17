@@ -884,6 +884,12 @@ public class DualCameraRecordingService extends Service {
     }
 
     private void handleCapturePhoto() {
+        if (state == DualCameraState.PAUSED) {
+            // Paused sessions draw no new frames, so the shot would be stale or black
+            mainHandler.post(() -> Toast.makeText(getApplicationContext(),
+                    R.string.photo_capture_resume_first, Toast.LENGTH_SHORT).show());
+            return;
+        }
         if (recordingPipeline == null || (state != DualCameraState.RECORDING && state != DualCameraState.PAUSED)) {
             mainHandler.post(() -> Toast.makeText(getApplicationContext(),
                     R.string.photo_capture_preview_unavailable, Toast.LENGTH_SHORT).show());

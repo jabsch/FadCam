@@ -2124,6 +2124,13 @@ public class RecordingService extends Service {
     }
 
     private void capturePhotoFromRecording() {
+        if (recordingState == RecordingState.PAUSED) {
+            // Paused sessions draw no new frames, so the shot would be black or show the
+            // scene from before the pause stamped with the current time
+            mainHandler.post(() -> Toast.makeText(getApplicationContext(),
+                    R.string.photo_capture_resume_first, Toast.LENGTH_SHORT).show());
+            return;
+        }
         boolean canCaptureFromSession =
                 recordingState == RecordingState.IN_PROGRESS
                         || recordingState == RecordingState.PAUSED

@@ -43,6 +43,12 @@ public class PhotoCaptureActivity extends ComponentActivity {
     public static final String PHOTO_CAMERA_MODE_FRONT = "front";
     private final ExecutorService cameraExecutor = Executors.newSingleThreadExecutor();
     private boolean launchedFromShortcut = false;
+    /** One standalone capture at a time; a second tap would fight over the camera. */
+    private static final java.util.concurrent.atomic.AtomicBoolean CAPTURE_IN_PROGRESS =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+    private boolean ownsCaptureSlot = false;
+    @Nullable
+    private ImageCapture boundImageCapture;
 
     private final androidx.activity.result.ActivityResultLauncher<String> cameraPermissionLauncher =
             registerForActivityResult(
@@ -103,17 +109,30 @@ public class PhotoCaptureActivity extends ComponentActivity {
 
     @SuppressWarnings("deprecation") // CameraX setTargetResolution fallback for null targetSize
     private void captureSinglePhoto() {
+        if (!ownsCaptureSlot) {
+            if (!CAPTURE_IN_PROGRESS.compareAndSet(false, true)) {
+                // The earlier tap is still taking its photo
+                finish();
+                return;
+            }
+            ownsCaptureSlot = true;
+        }
         ListenableFuture<ProcessCameraProvider> providerFuture = ProcessCameraProvider.getInstance(this);
         providerFuture.addListener(() -> {
             try {
                 ProcessCameraProvider provider = providerFuture.get();
-                provider.unbindAll();
 
                 SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(this);
                 Size targetSize = resolveTargetResolution(prefs);
+                // Activity.getDisplay() is API 30+; calling it on older phones crashed
                 int targetRotation = Surface.ROTATION_0;
-                if (getDisplay() != null) {
-                    targetRotation = getDisplay().getRotation();
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    if (getDisplay() != null) {
+                        targetRotation = getDisplay().getRotation();
+                    }
+                } else if (getWindowManager() != null) {
+                    //noinspection deprecation
+                    targetRotation = getWindowManager().getDefaultDisplay().getRotation();
                 }
                 ImageCapture imageCapture;
                 if (targetSize != null) {
@@ -154,6 +173,7 @@ public class PhotoCaptureActivity extends ComponentActivity {
                     shotSource = PhotoStorageHelper.ShotSource.SELFIE;
                 }
                 provider.bindToLifecycle(this, selector, imageCapture);
+                boundImageCapture = imageCapture;
                 final PhotoStorageHelper.ShotSource finalShotSource = shotSource;
 
                 File temp = File.createTempFile("fadshot_", ".jpg", getCacheDir());
@@ -162,6 +182,9 @@ public class PhotoCaptureActivity extends ComponentActivity {
                     @Override
                     public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
                         long capturedAtMs = System.currentTimeMillis();
+                        // The shot is on disk: free the camera now instead of holding it
+                        // (and its privacy dot) through the location/weather lookup
+                        runOnUiThread(() -> releaseCamera(provider));
                         Uri saved = null;
                         try {
                             Bitmap bitmap = decodeAndOrientBitmap(temp, prefs);
@@ -360,11 +383,20 @@ public class PhotoCaptureActivity extends ComponentActivity {
         }
     }
 
-    private void finishSafely(@NonNull ProcessCameraProvider provider) {
+    private void releaseCamera(@NonNull ProcessCameraProvider provider) {
+        ImageCapture capture = boundImageCapture;
+        boundImageCapture = null;
+        if (capture == null) return;
         try {
-            provider.unbindAll();
+            // Only this shot's use case: unbindAll() also tore down another capture
+            // started by a second tap on the shortcut
+            provider.unbind(capture);
         } catch (Exception ignored) {
         }
+    }
+
+    private void finishSafely(@NonNull ProcessCameraProvider provider) {
+        releaseCamera(provider);
         if (launchedFromShortcut) {
             moveTaskToBack(true);
             try {
@@ -378,6 +410,10 @@ public class PhotoCaptureActivity extends ComponentActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (ownsCaptureSlot) {
+            ownsCaptureSlot = false;
+            CAPTURE_IN_PROGRESS.set(false);
+        }
         cameraExecutor.shutdownNow();
     }
 
