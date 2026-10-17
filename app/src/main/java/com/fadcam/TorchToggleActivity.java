@@ -13,7 +13,6 @@ import android.widget.Toast;
 import com.fadcam.dualcam.service.DualCameraRecordingService;
 import com.fadcam.services.RecordingService;
 import com.fadcam.services.TorchService;
-import com.fadcam.SharedPreferencesManager;
 import com.fadcam.streaming.RemoteStreamManager;
 import com.fadcam.utils.ServiceUtils;
 
@@ -27,16 +26,19 @@ public class TorchToggleActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         try {
-            SharedPreferencesManager sharedPreferencesManager = SharedPreferencesManager.getInstance(this);
             Intent intent;
+            boolean targetInForeground = false;
 
             // If streaming is active, route to the active recording service (controls camera torch)
             RemoteStreamManager streamManager = RemoteStreamManager.getInstance();
             if (streamManager.isStreamingEnabled()) {
-                boolean dualRunning = ServiceUtils.isServiceRunning(this, DualCameraRecordingService.class)
-                        || (sharedPreferencesManager.getCameraSelection() != null
-                        && sharedPreferencesManager.getCameraSelection().isDual());
-                intent = new Intent(this, dualRunning ? DualCameraRecordingService.class : RecordingService.class);
+                // Only a dual session that is already in the foreground can take the
+                // toggle: an idle dual service never calls startForeground() for it,
+                // so starting it with startForegroundService() would crash the app.
+                boolean dualRunning = ServiceUtils.isServiceRunningInForeground(this, DualCameraRecordingService.class);
+                Class<?> target = dualRunning ? DualCameraRecordingService.class : RecordingService.class;
+                targetInForeground = dualRunning || ServiceUtils.isServiceRunningInForeground(this, target);
+                intent = new Intent(this, target);
                 intent.setAction(Constants.INTENT_ACTION_TOGGLE_RECORDING_TORCH);
             } else {
                 // If not streaming, use TorchService
@@ -45,7 +47,7 @@ public class TorchToggleActivity extends Activity {
             }
 
             // Start the appropriate service
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !targetInForeground) {
                 startForegroundService(intent);
             } else {
                 startService(intent);

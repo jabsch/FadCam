@@ -96,6 +96,24 @@ public class ShortcutsManager {
         return context.getString(res);
     }
 
+    /** Built-in icon of a shortcut id. */
+    @DrawableRes
+    public static int defaultIconFor(@NonNull String id) {
+        switch (id) {
+            case ID_TOGGLE: return com.fadcam.R.drawable.toggle_recording_shortcut;
+            case ID_START: return com.fadcam.R.drawable.start_back_shortcut;
+            case ID_START_FRONT: return com.fadcam.R.drawable.start_front_shortcut;
+            case ID_START_CURRENT: return com.fadcam.R.drawable.start_current_shortcut;
+            case ID_START_DUAL: return com.fadcam.R.drawable.start_dual_shortcut;
+            case ID_STOP: return com.fadcam.R.drawable.stop_shortcut;
+            case ID_SHOT: return com.fadcam.R.drawable.fadshot_shortcut;
+            case ID_SHOT_FRONT: return com.fadcam.R.drawable.fadshot_front_shortcut;
+            case ID_SCREENSHOT: return com.fadcam.R.drawable.fadrec_screenshot_shortcut;
+            case ID_VOICE: return com.fadcam.R.drawable.voice_shortcut;
+            default: return com.fadcam.R.drawable.flashlight_shortcut;
+        }
+    }
+
     private static Intent activityIntent(Context context, String className) {
         return new Intent(Intent.ACTION_VIEW).setClassName(context, className);
     }
@@ -154,6 +172,16 @@ public class ShortcutsManager {
             prefs.getCustomIconPath(id) != null;
         // Use a dedicated pinned id namespace to avoid launchers reusing stale static shortcut metadata.
         String pinId = hasCustom ? (id + "_pin_custom") : (id + "_pin");
+        return buildPinned(id, pinId, intent, defaultIcon, defaultLabel);
+    }
+
+    private ShortcutInfoCompat buildPinned(
+        @NonNull String id,
+        @NonNull String pinId,
+        @NonNull Intent intent,
+        @DrawableRes int defaultIcon,
+        @NonNull CharSequence defaultLabel
+    ) {
         ShortcutInfoCompat.Builder b = new ShortcutInfoCompat.Builder(
             ctx,
             pinId
@@ -439,141 +467,18 @@ public class ShortcutsManager {
             // may prompt some launchers to refresh the icon. This will not remove existing
             // shortcuts but tries to update their metadata where supported.
             if (isPinSupported()) {
+                // A pinned shortcut keeps the id it was pinned with ("_pin" or
+                // "_pin_custom"), and customising it later doesn't change that, so
+                // update both forms. Ids that were never pinned are ignored.
                 List<ShortcutInfoCompat> pinned = new ArrayList<>();
-
-                pinned.add(
-                    buildShortcutForPin(
-                        ID_TOGGLE,
-                        new Intent(Intent.ACTION_VIEW).setClassName(
-                            ctx,
-                            "com.fadcam.RecordingToggleActivity"
-                        ),
-                        com.fadcam.R.drawable.toggle_recording_shortcut,
-                        ctx.getString(
-                            com.fadcam.R.string.shortcut_toggle_recording
-                        )
-                    )
-                );
-
-                pinned.add(
-                    buildShortcutForPin(
-                        ID_TORCH,
-                        new Intent(Intent.ACTION_VIEW).setClassName(
-                            ctx,
-                            "com.fadcam.TorchToggleActivity"
-                        ),
-                        com.fadcam.R.drawable.flashlight_shortcut,
-                        ctx.getString(
-                            com.fadcam.R.string.torch_shortcut_short_label
-                        )
-                    )
-                );
-
-                pinned.add(
-                    buildShortcutForPin(
-                        ID_START,
-                        new Intent(Intent.ACTION_VIEW).setClassName(
-                            ctx,
-                            "com.fadcam.RecordingStartActivity"
-                        ).putExtra(
-                            com.fadcam.RecordingStartActivity.EXTRA_SHORTCUT_CAMERA_MODE,
-                            com.fadcam.RecordingStartActivity.CAMERA_MODE_BACK
-                        ),
-                        com.fadcam.R.drawable.start_back_shortcut,
-                        ctx.getString(com.fadcam.R.string.shortcut_start_back)
-                    )
-                );
-
-                pinned.add(
-                    buildShortcutForPin(
-                        ID_STOP,
-                        new Intent(Intent.ACTION_VIEW).setClassName(
-                            ctx,
-                            "com.fadcam.RecordingStopActivity"
-                        ),
-                        com.fadcam.R.drawable.stop_shortcut,
-                        ctx.getString(com.fadcam.R.string.stop_recording)
-                    )
-                );
-
-                pinned.add(
-                    buildShortcutForPin(
-                        ID_SHOT,
-                        new Intent(Intent.ACTION_VIEW).setClassName(
-                            ctx,
-                            "com.fadcam.PhotoCaptureActivity"
-                        ),
-                        com.fadcam.R.drawable.fadshot_shortcut,
-                        ctx.getString(com.fadcam.R.string.shortcut_take_photo)
-                    )
-                );
-                pinned.add(
-                    buildShortcutForPin(
-                        ID_START_FRONT,
-                        new Intent(Intent.ACTION_VIEW).setClassName(
-                            ctx,
-                            "com.fadcam.RecordingStartActivity"
-                        ).putExtra(
-                            com.fadcam.RecordingStartActivity.EXTRA_SHORTCUT_CAMERA_MODE,
-                            com.fadcam.RecordingStartActivity.CAMERA_MODE_FRONT
-                        ),
-                        com.fadcam.R.drawable.start_front_shortcut,
-                        ctx.getString(com.fadcam.R.string.shortcut_start_front)
-                    )
-                );
-                pinned.add(
-                    buildShortcutForPin(
-                        ID_START_CURRENT,
-                        new Intent(Intent.ACTION_VIEW).setClassName(
-                            ctx,
-                            "com.fadcam.RecordingStartActivity"
-                        ).putExtra(
-                            com.fadcam.RecordingStartActivity.EXTRA_SHORTCUT_CAMERA_MODE,
-                            com.fadcam.RecordingStartActivity.CAMERA_MODE_CURRENT
-                        ),
-                        com.fadcam.R.drawable.start_current_shortcut,
-                        ctx.getString(com.fadcam.R.string.shortcut_start_current)
-                    )
-                );
-                pinned.add(
-                    buildShortcutForPin(
-                        ID_START_DUAL,
-                        new Intent(Intent.ACTION_VIEW).setClassName(
-                            ctx,
-                            "com.fadcam.RecordingStartActivity"
-                        ).putExtra(
-                            com.fadcam.RecordingStartActivity.EXTRA_SHORTCUT_CAMERA_MODE,
-                            com.fadcam.RecordingStartActivity.CAMERA_MODE_DUAL
-                        ),
-                        com.fadcam.R.drawable.start_dual_shortcut,
-                        ctx.getString(com.fadcam.R.string.shortcut_start_dual)
-                    )
-                );
-                pinned.add(
-                    buildShortcutForPin(
-                        ID_SHOT_FRONT,
-                        new Intent(Intent.ACTION_VIEW).setClassName(
-                            ctx,
-                            "com.fadcam.PhotoCaptureActivity"
-                        ).putExtra(
-                            com.fadcam.PhotoCaptureActivity.EXTRA_SHORTCUT_PHOTO_CAMERA_MODE,
-                            com.fadcam.PhotoCaptureActivity.PHOTO_CAMERA_MODE_FRONT
-                        ),
-                        com.fadcam.R.drawable.fadshot_front_shortcut,
-                        ctx.getString(com.fadcam.R.string.shortcut_take_photo_front)
-                    )
-                );
-                pinned.add(
-                    buildShortcutForPin(
-                        ID_SCREENSHOT,
-                        new Intent(Intent.ACTION_VIEW).setClassName(
-                            ctx,
-                            "com.fadcam.ScreenShotCaptureActivity"
-                        ),
-                        com.fadcam.R.drawable.fadrec_screenshot_shortcut,
-                        ctx.getString(com.fadcam.R.string.shortcut_take_screenshot)
-                    )
-                );
+                for (String id : ALL_IDS) {
+                    Intent intent = intentFor(ctx, id);
+                    if (intent == null) continue;
+                    int icon = defaultIconFor(id);
+                    String label = defaultLabelFor(ctx, id);
+                    pinned.add(buildPinned(id, id + "_pin", intent, icon, label));
+                    pinned.add(buildPinned(id, id + "_pin_custom", intent, icon, label));
+                }
 
                 // Do not call requestPinShortcut here — that triggers the launcher "Add to Home" prompt.
                 // Instead, attempt to update already-pinned shortcuts via the native ShortcutManager
