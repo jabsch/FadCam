@@ -667,18 +667,19 @@ import fi.iki.elonen.NanoHTTPD;
         try {
             FLog.i(TAG, "⏹️ Recording toggle requested via web interface");
             
-            com.fadcam.SharedPreferencesManager spManager = com.fadcam.SharedPreferencesManager.getInstance(context);
-            boolean isRecording = spManager.isRecordingInProgress();
-            boolean isPaused = RemoteStreamManager.getInstance().isPaused();
-            
-            android.content.Intent intent = new android.content.Intent(context, com.fadcam.services.RecordingService.class);
-            
-            if (isRecording || isPaused) {
-                // Stop recording (also when paused: the web card's Stop expects a stop; Resume has /recording/resume)
-                intent.setAction(com.fadcam.Constants.INTENT_ACTION_STOP_RECORDING);
+            // A live session (paused included) only counts while a recording service is in the
+            // foreground: the raw flag survives a process kill and is also set by dual recordings
+            boolean isRecording = com.fadcam.RecordingShortcutDispatcher.hasActiveSession(context);
+
+            android.content.Intent intent;
+            if (isRecording) {
+                // Stop recording (also when paused: the web card's Stop expects a stop; Resume has
+                // /recording/resume). Goes to the dual service when that owns the session.
+                intent = com.fadcam.RecordingShortcutDispatcher.stopIntent(context);
                 FLog.d(TAG, "Recording in progress - sending STOP_RECORDING intent");
             } else {
                 // Start recording
+                intent = new android.content.Intent(context, com.fadcam.services.RecordingService.class);
                 intent.setAction(com.fadcam.Constants.INTENT_ACTION_START_RECORDING);
                 FLog.d(TAG, "Recording not in progress - sending START_RECORDING intent");
             }
@@ -686,7 +687,7 @@ import fi.iki.elonen.NanoHTTPD;
             // Start/stop action dispatch via unified policy.
             ServiceStartPolicy.startRecordingAction(context, intent);
             
-            boolean stopping = isRecording || isPaused;
+            boolean stopping = isRecording;
             String action = stopping ? "stop" : "start";
             String responseJson = String.format(java.util.Locale.US, "{\"status\": \"success\", \"action\": \"%s\", \"isRecording\": %s, \"isPaused\": false}", 
                 action, !stopping);

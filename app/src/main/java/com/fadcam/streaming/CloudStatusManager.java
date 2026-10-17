@@ -897,16 +897,19 @@ public class CloudStatusManager {
 
             } else if ("recording_toggle".equals(action)) {
                 // Start / stop (also when paused) – mirrors LiveM3U8Server.toggleRecording()
-                boolean isRecording = spManager.isRecordingInProgress();
-                boolean isPaused = manager.isPaused();
+                // Only a foreground recording service counts (paused included): the raw flag
+                // survives a process kill and is also set by dual recordings
+                boolean isRecording = com.fadcam.RecordingShortcutDispatcher.hasActiveSession(context);
 
-                android.content.Intent intent = new android.content.Intent(
-                        context, com.fadcam.services.RecordingService.class);
-                if (isRecording || isPaused) {
-                    // Paused counts as recording: the web Stop expects a stop (Resume has its own command)
-                    intent.setAction(com.fadcam.Constants.INTENT_ACTION_STOP_RECORDING);
+                android.content.Intent intent;
+                if (isRecording) {
+                    // Paused counts as recording: the web Stop expects a stop (Resume has its own
+                    // command). Goes to the dual service when that owns the session.
+                    intent = com.fadcam.RecordingShortcutDispatcher.stopIntent(context);
                     FLog.d(TAG, "☁️ recording_toggle: recording active/paused → STOP");
                 } else {
+                    intent = new android.content.Intent(
+                            context, com.fadcam.services.RecordingService.class);
                     intent.setAction(com.fadcam.Constants.INTENT_ACTION_START_RECORDING);
                     FLog.d(TAG, "☁️ recording_toggle: not recording → START");
                 }
