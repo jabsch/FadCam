@@ -540,6 +540,8 @@ public class HomeFragment extends BaseFragment {
     // ── Dual Camera ────────────────────────────────────────────────────
     /** {@code true} while a dual-camera recording session is active. */
     private volatile boolean isDualRecordingActive = false;
+    /** Set while a user stop is finalizing, so the start/stop cooldown doesn't re-enable Stop. */
+    private boolean stopRequested = false;
     /**
      * Guard flag: set before launching fullscreen preview to prevent
      * {@link #onPause()} from sending a null surface to the service.
@@ -1644,16 +1646,23 @@ public class HomeFragment extends BaseFragment {
         if (isMyServiceRunning(DualCameraRecordingService.class)) {
             FLog.d(TAG, "fetchRecordingState: DualCameraRecordingService is running");
             isDualRecordingActive = true;
+            // Always re-read the timeline: a pause or resume made elsewhere (fullscreen
+            // preview, notification) while Home was stopped never reached our receivers.
+            android.content.SharedPreferences sp = requireContext()
+                    .getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE);
+            recordingStartTime = sp.getLong(Constants.PREF_RECORDING_START_TIME, 0L);
+            recordingPauseStartedAt = sp.getLong(Constants.PREF_RECORDING_PAUSE_STARTED_AT, 0L);
+            recordingAccumulatedPausedDurationMs = sp.getLong(
+                    Constants.PREF_RECORDING_ACCUMULATED_PAUSED_DURATION, 0L);
+            boolean dualPaused = recordingPauseStartedAt > 0L;
             if (recordingState == RecordingState.NONE) {
                 recordingState = RecordingState.IN_PROGRESS;
-                // Restore timing from SharedPreferences (same keys as normal recording)
-                android.content.SharedPreferences sp = requireContext()
-                        .getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE);
-                recordingStartTime = sp.getLong(Constants.PREF_RECORDING_START_TIME, 0L);
-                recordingPauseStartedAt = sp.getLong(Constants.PREF_RECORDING_PAUSE_STARTED_AT, 0L);
-                recordingAccumulatedPausedDurationMs = sp.getLong(
-                        Constants.PREF_RECORDING_ACCUMULATED_PAUSED_DURATION, 0L);
                 setUIForRecordingActive();
+                if (dualPaused) onRecordingPaused();
+            } else if (dualPaused && recordingState != RecordingState.PAUSED) {
+                onRecordingPaused();
+            } else if (!dualPaused && recordingState == RecordingState.PAUSED) {
+                onRecordingResumed();
             }
             return;
         } else {
@@ -1871,6 +1880,7 @@ public class HomeFragment extends BaseFragment {
 
         // Clear dual recording flag
         isDualRecordingActive = false;
+        stopRequested = false;
 
         // First update the recording state
         recordingState = RecordingState.NONE;
@@ -1940,6 +1950,7 @@ public class HomeFragment extends BaseFragment {
      * with screen recording-specific behavior.
      */
     protected void resetUIButtonsToIdleState() {
+        stopRequested = false;
         // log removed
         if (!isAdded() || getContext() == null || getView() == null) {
             FLog.w(
@@ -2332,9 +2343,7 @@ public class HomeFragment extends BaseFragment {
         isStateReceiversRegistered = registerRecordingStateReceivers(context);
         // method(registerBroadcastReceivers_update_isStateReceiversRegistered_flag_logic)-----
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerRecordingCompleteReceiver(context);
-        }
+        registerRecordingCompleteReceiver(context);
         registerTorchReceiver(context);
         registerSegmentCompleteStatsReceiver(context); // Register the new one
         // Register recording failed receiver
@@ -2860,7 +2869,15 @@ public class HomeFragment extends BaseFragment {
                         previewOnlyStartHandler.removeCallbacks(pendingPreviewOnlyStartTimeoutRunnable);
                     }
                 }
-                resetUIButtonsToIdleState();
+                if (previousState == RecordingState.IN_PROGRESS || previousState == RecordingState.PAUSED
+                        || previousState == RecordingState.WAITING_FOR_CAMERA) {
+                    // Stopped while Home was in the background (notification, shortcut, tile):
+                    // the stop broadcast was missed, so run the full stop cleanup (countdown
+                    // badge, timeline, info updates, stats) instead of only resetting buttons.
+                    onRecordingStopped();
+                } else {
+                    resetUIButtonsToIdleState();
+                }
                 break;
         }
     }
@@ -3205,9 +3222,7 @@ public class HomeFragment extends BaseFragment {
         // method(registerRecordingStateReceivers_return_boolean_and_check_receivers)-----
     }
 
-    /** Helper to register the ACTION_RECORDING_COMPLETE receiver */
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
-    @SuppressLint("UnspecifiedRegisterReceiverFlag")
+    /** Helper to register the ACTION_RECORDING_COMPLETE receiver (all API levels; was 33+ only) */
     private void registerRecordingCompleteReceiver(Context context) {
         // Guard: Don't register twice
         if (isCompletionReceiverRegistered) {
@@ -3220,10 +3235,11 @@ public class HomeFragment extends BaseFragment {
             recordingCompleteReceiver != null
         ) {
             try {
-                context.registerReceiver(
+                androidx.core.content.ContextCompat.registerReceiver(
+                    context,
                     recordingCompleteReceiver,
                     new IntentFilter(Constants.ACTION_RECORDING_COMPLETE),
-                    Context.RECEIVER_NOT_EXPORTED
+                    androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
                 );
                 isCompletionReceiverRegistered = true; // isCompletionReceiverRegistered is the correct flag here
                 FLog.d(TAG, "ACTION_RECORDING_COMPLETE receiver registered.");
@@ -5192,7 +5208,11 @@ public class HomeFragment extends BaseFragment {
 
         // Re-enable after a short delay
         handlerClock.postDelayed(() -> {
-            if (buttonStartStop != null && isAdded()) {
+            if (buttonStartStop == null || !isAdded()) return;
+            if (recordingState == RecordingState.NONE) {
+                // Respects "camera in use by another app" instead of blindly enabling Start
+                updateStartButtonAvailability();
+            } else if (!stopRequested) {
                 buttonStartStop.setEnabled(true);
             }
         }, 1500); // 1.5 second cooldown
@@ -5679,7 +5699,10 @@ public class HomeFragment extends BaseFragment {
                 .setNegativeButton(android.R.string.cancel, (dialog, which) -> {
                     FLog.d(TAG, "User cancelled recording due to codec incompatibility");
                     dialog.dismiss();
+                    // The tap already flipped the button to Stop; nothing was sent to the service
+                    resetUIButtonsToIdleState();
                 })
+                .setOnCancelListener(dialog -> resetUIButtonsToIdleState())
                 .setCancelable(true)
                 .show();
     }
@@ -7179,8 +7202,9 @@ public class HomeFragment extends BaseFragment {
             return false;
         }
         String value = text.toString().trim();
-        return value.matches("\\d+(?::\\d{2}){1,2}")
-                || value.matches("\\d+[dhms](?:\\s+\\d+[dhms])*$");
+        // (?U): the timer is formatted in the default locale, so Arabic/Pashto use non-ASCII digits
+        return value.matches("(?U)\\d+(?::\\d{2}){1,2}")
+                || value.matches("(?U)\\d+[dhms](?:\\s+\\d+[dhms])*$");
     }
 
     private boolean shouldAnimateElapsedTransition(String previous, String next) {
@@ -9248,6 +9272,7 @@ public class HomeFragment extends BaseFragment {
         }
 
         FLog.i(TAG, ">> stopRecording user action");
+        stopRequested = true;
         disableInteractionButtons();
         FLog.d(TAG, "stopRecording: Btns disabled.");
 
