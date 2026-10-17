@@ -370,6 +370,7 @@
                         android:layout_height="wrap_content"
                         android:fontFamily="@font/materialicons"
                         android:text="checklist"
+                        android:contentDescription="@string/faditor_select_items"
                         android:textColor="#666666"
                         android:textSize="22sp"
                         android:padding="4dp" />
@@ -414,6 +415,7 @@
                         android:layout_height="wrap_content"
                         android:fontFamily="@font/materialicons"
                         android:text="delete"
+                        android:contentDescription="@string/universal_delete"
                         android:textColor="#EF5350"
                         android:textSize="22sp"
                         android:padding="6dp" />
@@ -425,6 +427,7 @@
                         android:layout_height="wrap_content"
                         android:fontFamily="@font/materialicons"
                         android:text="close"
+                        android:contentDescription="@string/universal_cancel"
                         android:textColor="#999999"
                         android:textSize="22sp"
                         android:padding="6dp" />
