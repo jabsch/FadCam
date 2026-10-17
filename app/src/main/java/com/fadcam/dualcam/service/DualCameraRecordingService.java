@@ -508,6 +508,9 @@ public class DualCameraRecordingService extends Service {
 
         FLog.i(TAG, "Stopping dual camera recording");
         isStopping = true;
+        // A stop during startup (cameras not streaming yet) leaves an empty file
+        final boolean wasRecording = state == DualCameraState.RECORDING || state == DualCameraState.PAUSED;
+        boolean savedOk = wasRecording;
         state = DualCameraState.DISABLED;
         // Tactile confirmation that dual recording stopped (service-side,
         // gated by the Haptic feedback setting).
@@ -522,6 +525,7 @@ public class DualCameraRecordingService extends Service {
                 recordingPipeline.stopRecording();
             } catch (Exception e) {
                 FLog.e(TAG, "Error stopping pipeline", e);
+                savedOk = false;
             }
             recordingPipeline = null;
         }
@@ -560,7 +564,12 @@ public class DualCameraRecordingService extends Service {
         pauseStartedAt = 0;
         accumulatedPausedDurationMs = 0;
 
-        broadcastRecordingComplete(true);
+        if (!wasRecording) {
+            // Don't leave behind a file that never got any frames. A failed stop of a real
+            // recording keeps its file (it may still be partly playable).
+            deleteUnfinishedOutput(lastRecordingUriString);
+        }
+        broadcastRecordingComplete(savedOk);
         lastRecordingUriString = null;
         broadcastAction(Constants.BROADCAST_ON_DUAL_RECORDING_STOPPED);
         stopSelf();
@@ -704,7 +713,13 @@ public class DualCameraRecordingService extends Service {
      * Hot-update PiP configuration (position, size, border) without restarting recording.
      */
     private void handleUpdatePipConfig() {
+        // Layout changes apply live; which camera is full-screen stays as the open sessions
+        // are, since switching that needs a swap
+        DualCameraConfig.PrimaryCamera running = config != null ? config.getPrimaryCamera() : null;
         config = prefs.getDualCameraConfig();
+        if (running != null && config.getPrimaryCamera() != running) {
+            config = new DualCameraConfig.Builder(config).primaryCamera(running).build();
+        }
         if (recordingPipeline != null) {
             recordingPipeline.updateConfig(config);
         }
@@ -1568,6 +1583,10 @@ public class DualCameraRecordingService extends Service {
                 FLog.i(TAG, "PiP camera stream " + pipStream + " (video " + videoWidth + "x" + videoHeight + ")");
             }
             recordingPipeline.prepareSurfaces();
+            // Only a swap used to set this, so a recording that started with the front camera
+            // full-screen (after a swap or picking Front) came out rotated, mirroring the PiP
+            recordingPipeline.setFullscreenCameraIsFront(
+                    config.getPrimaryCamera() == DualCameraConfig.PrimaryCamera.FRONT);
             // Home's mute button state carries over to the next recording.
             recordingPipeline.setAudioMuted(prefs.isAudioMuted());
 
@@ -2341,6 +2360,22 @@ public class DualCameraRecordingService extends Service {
             .putLong(Constants.PREF_RECORDING_PAUSE_STARTED_AT, pauseStartedAt)
             .putLong(Constants.PREF_RECORDING_ACCUMULATED_PAUSED_DURATION, accumulatedPausedDurationMs)
             .commit();
+    }
+
+    private void deleteUnfinishedOutput(@Nullable String uriString) {
+        if (uriString == null) return;
+        try {
+            Uri uri = Uri.parse(uriString);
+            if ("file".equals(uri.getScheme()) && uri.getPath() != null) {
+                //noinspection ResultOfMethodCallIgnored
+                new File(uri.getPath()).delete();
+            } else {
+                android.provider.DocumentsContract.deleteDocument(getContentResolver(), uri);
+            }
+            FLog.i(TAG, "Removed unfinished dual recording: " + uriString);
+        } catch (Exception e) {
+            FLog.w(TAG, "Could not remove unfinished dual recording", e);
+        }
     }
 
     private void clearRecordingTimelineState() {
