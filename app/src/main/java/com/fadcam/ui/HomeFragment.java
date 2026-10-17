@@ -8927,7 +8927,7 @@ public class HomeFragment extends BaseFragment {
                 tvPreviewHint.setText(getPreviewEnableHintResId());
             }
             setHintVisibilityAnimated(true);
-            Toast.makeText(requireContext(), "Preview could not start. Try long-press again.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), R.string.home_toast_preview_failed, Toast.LENGTH_SHORT).show();
         };
         previewOnlyStartHandler.postDelayed(
                 pendingPreviewOnlyStartTimeoutRunnable,
@@ -9429,7 +9429,7 @@ public class HomeFragment extends BaseFragment {
                 getActivity().startService(switchIntent);
             } else {
                 FLog.e(TAG, "Activity context is null, cannot send camera switch intent");
-                Toast.makeText(getContext(), "Error: Cannot access activity context", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), R.string.home_toast_no_activity, Toast.LENGTH_SHORT).show();
                 isCameraSwitchInProgress = false;
                 return;
             }
@@ -9437,7 +9437,7 @@ public class HomeFragment extends BaseFragment {
             // Show feedback - keep button ENABLED so user can see it's responsive
             vibrateTouch();
             Toast.makeText(getContext(),
-                    "Switching to " + (targetType == CameraType.FRONT ? "front" : "rear") + " camera...",
+                    targetType == CameraType.FRONT ? R.string.home_toast_switching_front : R.string.home_toast_switching_rear,
                     Toast.LENGTH_SHORT).show();
             FLog.d(TAG, "Camera switch intent sent, button stays enabled for responsiveness");
         } else {
@@ -10085,7 +10085,7 @@ public class HomeFragment extends BaseFragment {
             }
 
             if (currentId == null) {
-                Toast.makeText(requireContext(), "No torch available", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), R.string.home_toast_no_torch, Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -10114,7 +10114,7 @@ public class HomeFragment extends BaseFragment {
                 editor.apply();
 
                 FLog.d(TAG, "Saved torch settings - Both: " + "both".equals(sel) + ", Source: " + sel + ", CameraId: " + torchIdToSave);
-                Toast.makeText(requireContext(), "Torch: " + sel, Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), getString(R.string.home_toast_torch_selected, getString("both".equals(sel) ? R.string.torch_both : "front".equals(sel) ? R.string.torch_front : R.string.torch_back)), Toast.LENGTH_SHORT).show();
             });
 
             com.fadcam.ui.picker.PickerBottomSheetFragment sheet =
