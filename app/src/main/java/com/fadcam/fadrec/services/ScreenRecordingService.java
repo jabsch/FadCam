@@ -629,6 +629,7 @@ public class ScreenRecordingService extends Service {
 
                                     if (pickedDir == null) {
                                         FLog.e(TAG, "SAF directory null during segment rollover");
+                                        failSegmentRollover();
                                         return;
                                     }
 
@@ -644,6 +645,7 @@ public class ScreenRecordingService extends Service {
 
                                     if (videoFile == null) {
                                         FLog.e(TAG, "Failed to create SAF segment file: " + baseFilename);
+                                        failSegmentRollover();
                                         return;
                                     }
 
@@ -653,6 +655,7 @@ public class ScreenRecordingService extends Service {
 
                                     if (pfd == null) {
                                         FLog.e(TAG, "Failed to open PFD for SAF segment: " + safUri);
+                                        failSegmentRollover();
                                         return;
                                     }
 
@@ -670,6 +673,7 @@ public class ScreenRecordingService extends Service {
                                     FLog.d(TAG, "SAF segment " + nextSegmentNumber + " created: " + safUri);
                                 } catch (Exception e) {
                                     FLog.e(TAG, "Error creating SAF segment " + nextSegmentNumber, e);
+                                    failSegmentRollover();
                                 }
                             } else {
                                 // Internal storage: just set the file path
@@ -925,6 +929,17 @@ public class ScreenRecordingService extends Service {
     /**
      * Stops the screen recording and releases resources.
      */
+    /**
+     * The next part's file couldn't be created (folder removed, card ejected): stop and
+     * say so, keeping the parts already written, instead of recording into nothing.
+     */
+    private void failSegmentRollover() {
+        mainHandler.post(() -> {
+            Toast.makeText(this, getString(R.string.screen_rec_cannot_write_custom), Toast.LENGTH_LONG).show();
+            stopScreenRecording();
+        });
+    }
+
     private void stopScreenRecording() {
         FLog.d(TAG, "stopScreenRecording: Finalizing recording");
         

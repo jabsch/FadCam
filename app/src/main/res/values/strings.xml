@@ -3435,4 +3435,5 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="widget_preview_date">Wed, 13 Aug</string>
     <string name="app_icon_black">Black</string>
     <string name="dual_camera_no_cameras">Couldn\'t open the front and back cameras together</string>
+    <string name="storage_pick_parent_folder">Pick the folder above this one. JaCam creates folders like Camera, Back and Screen inside the folder you pick.</string>
 </resources>

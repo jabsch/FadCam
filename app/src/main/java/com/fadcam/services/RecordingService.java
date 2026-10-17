@@ -7963,6 +7963,8 @@ public class RecordingService extends Service {
                         customUriString, isStreamAndSave);
                 if (pickedDir == null || !pickedDir.canWrite()) {
                     FLog.e(TAG, "Segment rollover: Cannot write to selected custom directory");
+                    mainHandler.post(() -> Toast.makeText(getApplicationContext(),
+                            R.string.toast_cannot_write_custom_dir, Toast.LENGTH_LONG).show());
                     stopRecording();
                     return;
                 }
@@ -7974,6 +7976,8 @@ public class RecordingService extends Service {
                 androidx.documentfile.provider.DocumentFile videoFile = pickedDir.createFile("video/mp4", baseFilename);
                 if (videoFile == null) {
                     FLog.e(TAG, "Segment rollover: Failed to create SAF file");
+                    mainHandler.post(() -> Toast.makeText(getApplicationContext(),
+                            R.string.toast_cannot_write_custom_dir, Toast.LENGTH_LONG).show());
                     stopRecording();
                     return;
                 }
