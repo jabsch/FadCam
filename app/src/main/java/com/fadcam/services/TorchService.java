@@ -323,8 +323,10 @@ public class TorchService extends Service {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(torchOn ? "Torch is On" : "Torch Service")
-            .setContentText(torchOn ? "Tap to turn off" : "Toggling torch…")
+            .setContentTitle(getString(torchOn ? R.string.torch_notification_title
+                    : R.string.torch_notification_channel_name))
+            .setContentText(getString(torchOn ? R.string.torch_notification_text
+                    : R.string.torch_notification_toggling))
             .setSmallIcon(torchOn ? R.drawable.ic_flashlight_on : R.drawable.ic_flashlight_off)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)

@@ -5790,43 +5790,41 @@ public class RecordingService extends Service {
         if (ActivityCompat.checkSelfPermission(this,
                 android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             FLog.w(TAG, "POST_NOTIFICATIONS permission not granted, skipping notification setup.");
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                try {
-                    // On Tiramisu+, we can start foreground without permission. Create a minimal
-                    // notification.
-                    NotificationCompat.Builder minimalBuilder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                            .setContentTitle(getString(R.string.app_name))
-                            .setSmallIcon(R.drawable.ic_notification_icon);
+            // Below Android 13 this "permission" is just notifications being blocked.
+            // startForeground() works either way (the notification is only hidden), and a
+            // START sent with startForegroundService() crashes the app without it.
+            try {
+                // Create a minimal notification.
+                NotificationCompat.Builder minimalBuilder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                        .setContentTitle(getString(R.string.app_name))
+                        .setSmallIcon(R.drawable.ic_notification_icon);
 
-                    // Check CAMERA and RECORD_AUDIO permissions before declaring service types
-                    int foregroundServiceType = 0;
-                    if (ActivityCompat.checkSelfPermission(this,
-                            Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                        foregroundServiceType |= ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
-                    } else {
-                        FLog.w(TAG, "CAMERA permission not granted, starting foreground without CAMERA type");
-                    }
-                    if (ActivityCompat.checkSelfPermission(this,
-                            Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                        foregroundServiceType |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
-                    } else {
-                        FLog.w(TAG, "RECORD_AUDIO permission not granted, starting foreground without MICROPHONE type");
-                    }
-
-                    if (foregroundServiceType == 0) {
-                        FLog.e(TAG, "Neither CAMERA nor RECORD_AUDIO permission granted, cannot start foreground service");
-                        stopSelf();
-                        return;
-                    }
-
-                    startForeground(NOTIFICATION_ID, minimalBuilder.build(), foregroundServiceType);
-                    FLog.d(TAG, "Started foreground without notification permission (Tiramisu+).");
-                } catch (Exception e) {
-                    FLog.e(TAG, "Error starting foreground on Tiramisu+ without permission", e);
-                    stopSelf();
+                // Check CAMERA and RECORD_AUDIO permissions before declaring service types
+                int foregroundServiceType = 0;
+                if (ActivityCompat.checkSelfPermission(this,
+                        Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                    foregroundServiceType |= ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
+                } else {
+                    FLog.w(TAG, "CAMERA permission not granted, starting foreground without CAMERA type");
                 }
-            } else {
-                Toast.makeText(this, getString(R.string.toast_notification_permission), Toast.LENGTH_LONG).show();
+                if (ActivityCompat.checkSelfPermission(this,
+                        Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    foregroundServiceType |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
+                } else {
+                    FLog.w(TAG, "RECORD_AUDIO permission not granted, starting foreground without MICROPHONE type");
+                }
+
+                if (foregroundServiceType == 0) {
+                    FLog.e(TAG, "Neither CAMERA nor RECORD_AUDIO permission granted, cannot start foreground service");
+                    stopSelf();
+                    return;
+                }
+
+                androidx.core.app.ServiceCompat.startForeground(this, NOTIFICATION_ID,
+                        minimalBuilder.build(), foregroundServiceType);
+                FLog.d(TAG, "Started foreground without notification permission.");
+            } catch (Exception e) {
+                FLog.e(TAG, "Error starting foreground without notification permission", e);
                 stopSelf();
             }
             return;
@@ -8709,12 +8707,17 @@ public class RecordingService extends Service {
             return;
         }
 
-        NotificationCompat.Builder builder = createBaseNotificationBuilder()
-                .setContentTitle(getString(R.string.camera_interrupted_title))
-                .setContentText(getString(R.string.camera_interrupted_description))
-                .setStyle(new NotificationCompat.BigTextStyle()
-                        .bigText(getString(R.string.camera_interrupted_description)))
-                .clearActions();
+        NotificationCompat.Builder builder = createBaseNotificationBuilder().clearActions();
+        // A disguised preset keeps its own title and text: naming the camera would give it away
+        if (SharedPreferencesManager.NOTIFICATION_PRESET_DEFAULT.equals(
+                sharedPreferencesManager.getNotificationPreset())) {
+            builder.setContentTitle(getString(R.string.camera_interrupted_title))
+                    .setContentText(getString(R.string.camera_interrupted_description))
+                    .setStyle(new NotificationCompat.BigTextStyle()
+                            .bigText(getString(R.string.camera_interrupted_description)));
+        } else {
+            builder.setContentText(sharedPreferencesManager.getNotificationText(false));
+        }
 
         // Add stop action
         boolean hideStopButton = sharedPreferencesManager.isNotificationStopButtonHidden();

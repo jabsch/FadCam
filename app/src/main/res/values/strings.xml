@@ -3426,4 +3426,6 @@ For the smoothest playback experience, you can use an external player like VLC. 
     </plurals>
     <string name="voice_recording_busy">Stop the video recording first. Both can\'t use the microphone at once.</string>
     <string name="prefs_import_storage_reset">Settings imported. The backup\'s custom storage folder isn\'t accessible on this install, so recordings now save to internal storage. Pick the folder again in Storage settings.</string>
+    <string name="notification_dual_recording">Dual camera recording…</string>
+    <string name="torch_notification_toggling">Toggling torch…</string>
 </resources>
