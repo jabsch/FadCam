@@ -99,6 +99,11 @@
 
         <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
 
+        <!-- Persists the in-app language (AppCompatDelegate.setApplicationLocales) below Android 13 -->
+        <service android:name="androidx.appcompat.app.AppLocalesMetadataHolderService" android:enabled="false" android:exported="false">
+            <meta-data android:name="autoStoreLocales" android:value="true" />
+        </service>
+
         <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.provider" android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>

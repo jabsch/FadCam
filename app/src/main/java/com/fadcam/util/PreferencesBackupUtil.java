@@ -49,6 +49,8 @@ public final class PreferencesBackupUtil {
         set.add(com.fadcam.Constants.PREF_RECORDING_ACCUMULATED_PAUSED_DURATION);
         // Live remote-access login tokens: never write them into an export file
         set.add(com.fadcam.Constants.PREF_REMOTE_AUTH_SESSIONS);
+        // Device-local marker of which language was handed to AppCompat (MainActivity)
+        set.add("language_applied");
         // Add more runtime/transient keys here if discovered later
         EXCLUDED_KEYS = java.util.Collections.unmodifiableSet(set);
     }

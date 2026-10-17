@@ -464,9 +464,12 @@ public class MainActivity extends AppCompatActivity {
 
         // Load and apply the saved language preference before anything else
         SharedPreferences prefs = getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE);
-        String savedLanguageCode = prefs.getString(Constants.LANGUAGE_KEY, Locale.getDefault().getLanguage());
-
-        applyLanguage(savedLanguageCode); // Apply the language preference
+        // Apply a language picked elsewhere (onboarding, settings import/reset, or saved by an
+        // older version) once; AppCompat then persists and re-applies it on every launch
+        String savedLanguageCode = prefs.getString(Constants.LANGUAGE_KEY, null);
+        if (!java.util.Objects.equals(savedLanguageCode, prefs.getString(LANGUAGE_APPLIED_KEY, null))) {
+            applyLanguage(savedLanguageCode);
+        }
 
         // Check if current locale is Pashto
         if (getResources().getConfiguration().getLocales().get(0).getLanguage().equals("ps")) {
@@ -1047,24 +1050,32 @@ public class MainActivity extends AppCompatActivity {
         }, "publish-shortcuts").start();
     }
 
-    public void applyLanguage(String languageCode) {
-        // Get current app language
-        String currentLanguage = getResources().getConfiguration().getLocales().get(0).getLanguage();
+    /** Pref key holding the language last handed to AppCompat, so a new choice is applied once. */
+    private static final String LANGUAGE_APPLIED_KEY = "language_applied";
 
-        // Only apply language change if it's different from the current language
-        if (!languageCode.equals(currentLanguage)) {
-            FLog.d("MainActivity", "Applying language: " + languageCode);
-            Locale locale = Locale.forLanguageTag(languageCode);
-            Locale.setDefault(locale);
-
-            android.content.res.Configuration config = new android.content.res.Configuration();
-            config.setLocale(locale);
-            getApplicationContext().createConfigurationContext(config);
-
-            // Recreate the activity to apply the changes
-            recreate();
+    /**
+     * Switches the app language through AppCompat per-app locales (null = follow the system).
+     * The old code discarded createConfigurationContext() and called recreate(), so the UI never
+     * changed and a non-system language recreated MainActivity in an endless loop.
+     */
+    public void applyLanguage(@androidx.annotation.Nullable String languageCode) {
+        getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE).edit()
+                .putString(LANGUAGE_APPLIED_KEY, languageCode).apply();
+        androidx.core.os.LocaleListCompat current = AppCompatDelegate.getApplicationLocales();
+        androidx.core.os.LocaleListCompat target;
+        if (languageCode == null || languageCode.isEmpty()) {
+            target = androidx.core.os.LocaleListCompat.getEmptyLocaleList();
+        } else if (current.isEmpty()
+                && languageCode.equals(getResources().getConfiguration().getLocales().get(0).getLanguage())) {
+            // Already showing the system language the user picked; avoid a needless recreate
+            return;
         } else {
-            FLog.d("MainActivity", "Language is already set to " + languageCode + "; no need to change.");
+            // values-zh-rCN holds the Chinese strings
+            target = androidx.core.os.LocaleListCompat.forLanguageTags("zh".equals(languageCode) ? "zh-CN" : languageCode);
+        }
+        if (!target.equals(current)) {
+            FLog.d("MainActivity", "Applying language: " + languageCode);
+            AppCompatDelegate.setApplicationLocales(target); // recreates the activity itself
         }
     }
 
@@ -1446,11 +1457,7 @@ public class MainActivity extends AppCompatActivity {
         // Update badge visibility for new features
         updateFeatureBadgeVisibility();
 
-        // Restore language settings
         this.sharedPreferencesManager = SharedPreferencesManager.getInstance(this);
-        String savedLanguageCode = sharedPreferencesManager.sharedPreferences.getString(Constants.LANGUAGE_KEY,
-                Locale.getDefault().getLanguage());
-        applyLanguage(savedLanguageCode);
 
         // Create shortcuts if needed (Android 7.1+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {

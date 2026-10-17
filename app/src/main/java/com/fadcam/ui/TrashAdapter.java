@@ -376,10 +376,10 @@ public class TrashAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
                             if (trashedFile.exists()) {
                                 interactionListener.onPlayVideoRequested(item);
                             } else {
-                                Toast.makeText(context, "File not found in trash.", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(context, R.string.trash_file_not_found, Toast.LENGTH_SHORT).show();
                             }
                         } else {
-                            Toast.makeText(context, "Cannot locate file.", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(context, R.string.trash_cannot_access_dir, Toast.LENGTH_SHORT).show();
                         }
                     }
                 } else {

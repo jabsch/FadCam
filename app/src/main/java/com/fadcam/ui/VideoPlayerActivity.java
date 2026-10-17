@@ -382,7 +382,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
             );
             Toast.makeText(
                 this,
-                "Error: Video URI not found",
+                getString(R.string.player_error_uri_missing),
                 Toast.LENGTH_LONG
             ).show();
             finish();
@@ -1186,12 +1186,12 @@ public class VideoPlayerActivity extends AppCompatActivity {
         ArrayList<OptionItem> items = new ArrayList<>(); // No options needed, switch only
         PickerBottomSheetFragment sheet =
             PickerBottomSheetFragment.newInstanceWithSwitch(
-                "Audio Waveform",
+                getString(R.string.player_audio_waveform),
                 items,
                 "",
                 RK,
-                "Controls whether the audio waveform visualization appears on the progress bar during video playback.",
-                "Enable Audio Waveform",
+                getString(R.string.player_audio_waveform_helper),
+                getString(R.string.player_audio_waveform_enable),
                 enabled
             );
         sheet.show(getSupportFragmentManager(), "waveform_switch_sheet");
@@ -1662,7 +1662,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
             FLog.e(TAG, "Error initializing player for URI: " + videoUri, e);
             Toast.makeText(
                 this,
-                "Error playing video",
+                getString(R.string.player_error_playing),
                 Toast.LENGTH_SHORT
             ).show();
             finish(); // Close activity if player fails to initialize
@@ -1959,8 +1959,8 @@ public class VideoPlayerActivity extends AppCompatActivity {
             this
         ).isPlaybackMuted();
         String muteSubtitle = mutedPref
-            ? getString(R.string.universal_enable)
-            : getString(R.string.universal_disable);
+            ? getString(R.string.enabled)
+            : getString(R.string.disabled);
         items.add(
             new OptionItem(
                 "row_mute_playback",
@@ -1982,8 +1982,8 @@ public class VideoPlayerActivity extends AppCompatActivity {
             this
         ).isPlayerKeepScreenOn();
         String keepOnSubtitle = keepOn
-            ? getString(R.string.universal_enable)
-            : getString(R.string.universal_disable);
+            ? getString(R.string.enabled)
+            : getString(R.string.disabled);
         items.add(
             new OptionItem(
                 "row_keep_screen_on",
@@ -2005,8 +2005,8 @@ public class VideoPlayerActivity extends AppCompatActivity {
             this
         ).isBackgroundPlaybackEnabled();
         String bgSubtitle = bg
-            ? getString(R.string.universal_enable)
-            : getString(R.string.universal_disable);
+            ? getString(R.string.enabled)
+            : getString(R.string.disabled);
         items.add(
             new OptionItem(
                 "row_background_playback",
@@ -2088,8 +2088,8 @@ public class VideoPlayerActivity extends AppCompatActivity {
         items.add(
             new OptionItem(
                 "row_audio_waveform",
-                "Audio Waveform",
-                waveformEnabled ? "Enabled" : "Disabled",
+                getString(R.string.player_audio_waveform),
+                getString(waveformEnabled ? R.string.enabled : R.string.disabled),
                 null,
                 null,
                 null,
@@ -3006,6 +3006,10 @@ public class VideoPlayerActivity extends AppCompatActivity {
                         SharedPreferencesManager.getInstance(
                             this
                         ).setBackgroundPlaybackEnabled(state);
+                        if (state) {
+                            notificationPermissionAsked = false;
+                            requestNotificationPermissionOnce();
+                        }
                         // If turned on and we're already playing, keep behavior is applied onPause via
                         // service handoff.
                         // If turned off, ensure we stop background service when leaving.
@@ -3079,26 +3083,11 @@ public class VideoPlayerActivity extends AppCompatActivity {
             // player.play(); // Uncomment if you want auto-resume on activity resume
         }
 
-        // Request notification permission on Android 13+
-        try {
-            if (android.os.Build.VERSION.SDK_INT >= 33) {
-                if (
-                    androidx.core.content.ContextCompat.checkSelfPermission(
-                        this,
-                        android.Manifest.permission.POST_NOTIFICATIONS
-                    ) !=
-                    android.content.pm.PackageManager.PERMISSION_GRANTED
-                ) {
-                    androidx.core.app.ActivityCompat.requestPermissions(
-                        this,
-                        new String[] {
-                            android.Manifest.permission.POST_NOTIFICATIONS,
-                        },
-                        1010
-                    );
-                }
-            }
-        } catch (Exception ignored) {}
+        // Background playback is the only feature here that needs notifications; asking on every
+        // resume (also after a denial) paused the video and could loop the permission dialog
+        if (SharedPreferencesManager.getInstance(this).isBackgroundPlaybackEnabled()) {
+            requestNotificationPermissionOnce();
+        }
 
         // Enter immersive fullscreen (hide status and navigation bars)
         try {
@@ -3439,6 +3428,21 @@ public class VideoPlayerActivity extends AppCompatActivity {
             } catch (Exception ignored) {}
         }
 
+
+    /** Set once the POST_NOTIFICATIONS dialog was shown for this screen, so a denial isn't re-asked on resume. */
+    private boolean notificationPermissionAsked = false;
+
+    private void requestNotificationPermissionOnce() {
+        if (notificationPermissionAsked || hasPostNotificationsPermission()) return;
+        notificationPermissionAsked = true;
+        try {
+            androidx.core.app.ActivityCompat.requestPermissions(
+                this,
+                new String[] { android.Manifest.permission.POST_NOTIFICATIONS },
+                1010
+            );
+        } catch (Exception ignored) {}
+    }
 
     @Override
     protected void onPause() {

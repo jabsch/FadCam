@@ -475,6 +475,8 @@ public class InputActionBottomSheetFragment extends BottomSheetDialogFragment {
         parent.addView(actionRow(actionIcon, finalActionTitle, finalActionSubtitle, true, v -> {
             String val = input.getText().toString().trim();
             if (phrase != null && phrase.equals(val)) { // case sensitive match
+                // Close before acting: left open, the action looked ignored and a second tap ran it twice
+                try { dismiss(); } catch (Exception ignored) {}
                 if (callbacks != null) {
                     callbacks.onResetConfirmed();
                 }
