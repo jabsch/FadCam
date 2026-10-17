@@ -2166,9 +2166,12 @@ public class DualCameraRecordingService extends Service {
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         try {
+            // Null on the default preset; a channel needs a name (same fallback as RecordingService)
             String channelName = prefs.getNotificationChannelName();
+            CharSequence name = channelName != null ? channelName
+                    : getString(R.string.notification_channel_recording, getString(R.string.app_name));
             android.app.NotificationChannel channel = new android.app.NotificationChannel(
-                    CHANNEL_ID, channelName, android.app.NotificationManager.IMPORTANCE_LOW);
+                    CHANNEL_ID, name, android.app.NotificationManager.IMPORTANCE_LOW);
             channel.setSound(null, null);
             channel.enableVibration(false);
             android.app.NotificationManager nm = getSystemService(android.app.NotificationManager.class);
@@ -2179,14 +2182,19 @@ public class DualCameraRecordingService extends Service {
     }
 
     private NotificationCompat.Builder buildDualCameraNotification() {
+        return buildDualCameraNotification(false);
+    }
+
+    private NotificationCompat.Builder buildDualCameraNotification(boolean paused) {
         String title = prefs.getNotificationTitle();
         if (title == null || title.isEmpty()) {
             title = getString(R.string.notification_video_recording);
         }
         String preset = prefs.getNotificationPreset();
-        String text = prefs.getNotificationText(false);
+        String text = prefs.getNotificationText(paused);
         if (text == null || text.isEmpty()) {
-            text = "Dual camera recording…";
+            text = getString(paused ? R.string.notification_video_recording_paused_description
+                    : R.string.notification_dual_recording);
         }
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
@@ -2216,6 +2224,20 @@ public class DualCameraRecordingService extends Service {
             PendingIntent emptyPi = PendingIntent.getActivity(this, 0, emptyIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             builder.setContentIntent(emptyPi);
+        } else {
+            // Tapping opens the app, as the single-camera notification does
+            Intent openIntent = new Intent(this, com.fadcam.MainActivity.class)
+                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            builder.setContentIntent(PendingIntent.getActivity(this, 2021, openIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+        }
+
+        if (paused) {
+            Intent resumeIntent = new Intent(this, DualCameraRecordingService.class)
+                    .setAction(Constants.INTENT_ACTION_RESUME_DUAL_RECORDING);
+            PendingIntent resumePi = PendingIntent.getService(this, 2022, resumeIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            builder.addAction(R.drawable.play_button_rounded, getString(R.string.button_resume), resumePi);
         }
 
         if (!prefs.isNotificationStopButtonHidden()) {
@@ -2257,13 +2279,10 @@ public class DualCameraRecordingService extends Service {
     }
 
     private void updatePausedNotification() {
-        String text = prefs.getNotificationText(true);
-        if (text != null && !text.isEmpty()) {
-            NotificationCompat.Builder builder = buildDualCameraNotification()
-                    .setContentText(text);
-            android.app.NotificationManager nm = getSystemService(android.app.NotificationManager.class);
-            if (nm != null) nm.notify(NOTIFICATION_ID, builder.build());
-        }
+        // Always re-post: with the default preset there's no custom paused text, and the
+        // notification kept saying it was recording, with no way to resume
+        android.app.NotificationManager nm = getSystemService(android.app.NotificationManager.class);
+        if (nm != null) nm.notify(NOTIFICATION_ID, buildDualCameraNotification(true).build());
     }
 
     private void updateResumedNotification() {
