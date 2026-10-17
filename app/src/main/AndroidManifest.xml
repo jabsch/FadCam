@@ -487,7 +487,7 @@
         <service android:name=".services.AlarmService" android:foregroundServiceType="mediaPlayback" android:exported="false">
         </service>
         
-        <receiver android:name=".receivers.TorchToggleReceiver" android:exported="true">
+        <receiver android:name=".receivers.TorchToggleReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="com.fadcam.TOGGLE_TORCH"/>
                 <category android:name="android.intent.category.DEFAULT"/>

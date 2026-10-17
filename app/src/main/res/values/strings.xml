@@ -3418,4 +3418,5 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="player_audio_waveform_helper">Controls whether the audio waveform visualization appears on the progress bar during video playback.</string>
     <string name="player_audio_waveform_enable">Enable Audio Waveform</string>
     <string name="trash_open_failed">Could not open trash</string>
+    <string name="forensics_evidence_label">Evidence</string>
 </resources>

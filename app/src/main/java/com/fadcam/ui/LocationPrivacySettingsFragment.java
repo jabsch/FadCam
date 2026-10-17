@@ -34,7 +34,15 @@ public class LocationPrivacySettingsFragment extends Fragment {
     private TextView valueEmbed;
 
     private ActivityResultLauncher<String> permissionLauncher;
-    private Runnable pendingGrantAction;
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // Registered once in onCreate so a grant that lands after recreation still reaches us
+        permissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
+            if(granted){ onPermissionGrantedPostRequest(); } else { onPermissionDeniedPostRequest(); }
+        });
+    }
 
     @Nullable
     @Override
@@ -51,15 +59,13 @@ public class LocationPrivacySettingsFragment extends Fragment {
         view.findViewById(R.id.row_location_embed).setOnClickListener(v -> toggleLocationEmbed());
     View back = view.findViewById(R.id.back_button);
     if(back!=null){ back.setOnClickListener(v -> OverlayNavUtil.dismiss(requireActivity())); }
-        permissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
-            if(granted){ onPermissionGrantedPostRequest(); } else { onPermissionDeniedPostRequest(); }
-        });
         refreshValues();
     }
 
     // Removed duplicate manual back handling; centralized via OverlayNavUtil
 
     private void refreshValues(){
+        if(valueEmbed==null || prefs==null) return;
         valueEmbed.setText(prefs.isLocationEmbeddingEnabled() ? getString(R.string.setting_enabled) : getString(R.string.setting_disabled));
     }
 
@@ -89,20 +95,19 @@ public class LocationPrivacySettingsFragment extends Fragment {
         new AlertDialog.Builder(requireContext(), com.google.android.material.R.style.MaterialAlertDialog_Material3)
                 .setTitle(R.string.location_permission_title)
                 .setMessage(R.string.location_permission_description)
-                .setPositiveButton("Grant", (d,w)->{
-                    pendingGrantAction = proceed;
+                .setPositiveButton(R.string.grant_permission_button, (d,w)->{
                     permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
                 })
                 .setNegativeButton(R.string.universal_cancel, (d,w)->{})
                 .show();
     }
 
+    // The only permission request here is the one for turning embedding on
     private void onPermissionGrantedPostRequest(){
-        if(pendingGrantAction!=null){ pendingGrantAction.run(); pendingGrantAction=null; }
-        Toast.makeText(requireContext(), R.string.location_permission_title, Toast.LENGTH_SHORT).show();
+        SharedPreferencesManager.getInstance(requireContext()).setLocationEmbeddingEnabled(true);
+        refreshValues();
     }
     private void onPermissionDeniedPostRequest(){
-        pendingGrantAction=null;
         Toast.makeText(requireContext(), R.string.location_permission_denied, Toast.LENGTH_SHORT).show();
     }
 }

@@ -45,6 +45,9 @@ public class ForensicIntelligenceFragment extends Fragment {
 
         if (savedInstanceState == null) {
             showGallery();
+        } else {
+            ForensicsGalleryFragment restored = findGallery();
+            if (restored != null) restored.setHostSelectionUi(hostSelectionUi);
         }
 
         titleView = view.findViewById(R.id.text_lab_title);
@@ -112,24 +115,36 @@ public class ForensicIntelligenceFragment extends Fragment {
         });
     }
 
+    // A field (not an anonymous instance per showGallery) so a gallery restored after
+    // rotation can be re-attached; it is not saved with the child fragment.
+    private final ForensicsGalleryFragment.HostSelectionUi hostSelectionUi = new ForensicsGalleryFragment.HostSelectionUi() {
+        @Override
+        public void onSelectionStateChanged(boolean active, int selectedCount, boolean allSelected) {
+            android.app.Activity activity = getActivity();
+            if (activity == null) return;
+            activity.runOnUiThread(() -> {
+                if (!isAdded()) return;
+                updateHeaderForSelection(active, selectedCount, allSelected);
+            });
+        }
+
+        @Override
+        public void onSummaryChanged(int totalCount, long totalBytes) {
+            android.app.Activity activity = getActivity();
+            if (activity == null) return;
+            activity.runOnUiThread(() -> {
+                if (!isAdded()) return;
+                if (statCountView != null) statCountView.setText(String.valueOf(totalCount));
+                if (statSizeView != null) {
+                    statSizeView.setText(android.text.format.Formatter.formatShortFileSize(requireContext(), Math.max(0L, totalBytes)));
+                }
+            });
+        }
+    };
+
     private void showGallery() {
         ForensicsGalleryFragment gallery = ForensicsGalleryFragment.newEmbeddedInstance();
-        gallery.setHostSelectionUi(new ForensicsGalleryFragment.HostSelectionUi() {
-            @Override
-            public void onSelectionStateChanged(boolean active, int selectedCount, boolean allSelected) {
-                requireActivity().runOnUiThread(() -> updateHeaderForSelection(active, selectedCount, allSelected));
-            }
-
-            @Override
-            public void onSummaryChanged(int totalCount, long totalBytes) {
-                requireActivity().runOnUiThread(() -> {
-                    if (statCountView != null) statCountView.setText(String.valueOf(totalCount));
-                    if (statSizeView != null) {
-                        statSizeView.setText(android.text.format.Formatter.formatShortFileSize(requireContext(), Math.max(0L, totalBytes)));
-                    }
-                });
-            }
-        });
+        gallery.setHostSelectionUi(hostSelectionUi);
         getChildFragmentManager().popBackStackImmediate(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
         getChildFragmentManager().beginTransaction()
                 .replace(R.id.forensics_content_container, gallery, TAG_GALLERY)
