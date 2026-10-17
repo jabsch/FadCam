@@ -50,12 +50,22 @@ public class StorageSettingsFragment extends Fragment {
         super.onCreate(savedInstanceState);
         prefs = SharedPreferencesManager.getInstance(requireContext());
         openDocumentTreeLauncher = registerForActivityResult(new ActivityResultContracts.OpenDocumentTree(), uri -> {
-            if (uri != null) {
+            if (uri != null && isRecordingSubfolder(uri)) {
+                // JaCam makes Camera/Back/... inside the picked folder; picking one of
+                // those nested them again (Camera/Back/Camera/Back) or hid recordings
+                android.widget.Toast.makeText(requireContext(), R.string.storage_pick_parent_folder,
+                        android.widget.Toast.LENGTH_LONG).show();
+                refreshValue();
+            } else if (uri != null) {
                 boolean success = false;
                 try {
                     final int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
                             | Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
                     requireContext().getContentResolver().takePersistableUriPermission(uri, takeFlags);
+                    String oldUri = prefs.getCustomStorageUri();
+                    if (oldUri != null && !oldUri.equals(uri.toString())) {
+                        releaseFolderPermission(oldUri);
+                    }
                     prefs.setCustomStorageUri(uri.toString());
                     prefs.setStorageMode(SharedPreferencesManager.STORAGE_MODE_CUSTOM);
                     success = true;
@@ -93,6 +103,39 @@ public class StorageSettingsFragment extends Fragment {
 
     // Removed duplicate manual back handling; centralized via OverlayNavUtil
 
+    private static final java.util.Set<String> RECORDING_SUBFOLDERS = new java.util.HashSet<>(
+            java.util.Arrays.asList(Constants.RECORDING_SUBDIR_CAMERA, Constants.RECORDING_SUBDIR_CAMERA_BACK,
+                    Constants.RECORDING_SUBDIR_CAMERA_FRONT, Constants.RECORDING_SUBDIR_DUAL,
+                    Constants.RECORDING_SUBDIR_SCREEN, Constants.RECORDING_SUBDIR_FADITOR,
+                    Constants.RECORDING_SUBDIR_STREAM, Constants.RECORDING_SUBDIR_SHOT));
+
+    /** True when the picked tree is itself one of the folders JaCam creates inside its root. */
+    private static boolean isRecordingSubfolder(@NonNull android.net.Uri treeUri) {
+        try {
+            String docId = android.provider.DocumentsContract.getTreeDocumentId(treeUri);
+            if (docId == null) return false;
+            int colon = docId.indexOf(':');
+            String path = colon >= 0 ? docId.substring(colon + 1) : docId;
+            int slash = path.lastIndexOf('/');
+            String last = slash >= 0 ? path.substring(slash + 1) : path;
+            return RECORDING_SUBFOLDERS.contains(last);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** Folders the app no longer uses give back their grant; Android caps how many an app keeps. */
+    private void releaseFolderPermission(@Nullable String uriString) {
+        if (uriString == null || uriString.isEmpty()) return;
+        try {
+            requireContext().getContentResolver().releasePersistableUriPermission(
+                    android.net.Uri.parse(uriString),
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        } catch (Exception e) {
+            FLog.w(TAG, "Could not release folder permission", e);
+        }
+    }
+
     private void refreshValue() {
         String mode = prefs.getStorageMode();
         if (SharedPreferencesManager.STORAGE_MODE_CUSTOM.equals(mode)) {
@@ -117,6 +160,7 @@ public class StorageSettingsFragment extends Fragment {
                 case "switch_internal":
                     if (!SharedPreferencesManager.STORAGE_MODE_INTERNAL.equals(mode)) {
                         prefs.setStorageMode(SharedPreferencesManager.STORAGE_MODE_INTERNAL);
+                        releaseFolderPermission(prefs.getCustomStorageUri());
                         prefs.setCustomStorageUri(null);
                         sendStorageChangedBroadcast();
                     }
@@ -126,6 +170,7 @@ public class StorageSettingsFragment extends Fragment {
                     launchDirectoryPicker();
                     return; // wait for result
                 case "clear_custom":
+                    releaseFolderPermission(prefs.getCustomStorageUri());
                     prefs.setCustomStorageUri(null);
                     prefs.setStorageMode(SharedPreferencesManager.STORAGE_MODE_INTERNAL);
                     sendStorageChangedBroadcast();

@@ -1303,6 +1303,10 @@ public class ScreenRecordingPipeline {
 
             // Request the next segment file/descriptor from callback
             segmentNumber++;
+            // Clear the old target first: the callback sets the next one, and a failed
+            // callback must not leave the old part's descriptor (closed on release) in place
+            currentOutputFilePath = null;
+            currentOutputFd = null;
             if (segmentCallback != null) {
                 segmentCallback.onSegmentRollover(segmentNumber);
             } else {
@@ -1436,6 +1440,8 @@ public class ScreenRecordingPipeline {
             }
 
             // ── Slow I/O: SAF file creation, content resolver queries, etc. ──
+            currentOutputFilePath = null;
+            currentOutputFd = null;
             segmentCallback.onSegmentRollover(segmentNumber);
 
             if (currentOutputFilePath == null && currentOutputFd == null) {

@@ -2089,10 +2089,13 @@ public class VideoSettingsFragment extends Fragment {
         java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items = new java.util.ArrayList<>();
         for (int mb : presetMb) {
             if (mb == -1)
-                items.add(new com.fadcam.ui.picker.OptionItem("custom", "Custom..."));
+                items.add(new com.fadcam.ui.picker.OptionItem("custom", getString(R.string.video_split_custom_option)));
             else
                 items.add(new com.fadcam.ui.picker.OptionItem(String.valueOf(mb),
-                        (mb == 1024 ? "1 GB" : mb == 2048 ? "2 GB" : mb == 4096 ? "4 GB" : mb + " MB")));
+                        getString(mb == 1024 ? R.string.video_split_size_1gb
+                                : mb == 2048 ? R.string.video_split_size_2gb
+                                : mb == 4096 ? R.string.video_split_size_4gb
+                                : R.string.video_split_size_500mb)));
         }
         int current = prefs.getVideoSplitSizeMb();
         String currentId = current > 0 ? "custom" : null; // a size that matches no preset is custom
