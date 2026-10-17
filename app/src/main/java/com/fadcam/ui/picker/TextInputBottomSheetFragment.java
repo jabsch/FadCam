@@ -123,9 +123,9 @@ public class TextInputBottomSheetFragment extends BottomSheetDialogFragment {
         if (getActivity() != null && getActivity().getWindow() != null
                 && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
             android.view.Window window = getActivity().getWindow();
-            previousActivityNavBarColor = com.fadcam.util.SystemBarUtil.getNavigationBarColor(window);
+            if (previousActivityNavBarColor == null) previousActivityNavBarColor = com.fadcam.util.SystemBarUtil.getNavigationBarColor(window); // first onStart only; later ones see our black
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                previousActivityNavContrastEnforced = window.isNavigationBarContrastEnforced();
+                if (previousActivityNavContrastEnforced == null) previousActivityNavContrastEnforced = window.isNavigationBarContrastEnforced();
                 window.setNavigationBarContrastEnforced(false);
             }
             com.fadcam.util.SystemBarUtil.setNavigationBarColor(window, android.graphics.Color.BLACK);

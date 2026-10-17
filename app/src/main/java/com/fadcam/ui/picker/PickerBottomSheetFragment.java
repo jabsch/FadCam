@@ -385,7 +385,7 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
             title = args.getString(ARG_TITLE, "");
             selectedId = args.getString(ARG_SELECTED_ID, null);
             resultKey = args.getString(ARG_RESULT_KEY, RESULT_KEY);
-            ArrayList<OptionItem> list = args.getParcelableArrayList(ARG_ITEMS, OptionItem.class);
+            ArrayList<OptionItem> list = androidx.core.os.BundleCompat.getParcelableArrayList(args, ARG_ITEMS, OptionItem.class);
             if (list != null) items = list;
             // If strict-items-only is requested and no items were provided explicitly,
             // keep items empty rather than falling back to any previous state.
@@ -482,7 +482,7 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
         try {
             if (
                 switchPresent &&
-                "Lock AE".equals(switchTitle) &&
+                isSwitchTitle(com.fadcam.R.string.ae_lock_switch_label) &&
                 getContext() != null
             ) {
                 boolean saved = com.fadcam.SharedPreferencesManager.getInstance(
@@ -895,16 +895,16 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
                     
                     // For AE Lock, dependent rows should be DISABLED when lock is ENABLED (inverted logic)
                     boolean enableDependentRows = checked;
-                    if ("Lock AE".equals(switchTitle)) {
+                    if (isSwitchTitle(com.fadcam.R.string.ae_lock_switch_label)) {
                         enableDependentRows = !checked; // Invert: when AE locked, disable slider
                     }
                     updateDependentRows(enableDependentRows);
                     
                     // Persist video splitting flag if this sheet controls it
                     try {
-                        if ("Enable Video Splitting".equals(switchTitle)) {
+                        if (isSwitchTitle(com.fadcam.R.string.video_splitting_title)) {
                             com.fadcam.SharedPreferencesManager.getInstance(requireContext()).setVideoSplittingEnabled(checked);
-                        } else if ("Lock AE".equals(switchTitle)) {
+                        } else if (isSwitchTitle(com.fadcam.R.string.ae_lock_switch_label)) {
                             // Also persist AE lock state directly for immediate consistency
                             com.fadcam.SharedPreferencesManager.getInstance(requireContext()).setSavedAeLock(checked);
                             FLog.d("PickerBottomSheet", "Saved AE lock state to prefs: " + checked);
@@ -914,7 +914,7 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
                     }
                     Bundle result = new Bundle();
                     result.putBoolean(BUNDLE_SWITCH_STATE, checked);
-                    String switchResultKey = "Lock AE".equals(switchTitle) ? com.fadcam.Constants.RK_AE_LOCK : resultKey;
+                    String switchResultKey = isSwitchTitle(com.fadcam.R.string.ae_lock_switch_label) ? com.fadcam.Constants.RK_AE_LOCK : resultKey;
                     getParentFragmentManager().setFragmentResult(switchResultKey, result);
                 });
             }
@@ -1323,7 +1323,7 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
         // Apply initial dependent disable state
         if (switchPresent) {
             boolean enableDependentRows = switchState;
-            if ("Lock AE".equals(switchTitle)) {
+            if (isSwitchTitle(com.fadcam.R.string.ae_lock_switch_label)) {
                 enableDependentRows = !switchState; // Invert: when AE locked, disable slider
             }
             updateDependentRows(enableDependentRows);
@@ -1827,9 +1827,9 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
         if (getActivity() != null && getActivity().getWindow() != null
                 && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
             android.view.Window window = getActivity().getWindow();
-            previousActivityNavBarColor = com.fadcam.util.SystemBarUtil.getNavigationBarColor(window);
+            if (previousActivityNavBarColor == null) previousActivityNavBarColor = com.fadcam.util.SystemBarUtil.getNavigationBarColor(window); // first onStart only; later ones see our black
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                previousActivityNavContrastEnforced = window.isNavigationBarContrastEnforced();
+                if (previousActivityNavContrastEnforced == null) previousActivityNavContrastEnforced = window.isNavigationBarContrastEnforced();
                 window.setNavigationBarContrastEnforced(false);
             }
             com.fadcam.util.SystemBarUtil.setNavigationBarColor(window, android.graphics.Color.BLACK);
@@ -1863,5 +1863,12 @@ public class PickerBottomSheetFragment extends BottomSheetDialogFragment {
             }
         }
         super.onDismiss(dialog);
+    }
+
+    /** Callers pass translated titles, so match against the string resource, not English text. */
+    private boolean isSwitchTitle(int titleRes) {
+        if (switchTitle == null || switchTitle.isEmpty()) return false;
+        android.content.Context ctx = getContext();
+        return ctx != null && switchTitle.equals(ctx.getString(titleRes));
     }
 }

@@ -37,6 +37,8 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
     private MaterialButton grantButton;
     private int permissionRequestCount = 0; // Track how many times requested
     private boolean permanentlyDenied = false;
+    private static final String STATE_AUTO_REQUESTED = "auto_requested";
+    private boolean autoRequested = false;
     private TextView permissionStatusText; // Text view to show status instead of toasts
     private boolean statusToastShown = false; // Flag to prevent multiple toasts
 
@@ -66,7 +68,12 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
             }
         });
         checkPermissionsAndUpdateUI();
-        if (!permissionsGranted && !permanentlyDenied) {
+        if (savedInstanceState != null) {
+            autoRequested = savedInstanceState.getBoolean(STATE_AUTO_REQUESTED, autoRequested);
+        }
+        // Once per slide: the pager rebuilds this view on swipes and rotation
+        if (!autoRequested && !permissionsGranted && !permanentlyDenied) {
+            autoRequested = true;
             requestAllPermissionsAlways();
         }
 
@@ -191,6 +198,12 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
 
         // Update battery optimization button status
         updateBatteryOptimizationButton();
+    }
+
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(STATE_AUTO_REQUESTED, autoRequested);
     }
 
     @Override

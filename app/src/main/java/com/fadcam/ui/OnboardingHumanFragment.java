@@ -117,6 +117,38 @@ public class OnboardingHumanFragment extends Fragment {
             update.onClick(view);
         };
 
+        applyPrivacyLabel();
+
+        row1.setOnClickListener(toggle1);
+        icon1.setOnClickListener(toggle1);
+        label1.setOnClickListener(toggle1);
+        row2.setOnClickListener(toggle2);
+        icon2.setOnClickListener(toggle2);
+        label2.setOnClickListener(toggle2);
+        row3.setOnClickListener(toggle3);
+        icon3.setOnClickListener(toggle3);
+        label3.setOnClickListener(toggle3);
+
+        continueButton.setOnClickListener(view -> {
+            if (getActivity() instanceof OnboardingActivity) {
+                ((OnboardingActivity) getActivity()).finishOnboarding();
+            } else {
+                requireActivity().finish();
+            }
+        });
+
+        // The pager rebuilds this view when swiping back; show the boxes already ticked
+        applyCheckIcon(icon1, checked1, redPastelColor);
+        applyCheckIcon(icon2, checked2, redPastelColor);
+        applyCheckIcon(icon3, checked3, redPastelColor);
+        update.onClick(continueButton);
+
+        return v;
+    }
+
+    /** Checkbox 3 text with its Privacy Policy link; also used after a language refresh. */
+    private void applyPrivacyLabel() {
+        if (label3 == null || !isAdded()) return;
         // Set up privacy policy clickable text
         String fullText = getString(R.string.onboarding_human_checkbox3);
         SpannableString spannableString = new SpannableString(fullText);
@@ -143,28 +175,14 @@ public class OnboardingHumanFragment extends Fragment {
         
         label3.setText(spannableString);
         label3.setMovementMethod(LinkMovementMethod.getInstance());
-
-        row1.setOnClickListener(toggle1);
-        icon1.setOnClickListener(toggle1);
-        label1.setOnClickListener(toggle1);
-        row2.setOnClickListener(toggle2);
-        icon2.setOnClickListener(toggle2);
-        label2.setOnClickListener(toggle2);
-        row3.setOnClickListener(toggle3);
-        icon3.setOnClickListener(toggle3);
-        label3.setOnClickListener(toggle3);
-
-        continueButton.setOnClickListener(view -> {
-            if (getActivity() instanceof OnboardingActivity) {
-                ((OnboardingActivity) getActivity()).finishOnboarding();
-            } else {
-                requireActivity().finish();
-            }
-        });
-
-        return v;
     }
-    
+
+    private void applyCheckIcon(ImageView icon, boolean checked, int tint) {
+        icon.setImageResource(checked ? R.drawable.placeholder_checkbox_checked : R.drawable.placeholder_checkbox_outline);
+        if (checked) icon.setColorFilter(tint, PorterDuff.Mode.SRC_IN);
+        else icon.clearColorFilter();
+    }
+
     /**
      * Called to refresh language-specific UI elements when the language has changed
      * without recreating the entire fragment
@@ -182,9 +200,8 @@ public class OnboardingHumanFragment extends Fragment {
         if (label2 != null) {
             label2.setText(R.string.onboarding_human_checkbox2);
         }
-        if (label3 != null) {
-            label3.setText(R.string.onboarding_human_checkbox3);
-        }
+        // Keeps the Privacy Policy link that a plain setText dropped
+        applyPrivacyLabel();
         if (continueButton != null) {
             continueButton.setText(R.string.onboarding_human_button);
             
