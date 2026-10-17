@@ -1362,6 +1362,10 @@ public class MainActivity extends AppCompatActivity {
      */
     private boolean isVolumeShutterActive() {
         if (getCurrentFragmentPosition() != 0) return false;
+        // Home opens settings (e.g. Video Settings) as an overlay while the tab stays 0;
+        // the keys took a photo behind it and couldn't change the volume
+        View overlay = findViewById(R.id.overlay_fragment_container);
+        if (overlay != null && overlay.getVisibility() == View.VISIBLE) return false;
         try {
             if (sharedPreferencesManager == null) {
                 sharedPreferencesManager = SharedPreferencesManager.getInstance(this);

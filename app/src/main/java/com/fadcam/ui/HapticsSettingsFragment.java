@@ -27,6 +27,8 @@ public class HapticsSettingsFragment extends Fragment {
     private static final String CUSTOM_RESULT_PREFIX = "haptics_custom_";
 
     private com.fadcam.SharedPreferencesManager prefs;
+    /** Read in onViewCreated; Reset must not enable the rows on a phone with no vibrator. */
+    private boolean hasVibrator;
 
     @Nullable
     @Override
@@ -42,7 +44,7 @@ public class HapticsSettingsFragment extends Fragment {
         prefs = com.fadcam.SharedPreferencesManager.getInstance(requireContext());
 
         // ── No-vibrator device: explain instead of letting the user guess ──
-        boolean hasVibrator = false;
+        hasVibrator = false;
         try {
             android.os.Vibrator vib = androidx.core.content.ContextCompat.getSystemService(
                     requireContext(), android.os.Vibrator.class);
@@ -220,9 +222,10 @@ public class HapticsSettingsFragment extends Fragment {
                     .setMessage(R.string.settings_haptics_reset_confirm_message)
                     .setNegativeButton(R.string.duration_picker_cancel, null)
                     .setPositiveButton(R.string.settings_haptics_reset, (d, w) -> {
+                        if (!isAdded() || getView() != view) return;
                         prefs.resetHapticSettings();
                         com.fadcam.Utils.vibrateRecordingStop(requireContext());
-                        applyMasterState(view, true);
+                        applyMasterState(view, hasVibrator);
                         if (master != null) master.setChecked(true);
                         if (uiToggle != null) uiToggle.setChecked(true);
                         if (pickerToggle != null) pickerToggle.setChecked(true);
@@ -230,6 +233,15 @@ public class HapticsSettingsFragment extends Fragment {
                     })
                     .show();
         });
+
+        // The preview buttons were announced with just the row title
+        int[][] previews = {{R.id.btn_preview_start, R.string.settings_haptics_start_title},
+                {R.id.btn_preview_stop, R.string.settings_haptics_stop_title},
+                {R.id.btn_preview_torch, R.string.settings_haptics_torch_title}};
+        for (int[] p : previews) {
+            View b = view.findViewById(p[0]);
+            if (b != null) b.setContentDescription(getString(R.string.settings_haptics_preview_desc, getString(p[1])));
+        }
 
         applyMasterState(view, hasVibrator && prefs.isHapticFeedbackEnabled());
         refreshValues(view);
@@ -248,7 +260,9 @@ public class HapticsSettingsFragment extends Fragment {
             }
         }
         // Row.setEnabled doesn't reach the inline switches, which stay tappable otherwise
-        int[] toggleIds = {R.id.toggle_haptics_ui, R.id.toggle_haptics_picker};
+        // Previews too: with haptics off they looked tappable but did nothing
+        int[] toggleIds = {R.id.toggle_haptics_ui, R.id.toggle_haptics_picker,
+                R.id.btn_preview_start, R.id.btn_preview_stop, R.id.btn_preview_torch};
         for (int id : toggleIds) {
             View toggle = view.findViewById(id);
             if (toggle != null) toggle.setEnabled(enabled);
@@ -414,8 +428,9 @@ public class HapticsSettingsFragment extends Fragment {
                         getString(R.string.settings_haptics_torch_custom_title),
                         getString(R.string.settings_haptics_torch_beat1),
                         getString(R.string.settings_haptics_torch_beat2),
-                        prefs.getHapticTorchPulse1Ms(), 0, 10000,
-                        prefs.getHapticTorchPulse2Ms(), 0, 10000,
+                        // Playback clamps each beat to 10 ms, so 0 showed but never played
+                        prefs.getHapticTorchPulse1Ms(), 10, 10000,
+                        prefs.getHapticTorchPulse2Ms(), 10, 10000,
                         resultKey);
         if (sheet.getArguments() != null) {
             sheet.getArguments().putBoolean(

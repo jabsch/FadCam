@@ -3458,4 +3458,5 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="recording_stopped_storage_full">Storage is almost full. Recording stopped and saved.</string>
     <string name="records_item_selected">Selected</string>
     <string name="records_item_not_selected">Not selected</string>
+    <string name="settings_haptics_preview_desc">Preview: %1$s</string>
 </resources>
