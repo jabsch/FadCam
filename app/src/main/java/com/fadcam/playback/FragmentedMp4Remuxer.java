@@ -209,8 +209,9 @@ public class FragmentedMp4Remuxer {
      *
      * @param inputFile The input fragmented MP4 file.
      * @param callback Callback for completion and progress.
+     * @return the FFmpeg session id, for {@link #cancel(long)}; 0 when no remux was started
      */
-    public void remuxAsync(File inputFile, RemuxCallback callback) {
+    public long remuxAsync(File inputFile, RemuxCallback callback) {
         File outputFile = getRemuxedFile(inputFile);
         
         // Check if already remuxed
@@ -219,7 +220,7 @@ public class FragmentedMp4Remuxer {
             if (callback != null) {
                 callback.onRemuxComplete(true, outputFile.getAbsolutePath());
             }
-            return;
+            return 0L;
         }
         
         FLog.i(TAG, "Async remuxing: " + inputFile.getName());
@@ -237,7 +238,7 @@ public class FragmentedMp4Remuxer {
             inputPath, outputPath
         );
         
-        FFmpegKit.executeAsync(ffmpegCmd, session -> {
+        return FFmpegKit.executeAsync(ffmpegCmd, session -> {
             boolean success = ReturnCode.isSuccess(session.getReturnCode());
             
             if (success) {
@@ -261,7 +262,14 @@ public class FragmentedMp4Remuxer {
                 // This is rough since we don't know total duration here
                 callback.onRemuxProgress((int) (statistics.getTime() / 1000));
             }
-        });
+        }).getSessionId();
+    }
+
+    /** Stops a remux started by {@link #remuxAsync}; its partial output is deleted. */
+    public void cancel(long sessionId) {
+        if (sessionId != 0L) {
+            FFmpegKit.cancel(sessionId);
+        }
     }
     
     /**

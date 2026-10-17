@@ -54,6 +54,9 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
     /** Pending seek after player becomes READY (e.g. after prepare). */
     private long pendingSeekMs = -1;
 
+    /** Callers' listeners, re-added to each new ExoPlayer (onStop releases the old one). */
+    private final java.util.List<Player.Listener> externalListeners = new java.util.ArrayList<>();
+
     /** Whether the media source needs re-preparation (URI changed). */
     private boolean needsPrepare = true;
 
@@ -151,6 +154,12 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
             initializePlayer();
         }
         preparePlayer(clip);
+    }
+
+    /** True when the player already holds this source (so a trim change needs no reload). */
+    public boolean isSourceLoaded(@Nullable android.net.Uri sourceUri) {
+        return currentClip != null && sourceUri != null
+                && sourceUri.equals(currentClip.getSourceUri());
     }
 
     /**
@@ -407,6 +416,9 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * Add a Player.Listener for playback events.
      */
     public void addListener(@NonNull Player.Listener listener) {
+        if (!externalListeners.contains(listener)) {
+            externalListeners.add(listener);
+        }
         if (player != null) {
             player.addListener(listener);
         }
@@ -425,6 +437,9 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
             // This makes live preview during timeline drag fast and responsive.
             player.setSeekParameters(SeekParameters.CLOSEST_SYNC);
             player.addListener(internalListener);
+            for (Player.Listener listener : externalListeners) {
+                player.addListener(listener);
+            }
 
             if (playerView != null) {
                 playerView.setPlayer(player);
@@ -562,6 +577,9 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
             playWhenReady = player.getPlayWhenReady();
             lastPosition = Math.max(0, player.getCurrentPosition() - trimStartMs);
             player.removeListener(internalListener);
+            for (Player.Listener listener : externalListeners) {
+                player.removeListener(listener);
+            }
             player.release();
             player = null;
             pendingSeekMs = -1;

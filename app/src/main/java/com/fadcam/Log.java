@@ -51,7 +51,9 @@ public class Log {
 
     public static void init(Context context)
     {
-        Log.context = context;
+        // Application context: a static Activity reference kept a destroyed MainActivity
+        // alive for as long as the process ran (e.g. during background recording)
+        Log.context = context.getApplicationContext() != null ? context.getApplicationContext() : context;
         
         // Check SharedPreferences for debug setting
         SharedPreferencesManager sharedPreferencesManager = SharedPreferencesManager.getInstance(context);
@@ -472,6 +474,7 @@ public class Log {
     private static final Runnable flushTask = new Runnable() {
         @Override public void run() {
             flushScheduled.set(false);
+            boolean drained = false;
             try {
                 if (!isDebugEnabled || context == null || fileUri == null) {
                     // The next queued line schedules another flush.
@@ -479,6 +482,7 @@ public class Log {
                 }
                 java.util.ArrayList<String> batch = new java.util.ArrayList<>(FLUSH_MAX_BATCH + 2);
                 PENDING.drainTo(batch, FLUSH_MAX_BATCH);
+                drained = true;
 
                 // If we dropped lines earlier due to backpressure, record a single notice
                 if (droppedSinceLastNote > 0) {
@@ -514,8 +518,9 @@ public class Log {
                     }
                 }
             } finally {
-                // More than one batch was queued: keep draining.
-                if (!PENDING.isEmpty()) {
+                // More than one batch was queued: keep draining. Not after an early
+                // return or a write failure, which rescheduled every 250 ms forever.
+                if (drained && isDebugEnabled && !PENDING.isEmpty()) {
                     scheduleFlush();
                 }
             }
