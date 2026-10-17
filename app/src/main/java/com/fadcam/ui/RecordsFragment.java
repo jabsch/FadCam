@@ -4893,6 +4893,8 @@ public class RecordsFragment extends BaseFragment implements
 
     // Updated sorting logic to work with List<VideoItem>
     private void performVideoSort() {
+        // Filters rebuild videoItems from allLoadedItems, so sort both or the order resets
+        sortItems(allLoadedItems, currentSortOption);
         if (videoItems == null || videoItems.isEmpty()) {
             FLog.w(TAG, "No items to sort.");
             return;

@@ -5299,6 +5299,9 @@ public class HomeFragment extends BaseFragment {
                     buttonStartStop.setAlpha(1.0f);
                 }, true);
             }
+            // Button already shows Stop: let the service's next state reply apply even if
+            // it is NONE again (a rejected start used to leave Stop on screen)
+            lastAppliedServiceState = null;
             debouncedStartRecording.run();
         } else {
             if (isCardRailCurrentlyFolded()) {

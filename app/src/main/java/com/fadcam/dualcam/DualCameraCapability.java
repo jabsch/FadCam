@@ -121,7 +121,7 @@ public class DualCameraCapability {
 
         CameraManager cameraManager = (CameraManager) appContext.getSystemService(Context.CAMERA_SERVICE);
         if (cameraManager == null) {
-            fail("Camera service unavailable");
+            fail(appContext.getString(com.fadcam.R.string.dual_cam_reason_no_camera_service));
             return;
         }
 
@@ -131,11 +131,11 @@ public class DualCameraCapability {
             String backId = findCameraIdByFacing(cameraManager, CameraCharacteristics.LENS_FACING_BACK);
 
             if (frontId == null) {
-                fail("No front-facing camera found on device");
+                fail(appContext.getString(com.fadcam.R.string.dual_cam_reason_no_front));
                 return;
             }
             if (backId == null) {
-                fail("No back-facing camera found on device");
+                fail(appContext.getString(com.fadcam.R.string.dual_cam_reason_no_back));
                 return;
             }
 
@@ -171,10 +171,10 @@ public class DualCameraCapability {
 
         } catch (CameraAccessException e) {
             FLog.e(TAG, "CameraAccessException during dual camera evaluation", e);
-            fail("Camera access error: " + e.getMessage());
+            fail(appContext.getString(com.fadcam.R.string.dual_cam_reason_access_error));
         } catch (Exception e) {
             FLog.e(TAG, "Unexpected error during dual camera evaluation", e);
-            fail("Unexpected error: " + e.getMessage());
+            fail(appContext.getString(com.fadcam.R.string.dual_cam_reason_unexpected));
         }
     }
 

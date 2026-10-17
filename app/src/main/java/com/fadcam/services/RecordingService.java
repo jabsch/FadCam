@@ -1719,7 +1719,9 @@ public class RecordingService extends Service {
                 if (presetBitrate <= 0 || presetFps <= 0) {
                     FLog.e(TAG, "❌ INVALID STREAM PRESET - bitrate=" + presetBitrate + ", fps=" + presetFps);
                     mainHandler.post(() -> Toast.makeText(getApplicationContext(), 
-                        "Stream preset invalid - check quality settings", Toast.LENGTH_SHORT).show());
+                        R.string.recording_stream_preset_invalid, Toast.LENGTH_SHORT).show());
+                    // Home already flipped to Stop; tell it the real state so it flips back
+                    broadcastOnRecordingStateCallback();
                     return START_STICKY;
                 }
             } else {
@@ -1733,9 +1735,10 @@ public class RecordingService extends Service {
                       (currentTime - lastStartAttemptTime) + "ms ago");
                 mainHandler.post(() -> {
                     Toast.makeText(getApplicationContext(),
-                            "Please wait before starting recording again",
+                            R.string.recording_start_too_soon,
                             Toast.LENGTH_SHORT).show();
                 });
+                broadcastOnRecordingStateCallback();
                 return START_STICKY;
             }
             lastStartAttemptTime = currentTime;
@@ -5844,6 +5847,12 @@ public class RecordingService extends Service {
         // STEP 2: Build the full notification with custom icon on background thread
         // (bitmap decode must NOT block the main/GL thread — this was causing Davey! frames)
         backgroundHandler.post(() -> {
+            // Late post must not replace the Paused notification (Resume vanished) or
+            // bring the notification back after Stop
+            if (isStopping || (recordingState != RecordingState.STARTING
+                    && recordingState != RecordingState.IN_PROGRESS)) {
+                return;
+            }
             NotificationCompat.Builder fullNotificationBuilder = createBaseNotificationBuilder(); // This method
                                                                                                   // contains the slow
                                                                                                   // bitmap operations

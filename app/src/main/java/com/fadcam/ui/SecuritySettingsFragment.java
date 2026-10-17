@@ -360,8 +360,8 @@ public class SecuritySettingsFragment extends Fragment {
         new LockCreationDialogBuilder(requireActivity())
                 .onCanceled(() -> { /* no-op */ })
                 .onLockCreated(() -> {
-                    // Always enable immediately after creating a PIN when invoked from sheet
-                    if(enableAfterCreation) setAppLockEnabled(true); else setAppLockEnabled(true);
+                    // Always enable immediately after creating a PIN; its own toast says so
+                    setAppLockEnabled(true, false);
                     Toast.makeText(requireContext(), R.string.applock_pin_created, Toast.LENGTH_SHORT).show();
                     refreshAppLockValue();
                     // After first creation, reopen config for further actions (change/remove)
@@ -371,10 +371,16 @@ public class SecuritySettingsFragment extends Fragment {
     }
 
     private void setAppLockEnabled(boolean enabled) {
+        setAppLockEnabled(enabled, true);
+    }
+
+    private void setAppLockEnabled(boolean enabled, boolean showToast) {
         sharedPreferencesManager.setAppLockEnabled(enabled);
-        String message = enabled ? getString(R.string.applock_enable) + " " + getString(R.string.universal_ok)
-                : getString(R.string.applock_disable) + " " + getString(R.string.universal_ok);
-        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+        if (showToast) {
+            // Was "Enable Tab Lock OK", two action labels glued together
+            Toast.makeText(requireContext(), enabled ? R.string.applock_enabled_toast : R.string.applock_disabled_toast,
+                    Toast.LENGTH_SHORT).show();
+        }
         refreshAppLockValue();
     }
 }

@@ -7,7 +7,6 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.os.SystemClock;
 import android.widget.RemoteViews;
 
 import com.fadcam.MainActivity;
@@ -87,6 +86,9 @@ public class ClockWidgetProvider extends AppWidgetProvider {
                     || Intent.ACTION_TIME_TICK.equals(intent.getAction());
             for (int id : ids) {
                 updateClock(context, mgr, id, minuteTick);
+            }
+            if (ids.length > 0 && !Intent.ACTION_TIME_TICK.equals(intent.getAction())) {
+                scheduleMinuteUpdates(context);
             }
         }
     }
@@ -231,12 +233,14 @@ public class ClockWidgetProvider extends AppWidgetProvider {
         if (am == null) return;
         Intent i = new Intent(context, ClockWidgetProvider.class).setAction(ACTION_UPDATE_CLOCK);
         PendingIntent pi = PendingIntent.getBroadcast(context, 0, i, PendingIntent.FLAG_IMMUTABLE);
-        long interval = 60_000L;
-        long triggerAt = SystemClock.elapsedRealtime() + interval;
+        // One-shot at the start of the next minute, re-armed on each tick: the old 60 s
+        // inexact repeat drifted off the minute, so the clock could lag by most of a minute.
+        long now = System.currentTimeMillis();
+        long nextMinute = (now / 60_000L + 1) * 60_000L;
         am.cancel(pi);
         // Non-wakeup: a clock nobody can see needs no updates; the pending alarm is
         // delivered as soon as the phone wakes, so the time is fresh on screen-on.
-        am.setInexactRepeating(AlarmManager.ELAPSED_REALTIME, triggerAt, interval, pi);
+        am.setWindow(AlarmManager.RTC, nextMinute, 1_000L, pi);
     }
 
     private void cancelMinuteUpdates(Context context) {

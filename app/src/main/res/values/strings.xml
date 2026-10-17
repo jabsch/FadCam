@@ -3309,4 +3309,15 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="bitrate_mode_auto">Auto</string>
     <string name="bitrate_mode_custom_value">Custom (%1$d Mbps)</string>
     <string name="bitrate_custom_range">1 - 200 Mbps</string>
+    <string name="dual_cam_reason_no_camera_service">Camera service unavailable</string>
+    <string name="dual_cam_reason_no_front">No front-facing camera found on device</string>
+    <string name="dual_cam_reason_no_back">No back-facing camera found on device</string>
+    <string name="dual_cam_reason_access_error">The cameras could not be checked right now. Close other camera apps and try again.</string>
+    <string name="dual_cam_reason_unexpected">The cameras could not be checked on this device.</string>
+    <string name="dual_cam_info_android_version">Android %1$s</string>
+    <string name="dual_cam_info_reason">Reason: %1$s</string>
+    <string name="recording_stream_preset_invalid">Stream preset invalid. Check the quality settings.</string>
+    <string name="recording_start_too_soon">Please wait a moment before starting another recording</string>
+    <string name="applock_enabled_toast">Tab Lock enabled</string>
+    <string name="applock_disabled_toast">Tab Lock disabled</string>
 </resources>

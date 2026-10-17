@@ -65,7 +65,7 @@ public class DualCameraToggleHelper {
             String reason = getUnsupportedReason();
             FLog.w(TAG, "Dual camera not supported: " + reason);
             Toast.makeText(appContext, reason != null ? reason
-                    : "Dual camera not supported on this device", Toast.LENGTH_LONG).show();
+                    : appContext.getString(com.fadcam.R.string.dual_camera_not_supported_toast), Toast.LENGTH_LONG).show();
             return false;
         }
 
