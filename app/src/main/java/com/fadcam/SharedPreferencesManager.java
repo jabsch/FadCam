@@ -91,6 +91,8 @@ public class SharedPreferencesManager {
     // -----
 
     private static final String PREF_KEY_CLOCK_CARD_COLOR = "clock_card_color";
+    // True once the user picks a clock color on Home; cleared when the theme changes.
+    private static final String PREF_KEY_CLOCK_CARD_COLOR_USER_SET = "clock_card_color_user_set";
 
     // This will be set dynamically based on theme
     public static String DEFAULT_CLOCK_CARD_COLOR = "#673AB7"; // Initial value: Purple
@@ -101,6 +103,12 @@ public class SharedPreferencesManager {
      * Grey.
      */
     public String getClockCardColor() {
+        if (sharedPreferences.getBoolean(PREF_KEY_CLOCK_CARD_COLOR_USER_SET, false)) {
+            return sharedPreferences.getString(
+                PREF_KEY_CLOCK_CARD_COLOR,
+                DEFAULT_CLOCK_CARD_COLOR
+            );
+        }
         String currentTheme = sharedPreferences.getString(
             com.fadcam.Constants.PREF_APP_THEME,
             Constants.DEFAULT_APP_THEME
@@ -140,6 +148,9 @@ public class SharedPreferencesManager {
      * This should be called whenever the theme changes or on app startup.
      */
     public void updateDefaultClockColorForTheme() {
+        if (sharedPreferences.getBoolean(PREF_KEY_CLOCK_CARD_COLOR_USER_SET, false)) {
+            return;
+        }
         String currentTheme = sharedPreferences.getString(
             com.fadcam.Constants.PREF_APP_THEME,
             Constants.DEFAULT_APP_THEME
@@ -176,6 +187,23 @@ public class SharedPreferencesManager {
         sharedPreferences
             .edit()
             .putString(PREF_KEY_CLOCK_CARD_COLOR, colorHex)
+            .apply();
+    }
+
+    /** Saves a clock color the user picked, so theme defaults stop overriding it. */
+    public void setUserClockCardColor(String colorHex) {
+        sharedPreferences
+            .edit()
+            .putString(PREF_KEY_CLOCK_CARD_COLOR, colorHex)
+            .putBoolean(PREF_KEY_CLOCK_CARD_COLOR_USER_SET, true)
+            .apply();
+    }
+
+    /** Lets the theme pick the clock color again (called when the user switches theme). */
+    public void clearUserClockCardColor() {
+        sharedPreferences
+            .edit()
+            .putBoolean(PREF_KEY_CLOCK_CARD_COLOR_USER_SET, false)
             .apply();
     }
 

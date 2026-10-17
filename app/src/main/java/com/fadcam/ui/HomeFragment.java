@@ -480,13 +480,6 @@ public class HomeFragment extends BaseFragment {
     /** Static view showing "/ XX.X GB" total device storage after tvSpaceTitle */
     protected TextView tvSpaceTotal;
 
-    // Track last known good values for stats to prevent 0-value display during scans
-    /**
-     * Last known video stats for fallback when 0 is detected (race condition)
-     */
-    private long lastKnownVideoCount = 0;
-    private long lastKnownSizeMB = 0;
-
     /**
      * Last animated stats for smooth transitions
      */
@@ -6147,7 +6140,7 @@ public class HomeFragment extends BaseFragment {
                     String selectedColorHex = bundle.getString(
                             com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID,
                             currentSelectedColorHex);
-                    sharedPreferencesManager.setClockCardColor(selectedColorHex);
+                    sharedPreferencesManager.setUserClockCardColor(selectedColorHex);
                     applyClockCardColor(selectedColorHex);
 
                     int selectedColor = Color.parseColor(selectedColorHex);
@@ -6713,7 +6706,7 @@ public class HomeFragment extends BaseFragment {
         long elapsedTime = 0;
         long estimatedBytesUsed = 0;
 
-        if (isRecording() || isPaused()) {
+        if (isRecordingSessionActive()) {
             if (recordingStartTime > 0L) {
                 long anchorTime = (isPaused() && recordingPauseStartedAt > 0L)
                     ? recordingPauseStartedAt
@@ -6770,7 +6763,7 @@ public class HomeFragment extends BaseFragment {
 
         // Adjust available bytes for recording
         long adjustedAvailable;
-        if (isRecording() || isPaused()) {
+        if (isRecordingSessionActive()) {
             // Check if streaming is active in STREAM_ONLY mode - if so, don't deduct estimated bytes
             boolean isStreamOnlyMode = false;
             try {
@@ -6817,7 +6810,7 @@ public class HomeFragment extends BaseFragment {
             minutes = 0,
             seconds = 0;
 
-        if (isRecording() || isPaused()) {
+        if (isRecordingSessionActive()) {
             // Only calculate remaining time when recording is active
             long audioBps = 0;
             try {
@@ -6932,7 +6925,7 @@ public class HomeFragment extends BaseFragment {
         final float availableFraction = gbTotal > 0d
             ? (float) Math.max(0d, Math.min(1d, gbAvailable / gbTotal))
             : 0f;
-        final boolean showLiveRemaining = isRecording() || isPaused();
+        final boolean showLiveRemaining = isRecordingSessionActive();
         final String finalTimeLeftText;
         if (showLiveRemaining) {
             // Check if streaming is active in STREAM_ONLY mode - if so, show "Unlimited"
@@ -7505,7 +7498,7 @@ public class HomeFragment extends BaseFragment {
                     boolean isFragmentAdded = isAdded();
                     boolean isRecordingActive = isRecording();
                     boolean isPausedActive = isPaused();
-                    boolean shouldUpdate = (isRecordingActive || isPausedActive) && isFragmentAdded
+                    boolean shouldUpdate = isRecordingSessionActive() && isFragmentAdded
                             && !isHidden();
                     
                     if (shouldUpdate) {
@@ -7960,21 +7953,6 @@ public class HomeFragment extends BaseFragment {
                     FLog.w(TAG, "updateStatsUI: stat views are null, skipping.");
                     return;
                 }
-
-                // Defensive 0-value check: never show 0 if previous was >0
-                if (videoCount[0] == 0 && lastKnownVideoCount > 0) {
-                    FLog.w(TAG, "updateStatsUI: Detected 0 videos but previous was " +
-                           lastKnownVideoCount + " - suppressing possible race condition");
-                    videoCount[0] = (int) lastKnownVideoCount;
-                }
-                if (sizeInMB[0] == 0 && lastKnownSizeMB > 0) {
-                    FLog.w(TAG, "updateStatsUI: Detected 0 MB but previous was " +
-                           lastKnownSizeMB + " - suppressing possible race condition");
-                    sizeInMB[0] = lastKnownSizeMB;
-                }
-
-                if (videoCount[0] > 0) lastKnownVideoCount = videoCount[0];
-                if (sizeInMB[0] > 0) lastKnownSizeMB = sizeInMB[0];
 
                 long totalSizeBytes = sizeInMB[0] * 1024L * 1024L;
                 String totalSizeFormatted = (getContext() != null)
@@ -9586,6 +9564,15 @@ public class HomeFragment extends BaseFragment {
 
     public boolean isPaused() {
         return recordingState.equals(RecordingState.PAUSED);
+    }
+
+    /**
+     * True while a recording exists: recording, paused, or waiting for the camera
+     * (black frames are still recorded then), so the timer and storage estimate keep going.
+     */
+    private boolean isRecordingSessionActive() {
+        return isRecording() || isPaused()
+                || recordingState == RecordingState.WAITING_FOR_CAMERA;
     }
 
     private void initializeTorch() {
