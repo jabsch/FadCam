@@ -59,7 +59,7 @@ public final class UTMConverter {
         int eastingInt = (int) Math.round(easting);
         int northingInt = (int) Math.round(northing);
 
-        return String.format("UTM Zone %d%s - %,dm E, %,dm N",
+        return String.format(java.util.Locale.US, "UTM Zone %d%s - %,dm E, %,dm N",
                 zone, isNorth ? "N" : "S", eastingInt, northingInt);
     }
 
@@ -77,7 +77,8 @@ public final class UTMConverter {
         alpha[3] = 61.0 / 240.0 * n * n * n;
 
         double sinLat = Math.sin(lat);
-        double t = Math.sinh(atanhSin(sinLat, n));
+        // atanhSin already returns the sinh; wrapping it again put positions ~700 km off
+        double t = atanhSin(sinLat, n);
         double dLon = lon - lon0;
         double cosDLon = Math.cos(dLon);
         double sinDLon = Math.sin(dLon);

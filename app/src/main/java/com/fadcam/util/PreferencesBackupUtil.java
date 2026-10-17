@@ -51,6 +51,13 @@ public final class PreferencesBackupUtil {
         set.add(com.fadcam.Constants.PREF_REMOTE_AUTH_SESSIONS);
         // Device-local marker of which language was handed to AppCompat (MainActivity)
         set.add("language_applied");
+        // Live torch / screen recording / Motion Lab debug state: restoring it showed
+        // the torch or a screen recording as on when it wasn't
+        set.add(com.fadcam.Constants.PREF_TORCH_STATE);
+        set.add(com.fadcam.Constants.PREF_IS_SCREEN_RECORDING_IN_PROGRESS);
+        set.add(com.fadcam.Constants.PREF_SCREEN_RECORDING_STATE);
+        set.add("screen_recording_start_time");
+        set.add(com.fadcam.Constants.PREF_MOTION_DEBUG_UI_ACTIVE);
         // Add more runtime/transient keys here if discovered later
         EXCLUDED_KEYS = java.util.Collections.unmodifiableSet(set);
     }
@@ -174,7 +181,9 @@ public final class PreferencesBackupUtil {
             if(v instanceof JSONObject) {
                 JSONObject entry = (JSONObject) v;
                 String type = entry.optString("t", "");
-                switch(type) {
+                // One malformed entry used to abort the whole import (the preview promises
+                // the rest still applies): skip just that key
+                try { switch(type) {
                     case "bool":
                         editor.putBoolean(key, entry.getBoolean("v"));
                         break;
@@ -201,6 +210,8 @@ public final class PreferencesBackupUtil {
                     }
                     default:
                         FLog.w(TAG, "Unsupported typed import type '" + type + "' for key: " + key);
+                } } catch (JSONException bad) {
+                    FLog.w(TAG, "Skipping malformed import entry: " + key);
                 }
                 continue;
             }

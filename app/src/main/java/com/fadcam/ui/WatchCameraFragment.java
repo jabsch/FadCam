@@ -60,7 +60,10 @@ public class WatchCameraFragment extends Fragment {
 
     private boolean isRecording = false;
     private boolean isPaused    = false;
+    // Service timeline (elapsedRealtime start + paused total), so the timer matches the
+    // recording instead of counting from when this screen heard about it, pauses included
     private long    recordingStartTime = 0L;
+    private long    accumulatedPausedMs = 0L;
 
     private SharedPreferencesManager prefs;
 
@@ -72,7 +75,7 @@ public class WatchCameraFragment extends Fragment {
         @Override
         public void run() {
             if (isRecording && !isPaused) {
-                long elapsed = System.currentTimeMillis() - recordingStartTime;
+                long elapsed = android.os.SystemClock.elapsedRealtime() - recordingStartTime - accumulatedPausedMs;
                 if (tvWatchTimer != null) tvWatchTimer.setText(formatElapsed(elapsed));
                 handler.postDelayed(this, 1_000L);
             }
@@ -95,6 +98,12 @@ public class WatchCameraFragment extends Fragment {
             final String action = intent.getAction();
             if (action == null) return;
             FLog.d(TAG, "Broadcast: " + action);
+            long start = intent.getLongExtra(Constants.INTENT_EXTRA_RECORDING_START_TIME, 0L);
+            if (start > 0L) {
+                recordingStartTime = start;
+                accumulatedPausedMs = Math.max(0L, intent.getLongExtra(
+                        Constants.INTENT_EXTRA_RECORDING_ACCUMULATED_PAUSED_DURATION, 0L));
+            }
 
             switch (action) {
                 case Constants.BROADCAST_ON_RECORDING_STARTED:
@@ -109,6 +118,20 @@ public class WatchCameraFragment extends Fragment {
                 case Constants.BROADCAST_ON_RECORDING_STOPPED:
                     handleRecordingStopped();
                     break;
+                case Constants.BROADCAST_ON_RECORDING_STATE_CALLBACK: {
+                    // Reply to queryRecordingState(): the filter used to drop it, so the
+                    // screen stayed stale after background stop/pause or process death
+                    com.fadcam.RecordingState st = com.fadcam.Utils.getSerializableExtraCompat(
+                            intent, Constants.INTENT_EXTRA_RECORDING_STATE, com.fadcam.RecordingState.class);
+                    if (st == com.fadcam.RecordingState.PAUSED) {
+                        handleRecordingPaused();
+                    } else if (st == com.fadcam.RecordingState.IN_PROGRESS) {
+                        handleRecordingResumed();
+                    } else if (st != com.fadcam.RecordingState.STARTING) {
+                        handleRecordingStopped();
+                    }
+                    break;
+                }
                 default:
                     break;
             }
@@ -180,7 +203,8 @@ public class WatchCameraFragment extends Fragment {
 
         // Central avatar tap = record / stop
         watchAvatarToggle.setOnCheckedChangeListener((view1, isChecked) -> {
-            if (isChecked) {
+            // While paused the avatar shows unchecked; a tap there means stop, not a new start
+            if (isChecked && !isPaused) {
                 startRecording();
             } else {
                 stopRecording();
@@ -207,6 +231,7 @@ public class WatchCameraFragment extends Fragment {
         filter.addAction(Constants.BROADCAST_ON_RECORDING_STOPPED);
         filter.addAction(Constants.BROADCAST_ON_RECORDING_PAUSED);
         filter.addAction(Constants.BROADCAST_ON_RECORDING_RESUMED);
+        filter.addAction(Constants.BROADCAST_ON_RECORDING_STATE_CALLBACK);
         androidx.core.content.ContextCompat.registerReceiver(requireContext(), recordingReceiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED);
 
         // Sync recording state in case we resumed while service is active
@@ -324,6 +349,8 @@ public class WatchCameraFragment extends Fragment {
             if (recordingStartTime > 0L) {
                 intent.putExtra(WatchFullscreenActivity.EXTRA_RECORDING_START_TIME,
                         recordingStartTime);
+                intent.putExtra(WatchFullscreenActivity.EXTRA_PAUSED_MS, accumulatedPausedMs);
+                intent.putExtra(WatchFullscreenActivity.EXTRA_IS_PAUSED, isPaused);
             }
             startActivity(intent);
             FLog.d(TAG, "toggleFullscreen → WatchFullscreenActivity");
@@ -337,7 +364,7 @@ public class WatchCameraFragment extends Fragment {
     private void handleRecordingStarted() {
         isRecording = true;
         isPaused    = false;
-        recordingStartTime = System.currentTimeMillis();
+        if (recordingStartTime <= 0L) recordingStartTime = android.os.SystemClock.elapsedRealtime();
         applyRecordingUI();
         updatePauseResumeIcon();
         handler.post(timerRunnable);
@@ -362,6 +389,8 @@ public class WatchCameraFragment extends Fragment {
     private void handleRecordingStopped() {
         isRecording = false;
         isPaused    = false;
+        recordingStartTime = 0L;
+        accumulatedPausedMs = 0L;
         handler.removeCallbacks(timerRunnable);
         applyIdleUI();
         updatePauseResumeIcon();

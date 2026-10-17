@@ -124,6 +124,12 @@ public final class PhotoStorageHelper {
             return null;
         }
         File outputFile = new File(shotDir, fileName);
+        // Names have second resolution; two shots in one second overwrote each other
+        String ext = "." + Constants.RECORDING_IMAGE_EXTENSION;
+        String base = fileName.endsWith(ext) ? fileName.substring(0, fileName.length() - ext.length()) : fileName;
+        for (int i = 1; outputFile.exists(); i++) {
+            outputFile = new File(shotDir, base + "_" + i + (fileName.endsWith(ext) ? ext : ""));
+        }
         FLog.d(TAG, "saveToInternal: outputPath=" + outputFile.getAbsolutePath());
         try (FileOutputStream fos = new FileOutputStream(outputFile)) {
             boolean ok = bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, fos);

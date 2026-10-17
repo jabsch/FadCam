@@ -105,7 +105,8 @@ public class TrashManager {
             return new ArrayList<>();
         }
         File metadataFile = new File(context.getFilesDir(), Constants.TRASH_METADATA_FILENAME);
-        if (!metadataFile.exists()) {
+        // An interrupted AtomicFile write leaves a .bak; let AtomicFile restore it
+        if (!metadataFile.exists() && !new File(metadataFile.getPath() + ".bak").exists()) {
             FLog.i(TAG, "Trash metadata file does not exist. Returning empty list.");
             return new ArrayList<>();
         }
@@ -114,7 +115,7 @@ public class TrashManager {
         Type listType = new TypeToken<ArrayList<TrashItem>>() {
         }.getType();
 
-        try (FileInputStream fis = new FileInputStream(metadataFile);
+        try (FileInputStream fis = new android.util.AtomicFile(metadataFile).openRead();
                 InputStreamReader isr = new InputStreamReader(fis, StandardCharsets.UTF_8);
                 BufferedReader reader = new BufferedReader(isr)) {
             List<TrashItem> items = gson.fromJson(reader, listType);
@@ -156,14 +157,22 @@ public class TrashManager {
         File metadataFile = new File(context.getFilesDir(), Constants.TRASH_METADATA_FILENAME);
         Gson gson = new Gson();
 
-        try (FileOutputStream fos = new FileOutputStream(metadataFile); // Overwrites the file
-                OutputStreamWriter osw = new OutputStreamWriter(fos, StandardCharsets.UTF_8)) {
+        // AtomicFile: a plain FileOutputStream truncated the file first, so a failed
+        // write (typically a full disk) lost the whole trash list
+        android.util.AtomicFile atomic = new android.util.AtomicFile(metadataFile);
+        FileOutputStream fos = null;
+        try {
+            fos = atomic.startWrite();
+            OutputStreamWriter osw = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
             gson.toJson(items, osw);
+            osw.flush();
+            atomic.finishWrite(fos);
             FLog.i(TAG, "Successfully saved " + items.size() + " items to trash metadata at "
                     + metadataFile.getAbsolutePath());
             return true;
-        } catch (IOException e) {
-            FLog.e(TAG, "IOException saving trash metadata to " + metadataFile.getAbsolutePath(), e);
+        } catch (IOException | RuntimeException e) {
+            if (fos != null) atomic.failWrite(fos);
+            FLog.e(TAG, "Failed saving trash metadata to " + metadataFile.getAbsolutePath(), e);
             return false;
         }
     }
@@ -370,12 +379,18 @@ public class TrashManager {
             } else {
                 FLog.e(TAG, "moveToTrash: File moved/copied, but FAILED to save trash metadata for: "
                         + originalDisplayName);
-                // Critical error: file is in trash, but not tracked. Attempt to revert by
-                // deleting from trash.
-                if (targetTrashFile.exists() && targetTrashFile.delete()) {
-                    FLog.w(TAG, "moveToTrash: Reverted by deleting untracked file from trash: " + targetTrashFileName);
+                // File is in trash but untracked. The original is already gone, so never
+                // delete the trash copy (that destroyed the only copy): put an internal file
+                // back where it was, otherwise keep the untracked copy.
+                boolean restored = false;
+                if (!isSafSource && videoUri.getPath() != null && targetTrashFile.exists()) {
+                    File original = new File(videoUri.getPath());
+                    restored = !original.exists() && targetTrashFile.renameTo(original);
+                }
+                if (restored) {
+                    FLog.w(TAG, "moveToTrash: Reverted by moving the file back: " + originalDisplayName);
                 } else {
-                    FLog.e(TAG, "moveToTrash: CRITICAL - Failed to revert untracked file in trash: "
+                    FLog.e(TAG, "moveToTrash: CRITICAL - untracked file kept in trash: "
                             + targetTrashFileName + ". Manual cleanup needed.");
                 }
                 return false;
@@ -974,6 +989,12 @@ public class TrashManager {
         if (lower.endsWith(".3gp")) return "video/3gpp";
         if (lower.endsWith(".avi")) return "video/x-msvideo";
         if (lower.endsWith(".mov")) return "video/quicktime";
+        // FadShot photos and other media restored to SAF otherwise became "x.jpg.mp4"
+        int dot = lower.lastIndexOf('.');
+        if (dot >= 0 && dot < lower.length() - 1) {
+            String mime = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(lower.substring(dot + 1));
+            if (mime != null) return mime;
+        }
         return "video/mp4"; // Default for FadCam recordings
     }
 
