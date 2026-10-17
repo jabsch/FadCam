@@ -379,13 +379,14 @@ public class QRScannerActivity extends AppCompatActivity {
                 lastScannedText = text;
                 lastScannedFormat = format;
                 lastScannedTime = new Date();
-                if (isScanning.compareAndSet(true, false)) {
-                    isScanning.set(true); // re-enable since we're not stopping camera scanning
-                    showScanResult(text, format);
-                    final Bitmap bmp = bitmap;
-                    final String t = text, f = format;
-                    cameraExecutor.execute(() -> saveScan(t, f, bmp));
-                }
+                // Pause the live scanner like a camera hit does ("Scan again" resumes it):
+                // left running, its next hit replaced this result and saved a duplicate,
+                // and with a camera result already showing this one was dropped
+                isScanning.set(false);
+                showScanResult(text, format);
+                final Bitmap bmp = bitmap;
+                final String t = text, f = format;
+                cameraExecutor.execute(() -> saveScan(t, f, bmp));
             } else {
                 Toast.makeText(this, getString(R.string.qr_scanner_no_barcode), Toast.LENGTH_SHORT).show();
             }

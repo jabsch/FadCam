@@ -285,6 +285,15 @@ public class VideoPlayerActivity extends AppCompatActivity {
 
         super.onCreate(savedInstanceState);
         setContentView(com.fadcam.R.layout.activity_video_player);
+
+        // Sheets restored after rotation lost their result listeners, so picks did nothing
+        if (savedInstanceState != null) {
+            for (androidx.fragment.app.Fragment f : getSupportFragmentManager().getFragments()) {
+                if (f instanceof androidx.fragment.app.DialogFragment) {
+                    ((androidx.fragment.app.DialogFragment) f).dismissAllowingStateLoss();
+                }
+            }
+        }
         
         // Ensure hardware volume buttons control media (STREAM_MUSIC) volume
         setVolumeControlStream(AudioManager.STREAM_MUSIC);

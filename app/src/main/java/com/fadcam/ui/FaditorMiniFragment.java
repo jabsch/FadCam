@@ -97,6 +97,8 @@ public class FaditorMiniFragment extends BaseFragment {
     private com.fadcam.ui.utils.AnimatedTextView exportDockOk;
     private long exportStartTimeMs = 0;
     private float lastReportedProgress = 0f;
+    @Nullable
+    private String exportOutputPath; // Running export's file, so a recreated view can show the dock again
     
     // ── Export progress broadcast receiver ────────────────────────────
     private android.content.BroadcastReceiver exportProgressReceiver;
@@ -266,6 +268,11 @@ public class FaditorMiniFragment extends BaseFragment {
                     hideDockWithAnimation();
                 }
             });
+        }
+
+        // The view is rebuilt (dock GONE) when coming back to this tab mid-export
+        if (isExportActive) {
+            restoreActiveExportDock();
         }
 
         return view;
@@ -1200,6 +1207,15 @@ public class FaditorMiniFragment extends BaseFragment {
         exportStartTimeMs = System.currentTimeMillis();
         lastReportedProgress = 0f;
         isExportActive = true;
+        exportOutputPath = outputPath;
+
+        // Clear the previous export's size line and hint
+        if (exportDockSummary != null) {
+            exportDockSummary.setText("");
+        }
+        if (exportDockEta != null) {
+            exportDockEta.setText("");
+        }
 
         // Update dock content
         if (exportDockTitle != null) {
@@ -1225,6 +1241,28 @@ public class FaditorMiniFragment extends BaseFragment {
         }
 
         showDockWithAnimation();
+    }
+
+    /** Shows the dock in its running state on a freshly created view. */
+    private void restoreActiveExportDock() {
+        if (exportDock == null) return;
+        if (exportDockTitle != null) {
+            exportDockTitle.setText(getString(R.string.faditor_export_progress));
+        }
+        if (exportDockCurrent != null && exportOutputPath != null) {
+            exportDockCurrent.setText(new java.io.File(exportOutputPath).getName());
+        }
+        if (exportDockProgress != null) {
+            exportDockProgress.setProgress(Math.round(lastReportedProgress * 100f));
+        }
+        if (exportDockIcon != null) {
+            exportDockIcon.setImageResource(android.R.drawable.ic_menu_save);
+        }
+        if (exportDockOk != null) {
+            exportDockOk.setVisibility(View.VISIBLE);
+            exportDockOk.setText(getString(R.string.records_delete_header_action_cancel));
+        }
+        exportDock.setVisibility(View.VISIBLE);
     }
 
     /**

@@ -59,6 +59,7 @@ public class DebugLogBottomSheetFragment extends BottomSheetDialogFragment {
     private int currentMatchColor;
     private static class MatchPos { int line; int start; int length; MatchPos(int l,int s,int len){line=l;start=s;length=len;} }
     private final java.util.List<MatchPos> allMatches = new java.util.ArrayList<>();
+    private int searchGeneration = 0; // UI thread only; newest search wins
     private int currentMatchLine = -1; private int currentMatchStart = -1; private int currentMatchLen = 0;
 
     @Nullable
@@ -474,29 +475,38 @@ public class DebugLogBottomSheetFragment extends BottomSheetDialogFragment {
     private void scheduleSearchApply(@Nullable String query, int delayMs, boolean autoScrollFirst){
         if (searchRunnable != null) searchHandler.removeCallbacks(searchRunnable);
         final String q = query == null ? "" : query.trim();
+        final int generation = ++searchGeneration;
         searchRunnable = () -> new Thread(() -> {
-            allMatches.clear();
-            currentMatchIndex = -1; currentMatchLine = -1; currentMatchStart = -1; currentMatchLen = 0;
-            if (!TextUtils.isEmpty(q) && !linesPlainLower.isEmpty()){
+            // Matches are built off-thread into a local list and swapped in on the UI thread,
+            // so typing fast no longer mixes two searches or races navigation/binding
+            final java.util.List<MatchPos> found = new java.util.ArrayList<>();
+            final java.util.List<String> lines = linesPlainLower;
+            if (!TextUtils.isEmpty(q) && !lines.isEmpty()){
                 String ql = q.toLowerCase(java.util.Locale.ROOT);
-                for (int i=0;i<linesPlainLower.size();i++){
-                    String lower = linesPlainLower.get(i);
+                for (int i=0;i<lines.size();i++){
+                    String lower = lines.get(i);
                     if (lower == null) continue;
                     int idx = 0;
                     while (true){
                         idx = lower.indexOf(ql, idx);
                         if (idx < 0) break;
-                        allMatches.add(new MatchPos(i, idx, q.length()));
+                        found.add(new MatchPos(i, idx, q.length()));
                         idx += q.length();
                     }
                 }
+            }
+            android.app.Activity activity = getActivity();
+            if (activity == null) return;
+            activity.runOnUiThread(() -> {
+                if (!isAdded() || generation != searchGeneration) return;
+                allMatches.clear();
+                allMatches.addAll(found);
+                currentMatchIndex = -1; currentMatchLine = -1; currentMatchStart = -1; currentMatchLen = 0;
                 if (!allMatches.isEmpty()){
                     currentMatchIndex = 0;
                     MatchPos m = allMatches.get(0);
                     currentMatchLine = m.line; currentMatchStart = m.start; currentMatchLen = m.length;
                 }
-            }
-            if (isAdded()) requireActivity().runOnUiThread(() -> {
                 adapter.setQuery(q);
                 if (autoScrollFirst && currentMatchIndex >= 0) {
                     try {
