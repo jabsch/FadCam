@@ -1812,7 +1812,9 @@ public class VideoSettingsFragment extends Fragment {
     }
 
     private int getBitrateCustomValue() {
-        return prefs.sharedPreferences.getInt(PREF_BITRATE_CUSTOM_VALUE, getDefaultBitrate());
+        // safeGetInt: an old-format backup restored after a reset stores this as a Long,
+        // and getInt then crashed Video settings
+        return prefs.safeGetInt(PREF_BITRATE_CUSTOM_VALUE, getDefaultBitrate());
     }
 
     private void setBitrateCustomValue(int value) {

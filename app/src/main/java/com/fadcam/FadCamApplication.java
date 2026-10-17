@@ -22,6 +22,9 @@ public class FadCamApplication extends Application implements DefaultLifecycleOb
         // Same for a recording: a new process can't have one running, so flags left by a
         // killed process are stale. They blocked dual-camera starts and the repair scan.
         RecordingShortcutDispatcher.hasActiveSession(this);
+        // And for the app lock: an unlock saved by a process that crashed or was killed in
+        // the foreground (so onStop never ran) opened Records with no PIN
+        prefs.setAppLockSessionUnlocked(false);
         ProcessLifecycleOwner.get().getLifecycle().addObserver(this);
         // Settings > Appearance > Screen Refresh Rate, applied to every JaCam window.
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {

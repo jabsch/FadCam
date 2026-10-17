@@ -43,6 +43,9 @@ public final class PreferencesBackupUtil {
         java.util.HashSet<String> set = new java.util.HashSet<>();
         set.add(com.fadcam.Constants.PREF_IS_RECORDING_IN_PROGRESS); // runtime
         set.add("applock_session_unlocked"); // session cache
+        // Turning the tab lock off needs the PIN in Security settings; Reset or an import
+        // without this key switched it off for anyone holding the unlocked phone
+        set.add("applock_enabled");
         // Recording session state — not persistent config
         set.add(com.fadcam.Constants.PREF_RECORDING_START_TIME);
         set.add(com.fadcam.Constants.PREF_RECORDING_PAUSE_STARTED_AT);

@@ -1249,6 +1249,7 @@ public class RecordsFragment extends BaseFragment implements
         super.onStop();
         // File events aren't received while stopped
         recordsChangedWhileHidden = true;
+
         if (progressHandler != null) {
             if (deferredRecordsWarmupRunnable != null) {
                 progressHandler.removeCallbacks(deferredRecordsWarmupRunnable);
@@ -5342,6 +5343,9 @@ public class RecordsFragment extends BaseFragment implements
         boolean isSessionUnlocked = sharedPreferencesManager.isAppLockSessionUnlocked();
 
         if (isAppLockEnabled && !isSessionUnlocked && AppLock.isEnrolled(requireContext())) {
+            // The overlay was hidden at the last unlock; without it the list showed
+            // around the PIN dialog after coming back to the app
+            showOverlayNow();
             // correctly -----
             new UnlockDialogBuilder(requireActivity())
                     .onUnlocked(() -> {
@@ -5386,6 +5390,14 @@ public class RecordsFragment extends BaseFragment implements
      * 
      * @param show true to fade in (show), false to fade out (hide)
      */
+    /** Covers the list at once, with no fade, so nothing shows through. */
+    private void showOverlayNow() {
+        if (applockOverlay == null) return;
+        applockOverlay.animate().cancel();
+        applockOverlay.setAlpha(1f);
+        applockOverlay.setVisibility(View.VISIBLE);
+    }
+
     private void fadeOverlay(final boolean show) {
         if (applockOverlay == null)
             return;

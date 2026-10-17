@@ -215,7 +215,9 @@ public class RemoteAuthManager {
      * Get auto-lock timeout in minutes (0 = never)
      */
     public int getAutoLockTimeout() {
-        return prefs.getInt(Constants.PREF_REMOTE_AUTH_AUTO_LOCK_TIMEOUT, 0);
+        // An old-format backup restored after a reset can store this as a Long
+        Object v = prefs.getAll().get(Constants.PREF_REMOTE_AUTH_AUTO_LOCK_TIMEOUT);
+        return v instanceof Number ? ((Number) v).intValue() : 0;
     }
     
     /**
