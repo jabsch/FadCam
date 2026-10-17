@@ -422,10 +422,11 @@ public class DualCameraRecordingService extends Service {
         // ── Permission check ──────────────────────────────────────────
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED
-                || ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-                != PackageManager.PERMISSION_GRANTED) {
+                || (prefs.isRecordAudioEnabled()
+                && ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED)) {
             FLog.e(TAG, "Camera or audio permission not granted");
-            failStart("Permissions required for dual camera recording");
+            failStart(getString(R.string.toast_permissions_required));
             return;
         }
 
@@ -455,12 +456,12 @@ public class DualCameraRecordingService extends Service {
                 }
             } catch (CameraAccessException e) {
                 FLog.e(TAG, "Failed to enumerate cameras for fallback", e);
-                failStart("No cameras available");
+                failStart(getString(R.string.dual_camera_no_cameras));
                 return;
             }
             
             if (frontCameraId == null) {
-                failStart("No cameras available for testing");
+                failStart(getString(R.string.dual_camera_no_cameras));
                 return;
             }
         } else {
@@ -469,7 +470,7 @@ public class DualCameraRecordingService extends Service {
 
             if (frontCameraId == null || backCameraId == null) {
                 FLog.e(TAG, "Could not resolve front/back camera IDs");
-                failStart("Could not identify concurrent cameras");
+                failStart(getString(R.string.dual_camera_no_cameras));
                 return;
             }
         }
@@ -2278,9 +2279,13 @@ public class DualCameraRecordingService extends Service {
         createNotificationChannel();
         Notification notification = buildDualCameraNotification().build();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
-                            | ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+            int type = ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
+            // Declaring the mic type without the permission throws on Android 14+
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                    == PackageManager.PERMISSION_GRANTED) {
+                type |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
+            }
+            startForeground(NOTIFICATION_ID, notification, type);
         } else {
             startForeground(NOTIFICATION_ID, notification);
         }

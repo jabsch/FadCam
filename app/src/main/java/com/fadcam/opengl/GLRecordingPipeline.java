@@ -3660,14 +3660,9 @@ public class GLRecordingPipeline {
                     if (on) {
                         am.setCommunicationDevice(speaker);
                     } else {
-                        android.media.AudioDeviceInfo earpiece = null;
-                        for (android.media.AudioDeviceInfo d : devices) {
-                            if (d.getType() == android.media.AudioDeviceInfo.TYPE_BUILTIN_EARPIECE) {
-                                earpiece = d;
-                                break;
-                            }
-                        }
-                        am.setCommunicationDevice(earpiece);
+                        // Drop our request instead of pinning calls to the earpiece; a
+                        // leftover request steered other apps' calls after recording
+                        am.clearCommunicationDevice();
                     }
                     return;
                 }
@@ -3692,44 +3687,21 @@ public class GLRecordingPipeline {
         this.isBtSco = false;
         this.savedAudioManager = null;
 
-        if (com.fadcam.SharedPreferencesManager.AUDIO_INPUT_SOURCE_WIRED.equals(audioInputSource)) {
-            int savedDeviceType = prefs.getAudioInputDeviceType();
-            android.media.AudioManager am = (android.media.AudioManager)
-                    context.getSystemService(Context.AUDIO_SERVICE);
-            if (am != null) {
-                android.media.AudioDeviceInfo[] devices = am.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS);
-                if (devices != null) {
-                    for (android.media.AudioDeviceInfo device : devices) {
-                        if (device == null) continue;
-                        int type = device.getType();
-                        if (isExternalInputDevice(type)) {
-                            if (savedDeviceType == -1 || type == savedDeviceType) {
-                                this.preferredAudioDevice = device;
-                                this.isBtSco = (type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
-                                        || type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
-                                        || type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET);
-                                FLog.i(TAG, "External audio device matched: " + device.getProductName()
-                                        + " (type=" + type + ", btSco=" + this.isBtSco + ")");
-                                break;
-                            }
-                        }
-                    }
-                }
-                // Fallback: if saved type not found, pick first available external device
-                if (this.preferredAudioDevice == null && devices != null) {
-                    for (android.media.AudioDeviceInfo device : devices) {
-                        if (device != null && isExternalInputDevice(device.getType())) {
-                            this.preferredAudioDevice = device;
-                            this.isBtSco = (device.getType() == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
-                                    || device.getType() == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
-                                    || device.getType() == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET);
-                            FLog.i(TAG, "External audio device (fallback): " + device.getProductName()
-                                    + " (type=" + device.getType() + ")");
-                            break;
-                        }
-                    }
-                }
+        // Same resolver as voice and screen recording: matches the saved mic by name first,
+        // so two mics of the same type stay distinct
+        this.preferredAudioDevice = com.fadcam.utils.AudioDeviceResolver.resolvePreferredInput(
+                context, audioInputSource, prefs.getAudioInputDeviceType(), prefs.getAudioInputDeviceName());
+        if (this.preferredAudioDevice != null) {
+            int type = this.preferredAudioDevice.getType();
+            this.isBtSco = (type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                    || type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+                    || type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET);
+            if (this.isBtSco) {
+                // Bluetooth headset mics are mono (as the Channels setting says)
+                this.audioChannelCount = 1;
             }
+            FLog.i(TAG, "External audio device: " + this.preferredAudioDevice.getProductName()
+                    + " (type=" + type + ", btSco=" + this.isBtSco + ")");
         }
 
         if (this.preferredAudioDevice != null) {
@@ -3766,15 +3738,6 @@ public class GLRecordingPipeline {
             this.audioSource = android.media.MediaRecorder.AudioSource.CAMCORDER;
             FLog.i(TAG, "Audio source: CAMCORDER (default device mic, platform-processed)");
         }
-    }
-
-    private boolean isExternalInputDevice(int type) {
-        return type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET
-                || type == android.media.AudioDeviceInfo.TYPE_USB_DEVICE
-                || type == android.media.AudioDeviceInfo.TYPE_USB_HEADSET
-                || type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
-                || type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
-                || type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET;
     }
 
     /**

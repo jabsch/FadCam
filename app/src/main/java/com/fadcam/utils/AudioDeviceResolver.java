@@ -120,7 +120,14 @@ public final class AudioDeviceResolver {
             FLog.w(TAG, "resolvePreferredInput: saved type " + savedType + " not found among current devices");
         }
 
-        // 3) Fallback: first available external input device.
+        // 3) Fallback: first available external input device, only when no particular
+        //    mic was saved. A saved mic that is unplugged falls back to the phone mic,
+        //    not to whatever else is connected (Bluetooth earbuds switch to call audio).
+        boolean savedSpecific = (savedName != null && !savedName.isEmpty()) || savedType != -1;
+        if (savedSpecific) {
+            FLog.w(TAG, "resolvePreferredInput: saved mic not connected → system default routing");
+            return null;
+        }
         for (AudioDeviceInfo d : devices) {
             if (d != null && isExternalInputDevice(d.getType())) {
                 FLog.w(TAG, "resolvePreferredInput: fallback to first external device → "
