@@ -425,8 +425,7 @@ public class DualCameraRecordingService extends Service {
                 || ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
             FLog.e(TAG, "Camera or audio permission not granted");
-            broadcastError("Permissions required for dual camera recording");
-            stopSelf();
+            failStart("Permissions required for dual camera recording");
             return;
         }
 
@@ -456,14 +455,12 @@ public class DualCameraRecordingService extends Service {
                 }
             } catch (CameraAccessException e) {
                 FLog.e(TAG, "Failed to enumerate cameras for fallback", e);
-                broadcastError("No cameras available");
-                stopSelf();
+                failStart("No cameras available");
                 return;
             }
             
             if (frontCameraId == null) {
-                broadcastError("No cameras available for testing");
-                stopSelf();
+                failStart("No cameras available for testing");
                 return;
             }
         } else {
@@ -472,8 +469,7 @@ public class DualCameraRecordingService extends Service {
 
             if (frontCameraId == null || backCameraId == null) {
                 FLog.e(TAG, "Could not resolve front/back camera IDs");
-                broadcastError("Could not identify concurrent cameras");
-                stopSelf();
+                failStart("Could not identify concurrent cameras");
                 return;
             }
         }
@@ -2226,6 +2222,21 @@ public class DualCameraRecordingService extends Service {
         }
 
         return builder;
+    }
+
+    /**
+     * Ends a rejected start. START_DUAL arrives via startForegroundService, and stopping
+     * before startForeground() crashes the app ("did not then call startForeground").
+     */
+    private void failStart(String message) {
+        broadcastError(message);
+        try {
+            startForegroundNotification();
+        } catch (Exception e) {
+            FLog.w(TAG, "startForeground refused while failing start", e);
+        }
+        com.fadcam.Utils.stopForegroundCompat(this, true);
+        stopSelf();
     }
 
     private void startForegroundNotification() {

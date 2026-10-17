@@ -116,12 +116,16 @@ public class QRScannerActivity extends AppCompatActivity {
                 this::onGalleryImagePicked);
 
         View headerBar = findViewById(R.id.qr_header_bar);
-        if (headerBar != null) headerBar.setOnApplyWindowInsetsListener((v, ins) -> {
-            int top = ins.getInsets(android.view.WindowInsets.Type.systemBars()).top;
-            v.setPadding(v.getPaddingLeft(), v.getPaddingTop() + top,
-                    v.getPaddingRight(), v.getPaddingBottom());
-            return ins;
-        });
+        if (headerBar != null) {
+            // Base padding captured once so repeated inset passes don't keep adding to it
+            final int baseTop = headerBar.getPaddingTop();
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(headerBar, (v, ins) -> {
+                int top = ins.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()).top;
+                v.setPadding(v.getPaddingLeft(), baseTop + top,
+                        v.getPaddingRight(), v.getPaddingBottom());
+                return ins;
+            });
+        }
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, RC_CAMERA);
@@ -366,7 +370,7 @@ public class QRScannerActivity extends AppCompatActivity {
         if (uri == null) return;
         FLog.i("QRScanner", "Gallery image picked: " + uri);
         try {
-            Bitmap bitmap = BitmapFactory.decodeStream(getContentResolver().openInputStream(uri));
+            Bitmap bitmap = decodeSampled(uri, 2048);
             if (bitmap == null) {
                 Toast.makeText(this, getString(R.string.qr_scanner_could_not_load), Toast.LENGTH_SHORT).show();
                 return;
@@ -396,6 +400,24 @@ public class QRScannerActivity extends AppCompatActivity {
         }
     }
 
+    /** Loads a picked image at most maxDim px on its long side (a 50 MP photo at full size ran out of memory). */
+    @Nullable private Bitmap decodeSampled(@NonNull Uri uri, int maxDim) throws java.io.IOException {
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in == null) return null;
+            BitmapFactory.decodeStream(in, null, bounds);
+        }
+        int sample = 1;
+        while (Math.max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxDim) sample *= 2;
+        BitmapFactory.Options opts = new BitmapFactory.Options();
+        opts.inSampleSize = sample;
+        try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in == null) return null;
+            return BitmapFactory.decodeStream(in, null, opts);
+        }
+    }
+
     /** Decodes barcodes from a Bitmap using ZXing RGBLuminanceSource. */
     @Nullable private Result decodeBitmap(@NonNull Bitmap bitmap) {
         int w = bitmap.getWidth(), h = bitmap.getHeight();
@@ -418,6 +440,11 @@ public class QRScannerActivity extends AppCompatActivity {
     private void saveScan(String text, String format, Bitmap frameBitmap) {
         String ts = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
         File scanDir = getScanDir(ts);
+        // Two scans in the same second (gallery pick, quick "Scan again") each get their own folder
+        for (int n = 2; scanDir != null && scanDir.exists() && n < 100; n++) {
+            ts = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date()) + "_" + n;
+            scanDir = getScanDir(ts);
+        }
         FLog.i("QRScanner","saveScan: "+scanDir);
         if (scanDir == null || !scanDir.mkdirs()) return;
         File meta = new File(scanDir, "metadata.json");
