@@ -530,7 +530,9 @@ public class TextEditorActivity extends BaseTransparentEditorActivity {
         // Sort ranges by start position
         java.util.Collections.sort(coveredRanges, (a, b) -> Integer.compare(a[0], b[0]));
         
-        // Find gaps and fill them with default color (WHITE for neutrality)
+        // Gaps keep the colour the uncoloured text was shown in (white forced it white,
+        // invisible on a white background)
+        final int baseColor = editText.getCurrentTextColor();
         int currentPos = 0;
         for (int[] range : coveredRanges) {
             int start = range[0];
@@ -539,7 +541,7 @@ public class TextEditorActivity extends BaseTransparentEditorActivity {
             // Fill gap before this span with WHITE (neutral default)
             if (currentPos < start) {
                 editable.setSpan(
-                    new ForegroundColorSpan(Color.WHITE),
+                    new ForegroundColorSpan(baseColor),
                     currentPos,
                     start,
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
@@ -553,7 +555,7 @@ public class TextEditorActivity extends BaseTransparentEditorActivity {
         // Fill gap at the end with WHITE (neutral default)
         if (currentPos < editable.length()) {
             editable.setSpan(
-                new ForegroundColorSpan(Color.WHITE),
+                new ForegroundColorSpan(baseColor),
                 currentPos,
                 editable.length(),
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE

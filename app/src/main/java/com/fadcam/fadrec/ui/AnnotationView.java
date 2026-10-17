@@ -406,10 +406,8 @@ public class AnnotationView extends View {
             for (AnnotationObject obj : layer.getObjects()) {
                 if (obj.isDeleted()) continue; // Skip soft-deleted (for undo/redo)
                 if (obj.isVisible()) {
-                    float originalOpacity = obj.getOpacity();
-                    obj.setOpacity(originalOpacity * layer.getOpacity());
+                    // Layer opacity is applied once, when the layer composites
                     obj.draw(layerCanvas, transform);
-                    obj.setOpacity(originalOpacity);
                 }
             }
             
@@ -489,10 +487,8 @@ public class AnnotationView extends View {
                 for (AnnotationObject obj : layer.getObjects()) {
                     if (obj.isDeleted()) continue;
                     if (obj.isVisible()) {
-                        float originalOpacity = obj.getOpacity();
-                        obj.setOpacity(originalOpacity * layer.getOpacity());
+                        // Layer opacity is applied once, when the layer composites
                         obj.draw(canvas, transform);
-                        obj.setOpacity(originalOpacity);
                     }
                 }
                 canvas.restoreToCount(layerSave);
@@ -507,10 +503,8 @@ public class AnnotationView extends View {
                 for (AnnotationObject obj : activeLayer.getObjects()) {
                     if (obj.isDeleted()) continue;
                     if (obj.isVisible()) {
-                        float originalOpacity = obj.getOpacity();
-                        obj.setOpacity(originalOpacity * activeLayer.getOpacity());
+                        // Layer opacity is applied once, when the layer composites
                         obj.draw(canvas, transform);
-                        obj.setOpacity(originalOpacity);
                     }
                 }
 
@@ -523,7 +517,8 @@ public class AnnotationView extends View {
                 } else {
                     // Pen draws normally
                     Paint penPaint = new Paint(drawPaint);
-                    penPaint.setAlpha((int)(drawPaint.getAlpha() * activeLayer.getOpacity()));
+                    // The active layer composites at its opacity; scaling here too drew the live stroke fainter
+                    penPaint.setAlpha(drawPaint.getAlpha());
                     canvas.drawPath(currentPath, penPaint);
                 }
                 canvas.restoreToCount(activeSave);
@@ -544,10 +539,8 @@ public class AnnotationView extends View {
                 for (AnnotationObject obj : layer.getObjects()) {
                     if (obj.isDeleted()) continue;
                     if (obj.isVisible()) {
-                        float originalOpacity = obj.getOpacity();
-                        obj.setOpacity(originalOpacity * layer.getOpacity());
+                        // Layer opacity is applied once, when the layer composites
                         obj.draw(canvas, transform);
-                        obj.setOpacity(originalOpacity);
                     }
                 }
                 canvas.restoreToCount(layerSave);
@@ -564,10 +557,8 @@ public class AnnotationView extends View {
                 int layerSave = beginLayer(canvas, layer.getOpacity());
                 for (AnnotationObject obj : layer.getObjects()) {
                     if (obj.isDeleted() || !obj.isVisible()) continue;
-                    float originalOpacity = obj.getOpacity();
-                    obj.setOpacity(originalOpacity * layer.getOpacity());
+                    // Layer opacity is applied once, when the layer composites
                     obj.draw(canvas, transform);
-                    obj.setOpacity(originalOpacity);
                 }
                 canvas.restoreToCount(layerSave);
             }

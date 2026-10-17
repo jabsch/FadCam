@@ -97,7 +97,8 @@ public class ColorPickerDialogActivity extends Activity {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                 window.setType(android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
             } else {
-                window.setType(android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+                // TYPE_APPLICATION_OVERLAY doesn't exist before API 26 (BadTokenException)
+                window.setType(android.view.WindowManager.LayoutParams.TYPE_PHONE);
             }
         }
         

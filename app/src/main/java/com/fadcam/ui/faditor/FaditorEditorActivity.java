@@ -2787,7 +2787,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (int i = 0; i < selectedClipIndex && i < tl.getClipCount(); i++) {
             absoluteMs += tl.getClip(i).getTrimmedDurationMs();
         }
-        absoluteMs += positionInCurrentSegmentMs;
+        // The position is source time; earlier segments are summed in timeline time (speed
+        // applied), so convert the current one too or the label drifts at 0.5x/2x
+        float speed = 1f;
+        if (selectedClipIndex >= 0 && selectedClipIndex < tl.getClipCount()) {
+            float sp = tl.getClip(selectedClipIndex).getSpeedMultiplier();
+            if (sp > 0f) speed = sp;
+        }
+        absoluteMs += (long) (positionInCurrentSegmentMs / speed);
         return absoluteMs;
     }
 

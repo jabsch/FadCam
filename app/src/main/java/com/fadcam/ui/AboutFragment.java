@@ -262,7 +262,7 @@ public class AboutFragment extends BaseFragment {
                     @Override
                     public void onClick(@NonNull View widget) {
                         Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/fadsec-lab"));
-                        widget.getContext().startActivity(browserIntent);
+                        startActivitySafely(browserIntent, R.string.whats_new_no_browser);
                     }
                     @Override
                     public void updateDrawState(android.text.TextPaint ds) {
@@ -460,14 +460,26 @@ public class AboutFragment extends BaseFragment {
 
     private void openUrl(String url) {
         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-        startActivity(intent);
+        startActivitySafely(intent, R.string.whats_new_no_browser);
     }
 
     private void sendEmail() {
         Intent intent = new Intent(Intent.ACTION_SENDTO);
         intent.setData(Uri.parse("mailto:fadedhood@proton.me"));
         intent.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.about_fadcam_feedback));
-        startActivity(intent);
+        startActivitySafely(intent, R.string.about_no_email_app);
+    }
+
+    /** No browser or mail app (or it's disabled) crashed the About screen. */
+    private void startActivitySafely(Intent intent, int missingMessageRes) {
+        try {
+            startActivity(intent);
+        } catch (android.content.ActivityNotFoundException e) {
+            if (isAdded()) {
+                android.widget.Toast.makeText(requireContext(), missingMessageRes,
+                        android.widget.Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
 
@@ -634,7 +646,7 @@ public class AboutFragment extends BaseFragment {
 
     private void openUpdateUrl(String url) {
         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-        startActivity(intent);
+        startActivitySafely(intent, R.string.whats_new_no_browser);
     }
 
 
