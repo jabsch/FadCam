@@ -621,6 +621,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
                 // Record undo action before applying final values
                 if (preTrimInMs >= 0 && (preTrimInMs != newIn || preTrimOutMs != newOut)) {
+                    // The drag already moved the trim; put it back so the saved "before"
+                    // snapshot (undo after reopening) is the real pre-trim state
+                    clip.setInPointMs(preTrimInMs);
+                    clip.setOutPointMs(preTrimOutMs);
                     undoManager.recordAction(new EditActions.TrimAction(
                             clip, preTrimInMs, preTrimOutMs, newIn, newOut));
                 }
@@ -801,6 +805,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // Record undo action
                     if (preAudioTrimInMs >= 0
                             && (preAudioTrimInMs != inPointMs || preAudioTrimOutMs != outPointMs)) {
+                        // Same as the video trim: snapshot the pre-drag values
+                        ac.setInPointMs(preAudioTrimInMs);
+                        ac.setOutPointMs(preAudioTrimOutMs);
                         undoManager.recordAction(new EditActions.AudioTrimAction(
                                 ac, preAudioTrimInMs, preAudioTrimOutMs,
                                 inPointMs, outPointMs));
@@ -815,6 +822,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     prepareAudioPlayer();
                     scheduleAutoSave();
                 }
+            }
+
+            @Override
+            public void onAudioClipMoved(int audioIndex, long oldOffsetMs, long newOffsetMs) {
+                if (project == null) return;
+                AudioClip ac = project.getTimeline().getAudioClip(audioIndex);
+                if (ac == null) return;
+                // The drag moved the clip live; snapshot the old position, then apply
+                ac.setOffsetMs(oldOffsetMs);
+                EditActions.AudioMoveAction move = new EditActions.AudioMoveAction(ac, oldOffsetMs, newOffsetMs);
+                undoManager.recordAction(move);
+                move.execute();
+                scheduleAutoSave();
             }
         });
         btnPlayPause = findViewById(R.id.btn_play_pause);
@@ -3772,26 +3792,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 deleteSelectedAudioClip(audioIdx);
                 return;
             }
-            if (selectedClipIndex < 0) {
+            // Act on the highlighted segment. selectedClipIndex also follows the playhead
+            // (scrubs, taps), so it pointed at a clip even after the user deselected.
+            Timeline timeline = project.getTimeline();
+            int targetIndex = editorTimeline.getSelectedIndex();
+            if (targetIndex < 0 || targetIndex >= timeline.getClipCount()) {
                 Toast.makeText(this, R.string.faditor_select_segment_first, Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            Timeline timeline = project.getTimeline();
             if (timeline.getClipCount() <= 1) {
                 Toast.makeText(this, R.string.faditor_delete_last_segment, Toast.LENGTH_SHORT).show();
                 return;
             }
 
             // Record undo action before deletion
-            Clip deletedClip = timeline.getClip(selectedClipIndex);
-            int deletedIndex = selectedClipIndex;
+            Clip deletedClip = timeline.getClip(targetIndex);
             undoManager.recordAction(new EditActions.DeleteClipAction(
-                    timeline, deletedClip, deletedIndex));
+                    timeline, deletedClip, targetIndex));
 
-            timeline.removeClip(selectedClipIndex);
+            timeline.removeClip(targetIndex);
 
-            int newIndex = Math.min(selectedClipIndex, timeline.getClipCount() - 1);
+            int newIndex = Math.min(targetIndex, timeline.getClipCount() - 1);
             selectSegment(newIndex);
             saveProjectNow();
             Toast.makeText(this, R.string.faditor_segment_deleted, Toast.LENGTH_SHORT).show();
@@ -3828,13 +3850,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void duplicateSelectedSegment() {
         if (project == null) return;
-        if (selectedClipIndex < 0) {
+        int targetIndex = editorTimeline.getSelectedIndex(); // highlighted segment, see delete
+        if (targetIndex < 0 || targetIndex >= project.getTimeline().getClipCount()) {
             Toast.makeText(this, R.string.faditor_select_segment_first, Toast.LENGTH_SHORT).show();
             return;
         }
         try {
             Timeline timeline = project.getTimeline();
-            int newIndex = timeline.duplicateClip(selectedClipIndex);
+            int newIndex = timeline.duplicateClip(targetIndex);
             if (newIndex < 0) return;
 
             // Record undo action for the duplication

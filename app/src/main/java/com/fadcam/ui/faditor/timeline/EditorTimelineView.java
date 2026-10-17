@@ -347,6 +347,8 @@ public class EditorTimelineView extends View {
         void onAudioClipSelected(int audioIndex);
         void onAudioTrimChanged(int audioIndex, long inPointMs, long outPointMs, boolean isLeft);
         void onAudioTrimFinished(int audioIndex, long inPointMs, long outPointMs);
+        /** Called once when an audio clip drag ends at a new position. */
+        void onAudioClipMoved(int audioIndex, long oldOffsetMs, long newOffsetMs);
     }
 
     // ── Constructors ─────────────────────────────────────────────────
@@ -531,6 +533,11 @@ public class EditorTimelineView extends View {
     /**
      * Returns the currently selected audio clip index, or -1 if none.
      */
+    /** The highlighted video segment, or -1 when none is highlighted. */
+    public int getSelectedIndex() {
+        return selectedIndex;
+    }
+
     public int getSelectedAudioIndex() {
         return selectedAudioIndex;
     }
@@ -710,10 +717,10 @@ public class EditorTimelineView extends View {
         if (!audioClips.isEmpty() && totalEffectiveMs > 0) {
             float audioTop = rulerHeightPx + trackHeightPx + audioTrackGapPx;
             for (AudioClip ac : audioClips) {
-                float clipStartX = edgePaddingPx
-                        + (ac.getOffsetMs() / 1000f) * dpPerSecondPx;
-                float clipW = Math.max(minSegmentPx,
-                        (ac.getTrimmedDurationMs() / 1000f) * dpPerSecondPx);
+                // Same mapping as the playhead and video segments (gaps, min widths), so an
+                // audio clip drawn under a frame plays at that frame
+                float clipStartX = timeToX(ac.getOffsetMs());
+                float clipW = Math.max(minSegmentPx, timeToX(ac.getEndOnTimelineMs()) - clipStartX);
                 RectF audioRect = new RectF(
                         clipStartX, audioTop,
                         clipStartX + clipW, audioTop + audioTrackHeightPx);
@@ -1890,8 +1897,7 @@ public class EditorTimelineView extends View {
         // Audio clip drag: update offset based on finger movement
         if (isDraggingAudio && dragAudioIndex >= 0 && dragAudioIndex < audioClips.size()) {
             float deltaX = scrolledX - dragAudioStartX;
-            float deltaSec = deltaX / dpPerSecondPx;
-            long newOffset = dragAudioStartOffsetMs + (long) (deltaSec * 1000f);
+            long newOffset = xToTime(timeToX(dragAudioStartOffsetMs) + deltaX);
             newOffset = Math.max(0, newOffset);
             AudioClip ac = audioClips.get(dragAudioIndex);
             ac.setOffsetMs(newOffset);
@@ -1905,6 +1911,7 @@ public class EditorTimelineView extends View {
 
     private boolean onUp(float x, float y, boolean isUp) {
         Drag last = activeDrag;
+        boolean segmentTapped = false;
         float scrolledX = x + scrollOffsetPx;
 
         // Stop edge auto-scroll and cancel long presses
@@ -1915,6 +1922,13 @@ public class EditorTimelineView extends View {
         // Finish audio drag
         if (isDraggingAudio) {
             isDraggingAudio = false;
+            int movedIndex = dragAudioIndex;
+            if (listener != null && movedIndex >= 0 && movedIndex < audioClips.size()) {
+                long newOffset = audioClips.get(movedIndex).getOffsetMs();
+                if (newOffset != dragAudioStartOffsetMs) {
+                    listener.onAudioClipMoved(movedIndex, dragAudioStartOffsetMs, newOffset);
+                }
+            }
             dragAudioIndex = -1;
             pendingAudioIndex = -1;
             computeRects();
@@ -1958,6 +1972,7 @@ public class EditorTimelineView extends View {
             }
         } else if (isUp && downSegIndex >= 0) {
             if (Math.abs(x - downX) < touchSlopPx) {
+                segmentTapped = true;
                 // Toggle selection: deselect if clicking same segment, select if different
                 if (downSegIndex == selectedIndex) {
                     selectedIndex = -1; // Deselect
@@ -1977,7 +1992,9 @@ public class EditorTimelineView extends View {
         }
 
         // Reset drag state and notify listener that playhead drag finished (if any)
-        if (listener != null && last == Drag.NONE) {
+        // A tap that (de)selected a clip is not a playhead drag: reporting it re-selected the
+        // clip under the playhead, so Delete after a deselect still deleted a clip
+        if (listener != null && last == Drag.NONE && !segmentTapped) {
             listener.onPlayheadDragFinished();
         }
         
@@ -2095,12 +2112,11 @@ public class EditorTimelineView extends View {
         long srcDur = ac.getSourceDurationMs();
         if (srcDur <= 0) return;
 
-        float pxPerMs = dpPerSecondPx / 1000f;
         long minGap = 500; // minimum 500ms
 
         // Offset from the drag start: the clip's rect moves with each applied MOVE, so a
         // delta from the rect edge re-added the whole distance every event
-        long deltaMs = (long) ((x - audioTrimStartX) / pxPerMs);
+        long deltaMs = xToTime(x) - xToTime(audioTrimStartX);
         boolean isLeft = (activeDrag == Drag.AUDIO_LEFT_HANDLE);
         if (isLeft) {
             long newIn = Math.max(0, Math.min(audioTrimStartOutMs - minGap, audioTrimStartInMs + deltaMs));
