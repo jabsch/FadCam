@@ -601,16 +601,14 @@ public class ScreenRecordingService extends Service {
                 boolean splitEnabled = sharedPreferencesManager.sharedPreferences.getBoolean(
                         SharedPreferencesManager.PREF_VIDEO_SPLITTING_ENABLED, false);
                 if (splitEnabled) {
-                    int splitSizeMb = sharedPreferencesManager.sharedPreferences.getInt(
-                            SharedPreferencesManager.PREF_VIDEO_SPLIT_SIZE_MB, 2048);
-                    long maxBytes = splitSizeMb * 1024L * 1024L;
+                    long maxBytes = sharedPreferencesManager.getVideoSplitSizeBytes();
                     String storageMode = sharedPreferencesManager.getStorageMode();
                     final boolean isSaf = SharedPreferencesManager.STORAGE_MODE_CUSTOM.equals(storageMode);
 
                     if (isSaf) {
-                        FLog.d(TAG, "Auto-splitting enabled (SAF mode): " + splitSizeMb + " MB per segment");
+                        FLog.d(TAG, "Auto-splitting enabled (SAF mode): " + (maxBytes >> 20) + " MB per segment");
                     } else {
-                        FLog.d(TAG, "Auto-splitting enabled (internal): " + splitSizeMb + " MB per segment, base: "
+                        FLog.d(TAG, "Auto-splitting enabled (internal): " + (maxBytes >> 20) + " MB per segment, base: "
                                 + outputFile.getAbsolutePath());
                     }
 

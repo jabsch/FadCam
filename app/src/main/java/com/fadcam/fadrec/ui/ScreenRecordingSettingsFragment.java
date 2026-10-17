@@ -602,7 +602,7 @@ public class ScreenRecordingSettingsFragment extends Fragment {
         });
 
         MaterialNumberPickerBottomSheetFragment sheet = MaterialNumberPickerBottomSheetFragment.newInstance(
-                getString(R.string.video_split_custom_title), 10, 102400, current, "10 - 102400", 0, 0,
+                getString(R.string.video_split_custom_title), 100, 102400, Math.max(100, current), "100 - 102400", 0, 0,
                 null, null, resultKey);
         sheet.show(getParentFragmentManager(), "screen_split_custom_input");
     }

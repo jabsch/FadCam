@@ -6946,7 +6946,9 @@ public class HomeFragment extends BaseFragment {
             } catch (Exception e) {
                 FLog.e(TAG, "Error checking streaming mode in camera recording UI", e);
             }
-            finalTimeLeftText = isStreamOnlyMode ? "Unlimited" : formatRemainingTime(days, hours, minutes, seconds);
+            finalTimeLeftText = isStreamOnlyMode
+                ? (getContext() != null ? getContext().getString(R.string.storage_time_unlimited) : "Unlimited")
+                : formatRemainingTime(days, hours, minutes, seconds);
         } else {
             finalTimeLeftText = selectedEstimate;
         }
