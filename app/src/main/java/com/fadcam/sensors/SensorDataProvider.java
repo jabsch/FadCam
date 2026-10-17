@@ -332,6 +332,13 @@ public class SensorDataProvider implements SensorEventListener {
         if (System.currentTimeMillis() - lastLocationUpdateTime > STALE_LOCATION_TIMEOUT_MS) {
             return 0f;
         }
+        // The watermark re-feeds the last fix every tick, which keeps the timestamp above
+        // fresh; judge staleness by the fix's own age so a GPS dropout doesn't freeze speed
+        if (currentLocation != null && currentLocation.getElapsedRealtimeNanos() > 0) {
+            long fixAgeMs = android.os.SystemClock.elapsedRealtime()
+                    - currentLocation.getElapsedRealtimeNanos() / 1_000_000L;
+            if (fixAgeMs > STALE_LOCATION_TIMEOUT_MS) return 0f;
+        }
         // Self-healing read: if the pull-based updateLocation() feed hasn't run
         // yet this tick (or after pause/resume), recompute from the raw fix so
         // we never report a stale 0 while the vehicle is moving. Direct GPS
@@ -347,6 +354,10 @@ public class SensorDataProvider implements SensorEventListener {
 
     public double getAltitude() {
         if (currentLocation != null) {
+            // getAltitude() is height above the WGS84 ellipsoid, tens of metres off sea level
+            if (android.os.Build.VERSION.SDK_INT >= 34 && currentLocation.hasMslAltitude()) {
+                return currentLocation.getMslAltitudeMeters();
+            }
             return currentLocation.getAltitude();
         }
         return 0f;
