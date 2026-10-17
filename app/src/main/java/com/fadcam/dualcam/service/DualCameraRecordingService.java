@@ -899,10 +899,12 @@ public class DualCameraRecordingService extends Service {
                 return;
             }
             backgroundHandler.post(() -> {
+                // The pipeline drops its video watermark for the snapshot, so stamp
+                // the photo watermark here, as single-camera photos do
                 Uri savedUri = PhotoStorageHelper.saveJpegBitmap(
                         getApplicationContext(),
                         bitmap,
-                        false,
+                        true,
                         PhotoStorageHelper.ShotSource.BACK);
                 bitmap.recycle();
                 if (savedUri != null) {
