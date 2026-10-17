@@ -217,7 +217,7 @@ public class NoiseMonitor {
     }
 
     public String getReadableDb() {
-        return String.format("%.0fdB", currentDb);
+        return String.format(java.util.Locale.US, "%.0fdB", currentDb);
     }
 
     public boolean isRunning() {

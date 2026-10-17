@@ -185,7 +185,8 @@ public class WatermarkManager implements WatermarkInfoProvider {
                         + locationText + customTextLine;
         }
 
-        finalText += getExtendedSensorData();
+        // Same as RecordingService: "no watermark" must not leak sensor lines into the video
+        if (!"no_watermark".equals(watermarkOption)) finalText += getExtendedSensorData();
 
         if (watermarkUpdateSequence == 1) {
             FLog.d(TAG, "Watermark text: [" + finalText.replace("\n", " | ") + "]");
@@ -281,6 +282,9 @@ public class WatermarkManager implements WatermarkInfoProvider {
             lastLocationWatermarkUpdateMs = now;
         }
 
+        // Refresh before reading: on the first tick the cached flag was still false,
+        // so every dual recording opened with "GPS is off"
+        refreshGpsProviderState();
         if (!cachedGpsProviderEnabled) {
             StringBuilder off = new StringBuilder("\nLocation: GPS is off");
             if (prefs.isUtmEnabled()) off.append("\nUTM: GPS is off");
@@ -292,20 +296,24 @@ public class WatermarkManager implements WatermarkInfoProvider {
         return cachedLocationWatermarkText;
     }
 
+    /** Throttled GPS provider check shared by the location and sensor lines. */
+    private void refreshGpsProviderState() {
+        long now = System.currentTimeMillis();
+        if (lastGpsProviderCheckMs != 0L && now - lastGpsProviderCheckMs < GPS_PROVIDER_CHECK_INTERVAL_MS) return;
+        android.location.LocationManager lm = (android.location.LocationManager)
+                context.getSystemService(Context.LOCATION_SERVICE);
+        cachedGpsProviderEnabled = lm != null
+                && lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER);
+        lastGpsProviderCheckMs = now;
+    }
+
     // ── Extended sensor data ─────────────────────────────────────────
 
     private String getExtendedSensorData() {
         if (prefs == null) return "";
 
-        // Throttled GPS provider check
+        refreshGpsProviderState();
         long now = System.currentTimeMillis();
-        if (now - lastGpsProviderCheckMs >= GPS_PROVIDER_CHECK_INTERVAL_MS) {
-            android.location.LocationManager lm = (android.location.LocationManager)
-                    context.getSystemService(Context.LOCATION_SERVICE);
-            cachedGpsProviderEnabled = lm != null
-                    && lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER);
-            lastGpsProviderCheckMs = now;
-        }
 
         // Feed fresh location into SensorDataProvider
         if (locationHelper != null && sensorDataProvider != null) {
@@ -322,7 +330,7 @@ public class WatermarkManager implements WatermarkInfoProvider {
                 sb.append("\nSpeed: GPS is off");
             } else {
                 float speed = sensorDataProvider.getSpeedKmh();
-                sb.append("\nSpeed: ").append(String.format("%.0f", speed)).append(" km/h");
+                sb.append("\nSpeed: ").append(String.format(Locale.US, "%.0f", speed)).append(" km/h");
             }
         }
 
@@ -331,7 +339,7 @@ public class WatermarkManager implements WatermarkInfoProvider {
                 sb.append("\nAlt: GPS is off");
             } else {
                 double alt = sensorDataProvider.getAltitude();
-                sb.append("\nAlt: ").append(String.format("%.0f", alt)).append("m");
+                sb.append("\nAlt: ").append(String.format(Locale.US, "%.0f", alt)).append("m");
             }
         }
 
@@ -340,7 +348,7 @@ public class WatermarkManager implements WatermarkInfoProvider {
                 sb.append("\nAccuracy: GPS is off");
             } else {
                 float acc = sensorDataProvider.getAccuracy();
-                sb.append("\nAccuracy: ").append(String.format("%.0f", acc)).append("m");
+                sb.append("\nAccuracy: ").append(String.format(Locale.US, "%.0f", acc)).append("m");
             }
         }
 
