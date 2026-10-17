@@ -87,7 +87,7 @@ public class UpdateAvailableBottomSheet extends BottomSheetDialogFragment {
         Bundle args = getArguments();
         String version = args != null ? args.getString(ARG_VERSION, "-") : "-";
         String changelog = args != null ? args.getString(ARG_CHANGELOG, "") : "";
-        String tagUrl = args != null ? args.getString(ARG_TAG_URL, "https://github.com/anonfaded/FadCam/releases/latest") : "https://github.com/anonfaded/FadCam/releases/latest";
+        String tagUrl = args != null ? args.getString(ARG_TAG_URL, "https://github.com/jabsch/FadCam/releases/latest") : "https://github.com/jabsch/FadCam/releases/latest";
 
         // Sarcastic message
         TextView tvSarcastic = view.findViewById(R.id.tvSarcasticMessage);
@@ -155,7 +155,11 @@ public class UpdateAvailableBottomSheet extends BottomSheetDialogFragment {
             layoutUpdateButtonRow.setOnClickListener(v -> {
                 if (tagUrl != null && !tagUrl.isEmpty()) {
                     Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(tagUrl));
-                    startActivity(browserIntent);
+                    try {
+                        startActivity(browserIntent);
+                    } catch (android.content.ActivityNotFoundException e) {
+                        FLog.e(TAG, "No browser to open " + tagUrl, e);
+                    }
                 }
             });
         }
@@ -172,6 +176,8 @@ public class UpdateAvailableBottomSheet extends BottomSheetDialogFragment {
             if (getActivity() == null || !isAdded()) return;
             
             requireActivity().runOnUiThread(() -> {
+                // The sheet can be dismissed between the post and the run.
+                if (!isAdded() || getView() == null) return;
                 if (!changelogHtml.isEmpty()) {
                     // Parse for TextView - strips CSS since Html.fromHtml doesn't support it
                     String cleanChangelogHtml = ChangelogParser.parseChangelogForTextView(changelogHtml);

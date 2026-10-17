@@ -130,7 +130,8 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     // ── Entries list (interleaved headers + items) ──
     private List<Object> entries = new ArrayList<>();
 
-    private static final SimpleDateFormat MONTH_FORMAT = new SimpleDateFormat("MMMM yyyy", Locale.getDefault());
+    // Per adapter, not static: a language switch recreates the activity but not the process.
+    private final SimpleDateFormat monthFormat;
 
     // Keep the cache for thumbnails but optimize it
     // Keyed by URI string (not position) to survive list reorders/sorts without serving stale data.
@@ -225,6 +226,9 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
         this.context = Objects.requireNonNull(context, "Context cannot be null for RecordsAdapter");
         this.safeMediaProbeMode = RuntimeCompat.shouldUseSafeMediaProbe(this.context);
+        Locale uiLocale = androidx.core.os.ConfigurationCompat
+                .getLocales(context.getResources().getConfiguration()).get(0);
+        this.monthFormat = new SimpleDateFormat("MMMM yyyy", uiLocale != null ? uiLocale : Locale.getDefault());
         this.records = new ArrayList<>(records); // Use a mutable copy
         this.entries = buildEntries(this.records); // Build month-grouped entries
         this.executorService = Objects.requireNonNull(executorService, "ExecutorService cannot be null");
@@ -285,8 +289,9 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             }
         };
         try {
+            // Register and unregister on the same (application) context, or unregister throws and leaks.
             receiverRegisteredContext = context.getApplicationContext();
-            androidx.core.content.ContextCompat.registerReceiver(context, this.playbackPositionReceiver,
+            androidx.core.content.ContextCompat.registerReceiver(receiverRegisteredContext, this.playbackPositionReceiver,
                     new android.content.IntentFilter("com.fadcam.ACTION_PLAYBACK_POSITION_UPDATED"),
                     android.content.Context.RECEIVER_NOT_EXPORTED);
         } catch (Exception ignored) {
@@ -1371,14 +1376,17 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     @Override
     public void onDetachedFromRecyclerView(@NonNull androidx.recyclerview.widget.RecyclerView recyclerView) {
         super.onDetachedFromRecyclerView(recyclerView);
+        release();
+    }
+
+    /** Unregisters the playback-position receiver. Safe to call more than once. */
+    public void release() {
+        if (receiverRegisteredContext == null) return;
         try {
-            if (receiverRegisteredContext != null) {
-                receiverRegisteredContext.unregisterReceiver(playbackPositionReceiver);
-            } else {
-                recyclerView.getContext().unregisterReceiver(playbackPositionReceiver);
-            }
+            receiverRegisteredContext.unregisterReceiver(playbackPositionReceiver);
         } catch (Exception ignored) {
         }
+        receiverRegisteredContext = null;
     }
 
     private int findPositionByStringUri(String uriStr) {
@@ -2491,11 +2499,30 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 if (oldEntry instanceof VideoItemEntry && newEntry instanceof VideoItemEntry) {
                     VideoItem oldItem = ((VideoItemEntry) oldEntry).item;
                     VideoItem newItem = ((VideoItemEntry) newEntry).item;
-                    return oldItem.displayName.equals(newItem.displayName) &&
+                    // Serial changes on a re-sort with the same count; without this the moved
+                    // cards kept their old numbers.
+                    return ((VideoItemEntry) oldEntry).serialNumber == ((VideoItemEntry) newEntry).serialNumber &&
+                            oldItem.displayName.equals(newItem.displayName) &&
                             oldItem.size == newItem.size &&
                             oldItem.lastModified == newItem.lastModified;
                 }
                 return false;
+            }
+
+            @Override
+            public Object getChangePayload(int oldPosition, int newPosition) {
+                Object oldEntry = oldEntries.get(oldPosition);
+                Object newEntry = newEntries.get(newPosition);
+                if (oldEntry instanceof VideoItemEntry && newEntry instanceof VideoItemEntry) {
+                    VideoItem oldItem = ((VideoItemEntry) oldEntry).item;
+                    VideoItem newItem = ((VideoItemEntry) newEntry).item;
+                    if (oldItem.displayName.equals(newItem.displayName)
+                            && oldItem.size == newItem.size
+                            && oldItem.lastModified == newItem.lastModified) {
+                        return "SERIAL_UPDATE"; // only the number moved; skip the full rebind
+                    }
+                }
+                return null;
             }
         });
 
@@ -3430,140 +3457,120 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             return;
         }
         String scheme = videoItem.uri.getScheme();
-        File inputFile = null;
-        File outputFile;
         String outputName = "FIXED_" + videoItem.displayName;
-        boolean isSAF;
-        File safTempInput = null;
-        File safTempOutput;
         if ("file".equals(scheme)) {
-            safTempOutput = null;
-            isSAF = false;
-            inputFile = new File(videoItem.uri.getPath());
+            File inputFile = new File(videoItem.uri.getPath());
             if (!inputFile.exists()) {
                 Toast.makeText(context, context.getString(R.string.fix_video_file_not_exist), Toast.LENGTH_SHORT)
                         .show();
                 return;
             }
-            outputFile = new File(inputFile.getParent(), outputName);
+            File outputFile = new File(inputFile.getParent(), outputName);
             if (outputFile.exists()) {
                 Toast.makeText(context, context.getString(R.string.fix_video_fixed_exists), Toast.LENGTH_SHORT).show();
                 return;
             }
+            Toast.makeText(context, context.getString(R.string.fix_video_repairing), Toast.LENGTH_SHORT).show();
+            runVideoRepair(inputFile, outputFile, null, outputName);
         } else if ("content".equals(scheme)) {
-            isSAF = true;
+            Toast.makeText(context, context.getString(R.string.fix_video_repairing), Toast.LENGTH_SHORT).show();
+            // Copying a large recording out of the SAF folder takes seconds; keep it off the UI thread.
+            executorService.execute(() -> {
+                File safTempInput = null;
+                try {
+                    safTempInput = File.createTempFile("saf_repair_", ".mp4", context.getCacheDir());
+                    try (InputStream in = context.getContentResolver().openInputStream(videoItem.uri);
+                            OutputStream out = new FileOutputStream(safTempInput)) {
+                        if (in == null) throw new IOException("openInputStream returned null");
+                        byte[] buf = new byte[65536];
+                        int len;
+                        while ((len = in.read(buf)) > 0) {
+                            out.write(buf, 0, len);
+                        }
+                    }
+                } catch (Exception e) {
+                    FLog.e(TAG, "Failed to copy SAF video for repair", e);
+                    if (safTempInput != null && safTempInput.exists())
+                        safTempInput.delete();
+                    mainHandler.post(() -> Toast.makeText(context,
+                            context.getString(R.string.fix_video_saf_copy_fail), Toast.LENGTH_LONG).show());
+                    return;
+                }
+                runVideoRepair(safTempInput, new File(context.getCacheDir(), outputName), safTempInput, outputName);
+            });
+        } else {
+            Toast.makeText(context, context.getString(R.string.fix_video_internal_only), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /**
+     * Remuxes {@code inputFile} into {@code outputFile}. When {@code safTempInput} is set the input
+     * was copied out of the SAF folder, and the repaired copy is written back there.
+     */
+    private void runVideoRepair(File inputFile, File outputFile, File safTempInput, String outputName) {
+        boolean isSAF = safTempInput != null;
+        // Argument array, so names with spaces survive (the old format string split on them).
+        String[] args = {"-y", "-i", inputFile.getAbsolutePath(), "-c", "copy", outputFile.getAbsolutePath()};
+        FFmpegKit.executeWithArgumentsAsync(args, session -> {
+            if (!ReturnCode.isSuccess(session.getReturnCode())) {
+                mainHandler.post(() -> Toast.makeText(context, context.getString(R.string.fix_video_fail),
+                        Toast.LENGTH_LONG).show());
+                if (isSAF) {
+                    safTempInput.delete();
+                    outputFile.delete();
+                }
+                return;
+            }
+            if (!isSAF) {
+                mainHandler.post(() -> Toast.makeText(context,
+                        context.getString(R.string.fix_video_success, outputFile.getName()),
+                        Toast.LENGTH_LONG).show());
+                return;
+            }
+            safTempInput.delete();
+            boolean wroteToSAF = false;
+            DocumentFile fixedDoc = null;
             try {
-                safTempInput = File.createTempFile("saf_repair_", ".mp4", context.getCacheDir());
-                inputFile = safTempInput;
-                try (InputStream in = context.getContentResolver().openInputStream(videoItem.uri);
-                        OutputStream out = new FileOutputStream(inputFile)) {
-                    byte[] buf = new byte[8192];
-                    int len;
-                    while ((len = in.read(buf)) > 0) {
-                        out.write(buf, 0, len);
+                // Use the SAF folder URI from preferences, just like RecordingService
+                String safFolderUriString = sharedPreferencesManager.getCustomStorageUri();
+                if (safFolderUriString != null) {
+                    DocumentFile safFolder = DocumentFile.fromTreeUri(context, Uri.parse(safFolderUriString));
+                    if (safFolder != null && safFolder.canWrite()) {
+                        fixedDoc = safFolder.createFile("video/mp4", outputName);
+                        if (fixedDoc != null) {
+                            try (OutputStream out = context.getContentResolver().openOutputStream(fixedDoc.getUri());
+                                    InputStream in = new FileInputStream(outputFile)) {
+                                if (out == null) throw new IOException("openOutputStream returned null");
+                                byte[] buf = new byte[65536];
+                                int len;
+                                while ((len = in.read(buf)) > 0) {
+                                    out.write(buf, 0, len);
+                                }
+                            }
+                            wroteToSAF = true;
+                        }
                     }
                 }
             } catch (Exception e) {
-                FLog.e(TAG, "Failed to copy SAF video for repair", e);
-                Toast.makeText(context, context.getString(R.string.fix_video_saf_copy_fail), Toast.LENGTH_LONG).show();
-                if (safTempInput != null && safTempInput.exists())
-                    safTempInput.delete();
+                FLog.e(TAG, "Failed to write repaired file to SAF folder", e);
+                if (fixedDoc != null) {
+                    try { fixedDoc.delete(); } catch (Exception ignored) {}
+                }
+            }
+            if (wroteToSAF) {
+                outputFile.delete();
+                mainHandler.post(() -> Toast.makeText(context,
+                        context.getString(R.string.fix_video_saf_success, outputName), Toast.LENGTH_LONG).show());
                 return;
             }
-            safTempOutput = new File(context.getCacheDir(), outputName);
-            outputFile = safTempOutput;
-        } else {
-            safTempOutput = null;
-            outputFile = null;
-            isSAF = false;
-            Toast.makeText(context, context.getString(R.string.fix_video_internal_only), Toast.LENGTH_LONG).show();
-            return;
-        }
-        String inputPath = inputFile.getAbsolutePath();
-        String outputPath = outputFile.getAbsolutePath();
-        String ffmpegCmd = String.format("-y -i %s -c copy %s", inputPath, outputPath);
-        Toast.makeText(context, context.getString(R.string.fix_video_repairing), Toast.LENGTH_SHORT).show();
-        File finalSafTempInput = safTempInput;
-        FFmpegKit.executeAsync(ffmpegCmd, session -> {
-            if (ReturnCode.isSuccess(session.getReturnCode())) {
-                if (isSAF) {
-                    boolean wroteToSAF = false;
-                    try {
-                        // Use the SAF folder URI from preferences, just like RecordingService
-                        String safFolderUriString = sharedPreferencesManager.getCustomStorageUri();
-                        if (safFolderUriString != null) {
-                            Uri safFolderUri = Uri.parse(safFolderUriString);
-                            DocumentFile safFolder = DocumentFile.fromTreeUri(context, safFolderUri);
-                            if (safFolder != null && safFolder.canWrite()) {
-                                DocumentFile fixedDoc = safFolder.createFile("video/mp4", outputName);
-                                if (fixedDoc != null) {
-                                    try (OutputStream out = context.getContentResolver()
-                                            .openOutputStream(fixedDoc.getUri());
-                                            InputStream in = new FileInputStream(outputFile)) {
-                                        byte[] buf = new byte[8192];
-                                        int len;
-                                        while ((len = in.read(buf)) > 0) {
-                                            out.write(buf, 0, len);
-                                        }
-                                    }
-                                    wroteToSAF = true;
-                                    new Handler(Looper.getMainLooper()).post(() -> {
-                                        Toast.makeText(context,
-                                                context.getString(R.string.fix_video_saf_success, outputName),
-                                                Toast.LENGTH_LONG).show();
-                                    });
-                                }
-                            }
-                        }
-                        if (!wroteToSAF) {
-                            new Handler(Looper.getMainLooper()).post(() -> {
-                                Toast.makeText(context, context.getString(R.string.fix_video_saf_write_fail),
-                                        Toast.LENGTH_LONG).show();
-                                Toast.makeText(context,
-                                        "Cannot write to this folder. This may be due to SD card, USB, or cloud storage permissions. The repaired file is saved in app storage.",
-                                        Toast.LENGTH_LONG).show();
-                                Toast.makeText(context, context.getString(R.string.fix_video_saf_export),
-                                        Toast.LENGTH_LONG).show();
-                                // TODO: Offer share/export dialog for the fixed file in app storage
-                            });
-                        }
-                    } catch (Exception e) {
-                        FLog.e(TAG, "Failed to write repaired file to SAF folder", e);
-                        new Handler(Looper.getMainLooper()).post(() -> {
-                            Toast.makeText(context, context.getString(R.string.fix_video_saf_write_fail),
-                                    Toast.LENGTH_LONG).show();
-                            Toast.makeText(context,
-                                    "Cannot write to this folder. This may be due to SD card, USB, or cloud storage permissions. The repaired file is saved in app storage.",
-                                    Toast.LENGTH_LONG).show();
-                            Toast.makeText(context, context.getString(R.string.fix_video_saf_export), Toast.LENGTH_LONG)
-                                    .show();
-                            // TODO: Offer share/export dialog for the fixed file in app storage
-                        });
-                    } finally {
-                        // Clean up temp files
-                        if (finalSafTempInput != null && finalSafTempInput.exists())
-                            finalSafTempInput.delete();
-                        if (safTempOutput != null && safTempOutput.exists())
-                            safTempOutput.delete();
-                    }
-                } else {
-                    new Handler(Looper.getMainLooper()).post(() -> {
-                        Toast.makeText(context, context.getString(R.string.fix_video_success, outputFile.getName()),
-                                Toast.LENGTH_LONG).show();
-                    });
-                }
-            } else {
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    Toast.makeText(context, context.getString(R.string.fix_video_fail), Toast.LENGTH_LONG).show();
-                });
-                // Clean up temp files on failure as well
-                if (isSAF) {
-                    if (finalSafTempInput != null && finalSafTempInput.exists())
-                        finalSafTempInput.delete();
-                    if (safTempOutput != null && safTempOutput.exists())
-                        safTempOutput.delete();
-                }
-            }
+            // Keep the repaired copy instead of deleting it: move it out of the cache into app files.
+            File keptDir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES);
+            if (keptDir == null) keptDir = context.getFilesDir();
+            File kept = new File(keptDir, getUniqueFileNameInDirectory(keptDir, outputName));
+            File finalFile = outputFile.renameTo(kept) ? kept : outputFile;
+            mainHandler.post(() -> Toast.makeText(context,
+                    context.getString(R.string.fix_video_saf_kept, finalFile.getAbsolutePath()),
+                    Toast.LENGTH_LONG).show());
         });
     }
 
@@ -3661,8 +3668,8 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         for (VideoItem item : items) {
             if (item == null) continue;
             String month = (item.lastModified > 0)
-                    ? MONTH_FORMAT.format(new Date(item.lastModified))
-                    : "Unknown";
+                    ? monthFormat.format(new Date(item.lastModified))
+                    : context.getString(R.string.video_info_unknown);
             if (!month.equals(lastMonth)) {
                 result.add(new MonthHeaderEntry(month));
                 lastMonth = month;

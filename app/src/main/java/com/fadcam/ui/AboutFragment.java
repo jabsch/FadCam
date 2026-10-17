@@ -514,13 +514,11 @@ public class AboutFragment extends BaseFragment {
                             && result.hasBeta) {
                         // Beta app: surface the BETA update directly (testers need
                         // the urgent info without hunting in the sidebar).
-                        BetaUpdateBottomSheet.newInstance(
-                            result.betaVersion, result.betaUrl, currentVersion)
-                            .show(getParentFragmentManager(), "BetaUpdateSheet");
+                        showSheetWhenResumed(BetaUpdateBottomSheet.newInstance(
+                            result.betaVersion, result.betaUrl, currentVersion), "BetaUpdateSheet");
                     } else if (result.hasStable) {
-                        UpdateAvailableBottomSheet.newInstance(
-                            result.stableVersion, "", result.stableUrl)
-                            .show(getParentFragmentManager(), "UpdateAvailableBottomSheet");
+                        showSheetWhenResumed(UpdateAvailableBottomSheet.newInstance(
+                            result.stableVersion, "", result.stableUrl), "UpdateAvailableBottomSheet");
                     } else {
                         if (result.hasBeta) {
                             showUpToDateDialog(getString(R.string.about_beta_available, result.betaVersion),
@@ -538,6 +536,32 @@ public class AboutFragment extends BaseFragment {
                 });
             }
         });
+    }
+
+    /** Update sheet that arrived while the app was in the background; shown on return. */
+    private Runnable pendingSheet;
+
+    /**
+     * Shows {@code sheet} now, or on the next onResume when the check finished after the app
+     * went to the background (show() after onSaveInstanceState throws).
+     */
+    private void showSheetWhenResumed(androidx.fragment.app.DialogFragment sheet, String tag) {
+        Runnable show = () -> sheet.show(getParentFragmentManager(), tag);
+        if (getParentFragmentManager().isStateSaved()) {
+            pendingSheet = show;
+        } else {
+            show.run();
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (pendingSheet != null && !getParentFragmentManager().isStateSaved()) {
+            Runnable show = pendingSheet;
+            pendingSheet = null;
+            show.run();
+        }
     }
 
     /** Runs on the main thread only while the fragment is still attached. */

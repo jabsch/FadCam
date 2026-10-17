@@ -5114,6 +5114,9 @@ public class RecordsFragment extends BaseFragment implements
         // visit; Glide trims them itself when the system is low on memory.
 
         // Release references
+        if (recordsAdapter != null) {
+            recordsAdapter.release();
+        }
         recordsAdapter = null;
         FLog.d(TAG, "Resources cleared in onDestroy");
     }
