@@ -340,10 +340,11 @@ public class UndoManager {
                             @NonNull List<String> snapshots) {
         clear();
         int count = Math.min(descriptions.size(), snapshots.size());
-        // Push oldest first (addLast) so the most recent ends up on top
+        // push() adds at the head (where undo pops), so pushing oldest first leaves the most
+        // recent on top; addLast put the oldest on top and undo jumped back to the start
         for (int i = 0; i < count; i++) {
             HistoryEntry entry = new HistoryEntry(null, descriptions.get(i), snapshots.get(i));
-            ((ArrayDeque<HistoryEntry>) undoStack).addLast(entry);
+            undoStack.push(entry);
         }
         FLog.d(TAG, "Loaded " + count + " history entries from disk");
         notifyListener();

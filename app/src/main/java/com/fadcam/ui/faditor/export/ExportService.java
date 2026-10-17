@@ -221,6 +221,8 @@ public class ExportService extends Service {
                                           @NonNull androidx.media3.transformer.ExportResult result) {
                 FLog.d(TAG, "Export completed: " + outputPath);
                 isExporting = false;
+                // Records must list the new file even when the editor was closed mid-export
+                com.fadcam.ui.RecordsFragment.requestRefresh();
                 showCompletionNotification();
                 if (serviceListener != null) {
                     serviceListener.onExportCompleted(outputPath, result);
