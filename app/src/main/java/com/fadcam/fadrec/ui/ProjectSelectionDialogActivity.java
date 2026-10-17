@@ -58,7 +58,7 @@ public class ProjectSelectionDialogActivity extends Activity {
         File[] projectFiles = projectFileManager.listProjects();
         
         if (projectFiles == null || projectFiles.length == 0) {
-            Toast.makeText(this, "No projects found", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.fadrec_toast_no_projects, Toast.LENGTH_SHORT).show();
             finish();
             return;
         }

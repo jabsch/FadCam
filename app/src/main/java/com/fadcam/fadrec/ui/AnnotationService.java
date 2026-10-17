@@ -589,12 +589,12 @@ public class AnnotationService extends Service {
                     .setPositiveButton("Delete", (dialog, which) -> {
                         boolean deleted = projectFileManager.deleteProject(folderName);
                         if (deleted) {
-                            Toast.makeText(AnnotationService.this, "Project deleted", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(AnnotationService.this, R.string.annotation_toast_project_deleted, Toast.LENGTH_SHORT).show();
                             parentDialog.dismiss();
                             // Reopen dialog to refresh list
                             showProjectManagementDialog();
                         } else {
-                            Toast.makeText(AnnotationService.this, "Failed to delete project", Toast.LENGTH_SHORT)
+                            Toast.makeText(AnnotationService.this, R.string.annotation_toast_project_delete_failed, Toast.LENGTH_SHORT)
                                     .show();
                         }
                     })
@@ -662,13 +662,13 @@ public class AnnotationService extends Service {
             updateProjectNameDisplay();
             updateNotification();
 
-            Toast.makeText(this, "✅ Loaded: " + projectName, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.annotation_toast_loaded, projectName), Toast.LENGTH_SHORT).show();
             FLog.i(TAG, "========== PROJECT LOADED AND APPLIED ==========");
         } else {
             FLog.e(TAG, "❌ Failed to load project: " + projectName);
             FLog.e(TAG, "  - loadedState is null: " + (loadedState == null));
             FLog.e(TAG, "  - annotationView is null: " + (annotationView == null));
-            Toast.makeText(this, "❌ Failed to load project", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.annotation_toast_project_load_failed, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -714,7 +714,7 @@ public class AnnotationService extends Service {
         // Save the new project
         projectFileManager.saveProject(newState, currentProjectName);
 
-        Toast.makeText(this, "📝 New Project: " + newProjectName, Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.annotation_toast_new_project, newProjectName), Toast.LENGTH_SHORT).show();
         FLog.d(TAG, "Created new project: " + newProjectName);
     }
 
@@ -1321,9 +1321,9 @@ public class AnnotationService extends Service {
             annotationView.setSelectionMode(newSelectionMode);
             updateSelectToolHighlight(newSelectionMode);
             if (newSelectionMode) {
-                Toast.makeText(this, "👆 Selection mode: Tap to select, drag to move", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.annotation_toast_selection_mode, Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "🖊️ Draw mode", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.annotation_toast_draw_mode, Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -1715,10 +1715,10 @@ public class AnnotationService extends Service {
                     activeLayer.addObject(newText);
                     annotationView.invalidate();
                     saveCurrentState();
-                    Toast.makeText(this, "✏️ Text added!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, R.string.annotation_toast_text_added, Toast.LENGTH_SHORT).show();
                     FLog.d(TAG, "New text object created");
                 } else {
-                    Toast.makeText(this, "Layer is locked", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, R.string.annotation_toast_layer_locked, Toast.LENGTH_SHORT).show();
                 }
             }
         }
@@ -1903,7 +1903,7 @@ public class AnnotationService extends Service {
             textObject.setDeleted(true);
             annotationView.invalidate();
             saveCurrentState();
-            Toast.makeText(this, "🗑️ Text deleted!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.annotation_toast_text_deleted, Toast.LENGTH_SHORT).show();
             FLog.d(TAG, "Text object soft deleted");
         }
     }
@@ -2763,7 +2763,7 @@ public class AnnotationService extends Service {
                     FLog.d(TAG, "Redo count: " + annotationView.getRedoCount());
 
                     updateUndoRedoButtons();
-                    Toast.makeText(AnnotationService.this, "✨ Created: " + pageName, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(AnnotationService.this, getString(R.string.annotation_toast_created, pageName), Toast.LENGTH_SHORT).show();
                     FLog.d(TAG, "=== PAGE ADD COMPLETED ===");
                 }
 
@@ -2785,7 +2785,7 @@ public class AnnotationService extends Service {
 
                         updateUndoRedoButtons();
                         pageTabBarOverlay.refresh();
-                        Toast.makeText(AnnotationService.this, "🗑️ Deleted: " + pageName, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(AnnotationService.this, getString(R.string.annotation_toast_deleted, pageName), Toast.LENGTH_SHORT).show();
                         FLog.d(TAG, "=== PAGE DELETE COMPLETED ===");
                     }
                 }
@@ -2956,7 +2956,7 @@ public class AnnotationService extends Service {
 
                         updatePageLayerInfo();
                         layerPanelOverlay.refresh();
-                        Toast.makeText(AnnotationService.this, "✨ Created: " + layerName, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(AnnotationService.this, getString(R.string.annotation_toast_created, layerName), Toast.LENGTH_SHORT).show();
                         FLog.d(TAG, "=== LAYER ADD COMPLETED ===");
                     }
 
@@ -3107,7 +3107,7 @@ public class AnnotationService extends Service {
                 annotationView.switchToPage(state.getPages().size() - 1);
                 updateUndoRedoButtons();
 
-                String message = "✨ Created: " + pageName;
+                String message = getString(R.string.annotation_toast_created, pageName);
                 Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
                 FLog.d(TAG, "Added new page: " + pageName);
             }
@@ -3128,7 +3128,7 @@ public class AnnotationService extends Service {
                     annotationView.addLayer(layerName);
                     updatePageLayerInfo(); // Update the layer counter
 
-                    String message = "✨ Created: " + layerName;
+                    String message = getString(R.string.annotation_toast_created, layerName);
                     Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
                     FLog.d(TAG, "Added new layer: " + layerName);
                 }
@@ -3632,7 +3632,7 @@ public class AnnotationService extends Service {
                 currentEditingTextObject = null;
                 
                 saveCurrentState();
-                Toast.makeText(this, "✏️ Text updated!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.annotation_toast_text_updated, Toast.LENGTH_SHORT).show();
                 FLog.d(TAG, "Text modified via command pattern - undo stack size: " + currentPage.getUndoStackSize());
             } else {
                 FLog.e(TAG, "Could not find layer containing text object");
@@ -3667,7 +3667,7 @@ public class AnnotationService extends Service {
                 annotationView.notifyStateChangedWithRedraw();
                 
                 saveCurrentState();
-                Toast.makeText(this, "✏️ Text added!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.annotation_toast_text_added, Toast.LENGTH_SHORT).show();
                 FLog.d(TAG, "New text created via command pattern - undo stack size: " + currentPage.getUndoStackSize());
                 
                 // Auto-collapse menu to show text in selection mode
@@ -3825,7 +3825,7 @@ public class AnnotationService extends Service {
             FLog.d(TAG, "Rename layer dialog shown");
         } catch (Exception e) {
             FLog.e(TAG, "Error showing rename layer dialog", e);
-            Toast.makeText(this, "Error showing rename dialog", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.annotation_toast_rename_error, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -3860,7 +3860,7 @@ public class AnnotationService extends Service {
             FLog.d(TAG, "Rename page dialog shown");
         } catch (Exception e) {
             FLog.e(TAG, "Error showing rename page dialog", e);
-            Toast.makeText(this, "Error showing rename dialog", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.annotation_toast_rename_error, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -4114,14 +4114,14 @@ public class AnnotationService extends Service {
             iconAnnotation.setTextColor(androidx.core.content.ContextCompat.getColor(this, android.R.color.holo_green_light));
             labelAnnotation.setText(getString(R.string.annotation_disable));
             descAnnotation.setText(getString(R.string.annotation_disable_desc));
-            Toast.makeText(this, "✏️ Annotation Enabled - Draw freely", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.annotation_toast_enabled, Toast.LENGTH_SHORT).show();
         } else {
             // Annotation DISABLED - can use phone normally
             iconAnnotation.setText("edit_off");
             iconAnnotation.setTextColor(androidx.core.content.ContextCompat.getColor(this, android.R.color.darker_gray));
             labelAnnotation.setText(getString(R.string.annotation_enable));
             descAnnotation.setText("Enable to use annotation tools");
-            Toast.makeText(this, "📱 Annotation Disabled - Use phone normally", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.annotation_toast_disabled, Toast.LENGTH_SHORT).show();
         }
 
         // Gray out or enable all annotation tools based on state
@@ -4162,14 +4162,14 @@ public class AnnotationService extends Service {
             iconCanvas.setTextColor(androidx.core.content.ContextCompat.getColor(this, android.R.color.holo_blue_light));
             labelCanvas.setText(getString(R.string.annotation_hide_canvas));
             descCanvas.setText(getString(R.string.annotation_hide_canvas_desc));
-            Toast.makeText(this, "👁️ Canvas Visible", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.annotation_toast_canvas_visible, Toast.LENGTH_SHORT).show();
         } else {
             // Canvas HIDDEN - only pinned layers shown
             iconCanvas.setText("visibility_off");
             iconCanvas.setTextColor(androidx.core.content.ContextCompat.getColor(this, android.R.color.darker_gray));
             labelCanvas.setText("Show Canvas");
             descCanvas.setText("Pinned layers still visible");
-            Toast.makeText(this, "Canvas Hidden - Pinned layers still visible", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.annotation_toast_canvas_hidden, Toast.LENGTH_SHORT).show();
         }
 
         FLog.d(TAG, "Canvas visible: " + visible);

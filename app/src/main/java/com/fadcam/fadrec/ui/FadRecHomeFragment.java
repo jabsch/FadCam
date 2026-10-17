@@ -318,7 +318,7 @@ public class FadRecHomeFragment extends HomeFragment {
                         // Show toast to user
                         if (isAdded()) {
                             android.widget.Toast.makeText(getContext(), 
-                                "Overlay permission required for floating controls", 
+                                R.string.fadrec_toast_overlay_required, 
                                 android.widget.Toast.LENGTH_SHORT).show();
                         }
                     }
@@ -1048,7 +1048,7 @@ public class FadRecHomeFragment extends HomeFragment {
         
         if (!mediaProjectionHelper.isAvailable()) {
             Toast.makeText(requireContext(), 
-                "Screen recording not available on this device", 
+                R.string.fadrec_toast_not_available, 
                 Toast.LENGTH_SHORT).show();
             return;
         }
@@ -1087,13 +1087,13 @@ public class FadRecHomeFragment extends HomeFragment {
                 screenCapturePermissionLauncher.launch(permissionIntent);
             } else {
                 Toast.makeText(requireContext(), 
-                    "Failed to create screen capture intent", 
+                    R.string.fadrec_toast_capture_intent_failed, 
                     Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
             FLog.e(TAG, "Error requesting screen recording permission", e);
             Toast.makeText(requireContext(), 
-                "Error starting screen recording", 
+                R.string.fadrec_toast_start_error, 
                 Toast.LENGTH_SHORT).show();
         }
     }
@@ -1313,7 +1313,7 @@ public class FadRecHomeFragment extends HomeFragment {
                             pendingPreviewOnlyPermission = false;
                             pendingPreviewOpenUntilSurfaceReady = false;
                             updateUIForRecordingState();
-                            Toast.makeText(context, "Screen recording permission denied", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(context, R.string.fadrec_toast_permission_denied, Toast.LENGTH_SHORT).show();
                             break;
                             
                         case Constants.ACTION_PAUSE_SCREEN_RECORDING:
