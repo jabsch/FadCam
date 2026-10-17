@@ -39,7 +39,9 @@ import java.util.Locale;
  */
 public class WatchFullscreenActivity extends AppCompatActivity {
 
-    /** Extra key: recording start timestamp in millis (pass from WatchCameraFragment). */
+    public static final String EXTRA_PAUSED_MS = "watch_fs_paused_ms";
+    public static final String EXTRA_IS_PAUSED = "watch_fs_is_paused";
+    /** Extra key: recording start (elapsedRealtime ms, the service timeline) from WatchCameraFragment. */
     public static final String EXTRA_RECORDING_START_TIME =
             Constants.INTENT_EXTRA_RECORDING_START_TIME;
 
@@ -54,7 +56,8 @@ public class WatchFullscreenActivity extends AppCompatActivity {
     private TextureView previewTextureView;
     @Nullable private Surface previewSurface;
 
-    private long recordingStartTime = 0L;
+    private long recordingStartTime = 0L; // elapsedRealtime, from the service timeline
+    private long accumulatedPausedMs = 0L;
     private boolean isRecording = false;
     private boolean isPaused    = false;
 
@@ -63,7 +66,7 @@ public class WatchFullscreenActivity extends AppCompatActivity {
         @Override
         public void run() {
             if (!isFinishing() && isRecording && !isPaused && recordingStartTime > 0) {
-                final long elapsed = System.currentTimeMillis() - recordingStartTime;
+                final long elapsed = android.os.SystemClock.elapsedRealtime() - recordingStartTime - accumulatedPausedMs;
                 if (tvTimer != null) tvTimer.setText(formatElapsed(elapsed));
             }
             handler.postDelayed(this, TIMER_INTERVAL_MS);
@@ -76,6 +79,12 @@ public class WatchFullscreenActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
             if (action == null) return;
+            long start = intent.getLongExtra(Constants.INTENT_EXTRA_RECORDING_START_TIME, 0L);
+            if (start > 0L) {
+                recordingStartTime = start;
+                accumulatedPausedMs = Math.max(0L, intent.getLongExtra(
+                        Constants.INTENT_EXTRA_RECORDING_ACCUMULATED_PAUSED_DURATION, 0L));
+            }
             switch (action) {
                 case Constants.BROADCAST_ON_RECORDING_STARTED:
                 case Constants.BROADCAST_ON_RECORDING_RESUMED:
@@ -115,7 +124,9 @@ public class WatchFullscreenActivity extends AppCompatActivity {
 
         // Read recording start time from intent
         recordingStartTime = getIntent().getLongExtra(EXTRA_RECORDING_START_TIME, 0L);
+        accumulatedPausedMs = getIntent().getLongExtra(EXTRA_PAUSED_MS, 0L);
         isRecording = (recordingStartTime > 0L);
+        isPaused = isRecording && getIntent().getBooleanExtra(EXTRA_IS_PAUSED, false);
 
         // Back button — matches trash screen style (ImageView with ic_arrow_back)
         final View btnBack = findViewById(R.id.btn_watch_fs_back);

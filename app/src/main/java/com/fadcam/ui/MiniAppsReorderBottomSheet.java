@@ -220,7 +220,7 @@ public class MiniAppsReorderBottomSheet extends BottomSheetDialogFragment {
             order.clear();
             if (orderStr != null) {
                 for (String id : orderStr.split("\\|")) {
-                    if (!id.isEmpty() && !order.contains(id)) order.add(id);
+                    if (!id.isEmpty() && !order.contains(id) && java.util.Arrays.asList(ALL_MINI_APP_IDS).contains(id)) order.add(id);
                 }
             }
             // Safety: append any known ids missing from the stored order

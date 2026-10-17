@@ -119,11 +119,13 @@ public class TipsCarouselFragment extends BottomSheetDialogFragment {
 
     private void updateNavigationButtons() {
         btnPrevious.setEnabled(currentPosition > 0);
-        btnNext.setEnabled(currentPosition < tips.length - 1);
+        // Next stays tappable on the last page: it becomes "Done" (a disabled view never
+        // delivered that click)
+        btnNext.setEnabled(true);
         
         // Update button appearance for disabled state
         btnPrevious.setAlpha(currentPosition > 0 ? 1.0f : 0.3f);
-        btnNext.setAlpha(currentPosition < tips.length - 1 ? 1.0f : 0.3f);
+        btnNext.setAlpha(1.0f);
         
         // Update next button label for last page
         TextView nextLabel = getView().findViewById(R.id.btn_next_label);
