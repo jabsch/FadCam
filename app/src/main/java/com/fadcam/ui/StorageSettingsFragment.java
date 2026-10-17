@@ -231,6 +231,8 @@ public class StorageSettingsFragment extends Fragment {
         // method(sendStorageChangedBroadcast)-----------
         if (getContext() == null)
             return;
+        // Home's storage card would otherwise show the old volume for up to 30 s
+        com.fadcam.utils.StorageInfoCache.clearCache();
         try {
             Intent intent = new Intent(Constants.ACTION_STORAGE_LOCATION_CHANGED);
             requireContext().sendBroadcast(intent);

@@ -1120,6 +1120,10 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             thumbnailSize = isScrolling ? 100 : THUMBNAIL_SIZE;
         }
 
+        // A fling-sized frame must not become the cached copy: the settle rebind reads the
+        // cache first and would keep the blurry one for good
+        final boolean lowResRequest = isScrolling;
+
         // Create optimized request options with different strategies based on scrolling
         RequestOptions options = new RequestOptions()
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
@@ -1153,6 +1157,8 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                             holder.imageViewThumbnail.setImageBitmap(resource);
                             holder.imageViewThumbnail.setScaleType(ImageView.ScaleType.CENTER_CROP);
                         }
+
+                        if (lowResRequest) return;
 
                         // Cache the thumbnail for future use. A copy, since a rebind can
                         // hand this bitmap back to Glide's pool while it is compressed.

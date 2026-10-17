@@ -5704,6 +5704,8 @@ public class RecordingService extends Service {
         // stop-confirmed point (before any heavy cleanup that could throw), so
         // it works for widgets, tiles, shortcuts and background stops too.
         com.fadcam.Utils.vibrateRecordingStop(this);
+        // Home's storage card re-reads free space instead of showing the pre-recording figure
+        com.fadcam.utils.StorageInfoCache.clearCache();
         Intent broadcastIntent = new Intent(Constants.BROADCAST_ON_RECORDING_STOPPED);
         sendBroadcast(broadcastIntent);
         // QS tile: flip back to INACTIVE instantly (see broadcastOnRecordingStarted).

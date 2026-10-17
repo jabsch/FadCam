@@ -247,7 +247,7 @@ public class WatchRecordsFragment extends Fragment {
         try {
             final Uri uri = FileProvider.getUriForFile(
                     requireContext(),
-                    requireContext().getPackageName() + ".fileprovider",
+                    requireContext().getPackageName() + ".provider", // the manifest's authority
                     entry.file);
             final Intent intent = new Intent(Intent.ACTION_SEND);
             intent.setType("video/*");
@@ -256,6 +256,10 @@ public class WatchRecordsFragment extends Fragment {
             startActivity(Intent.createChooser(intent, entry.displayName));
         } catch (Exception e) {
             FLog.e(TAG, "Share failed", e);
+            if (isAdded()) {
+                android.widget.Toast.makeText(requireContext(), R.string.records_share_error,
+                        android.widget.Toast.LENGTH_SHORT).show();
+            }
         }
     }
     private void saveVideo(@NonNull RecordingEntry entry) {
