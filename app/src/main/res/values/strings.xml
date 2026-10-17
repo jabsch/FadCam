@@ -3454,4 +3454,5 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="video_setting_applies_next_recording">A recording is running. This change applies from the next recording.</string>
     <string name="video_split_min_size">Split size set to the minimum of %1$d MB</string>
     <string name="storage_time_unlimited">Unlimited</string>
+    <string name="home_logo_desc">App logo, privacy screen</string>
 </resources>
