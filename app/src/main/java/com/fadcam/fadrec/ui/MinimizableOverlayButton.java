@@ -115,7 +115,7 @@ public class MinimizableOverlayButton {
         // Setup window params
         int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                : WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+                : WindowManager.LayoutParams.TYPE_PHONE;
 
         layoutParams = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
