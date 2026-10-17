@@ -254,7 +254,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         TextView arrow = new TextView(requireContext());
         arrow.setTypeface(iconFont);
         arrow.setText("chevron_right");
-        arrow.setTextColor(0xFF555555);
+        arrow.setTextColor(0xFF9E9E9E); // gray500: #555 vanished on the dark row
         arrow.setTextSize(20);
         row.addView(arrow);
 
@@ -700,7 +700,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         TextView icon = new TextView(requireContext());
         icon.setTypeface(iconFont);
         icon.setText("videocam_off");
-        icon.setTextColor(0xFF555555);
+        icon.setTextColor(0xFF9E9E9E);
         icon.setTextSize(32);
         icon.setGravity(Gravity.CENTER);
         layout.addView(icon);

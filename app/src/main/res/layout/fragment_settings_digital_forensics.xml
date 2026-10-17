@@ -124,7 +124,7 @@
                         android:alpha="0.26"
                         android:scaleType="centerCrop"
                         android:src="@drawable/ic_photo"
-                        android:tint="#101010" />
+                        android:tint="@color/gray500" />
 
                     <View
                         android:id="@+id/forensics_preview_bbox"

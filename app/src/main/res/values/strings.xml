@@ -3351,4 +3351,5 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="annotation_toast_created">✨ Created: %1$s</string>
     <string name="annotation_toast_deleted">🗑️ Deleted: %1$s</string>
     <string name="faditor_select_segment_first">Select a segment first</string>
+    <string name="universal_retry">Retry</string>
 </resources>
