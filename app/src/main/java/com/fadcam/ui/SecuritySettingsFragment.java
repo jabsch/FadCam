@@ -146,7 +146,7 @@ public class SecuritySettingsFragment extends Fragment {
                             verifyPinThenExecute(() -> {
                                 AppLock appLock = AppLock.getInstance(requireContext());
                                 appLock.invalidateEnrollments();
-                                setAppLockEnabled(false);
+                                setAppLockEnabled(false, false);
                                 Toast.makeText(requireContext(), R.string.applock_pin_removed, Toast.LENGTH_SHORT).show();
                                 // Re-open sheet with updated state for clarity
                                 row_tab_lock_postRefreshOpen();

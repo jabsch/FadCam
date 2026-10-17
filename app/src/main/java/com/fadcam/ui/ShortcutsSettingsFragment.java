@@ -54,8 +54,6 @@ public class ShortcutsSettingsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         com.fadcam.Utils.attachPressScaleToClickableRows(view);
         super.onViewCreated(view, savedInstanceState);
-        // Init image picker for custom shortcut icons
-        initImagePicker();
         View back = view.findViewById(R.id.back_button);
         if (back != null) {
             back.setOnClickListener(v -> OverlayNavUtil.dismiss(requireActivity()));
@@ -717,6 +715,24 @@ public class ShortcutsSettingsFragment extends Fragment {
 
     private ActivityResultLauncher<String[]> imagePickerLauncher;
     private String pendingIconShortcutId;
+    private static final String STATE_PENDING_ICON_ID = "pending_icon_shortcut_id";
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // The gallery picker is fullscreen and the app may be killed meanwhile: keep the
+        // target shortcut and register the launcher once so the result still lands
+        if (savedInstanceState != null) {
+            pendingIconShortcutId = savedInstanceState.getString(STATE_PENDING_ICON_ID);
+        }
+        initImagePicker();
+    }
+
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString(STATE_PENDING_ICON_ID, pendingIconShortcutId);
+    }
 
     private void initImagePicker() {
         imagePickerLauncher = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
@@ -741,7 +757,8 @@ public class ShortcutsSettingsFragment extends Fragment {
                 if ("pin_widget".equals(selected)) {
                     // Delay to allow bottom sheet to dismiss completely before showing system
                     // dialog
-                    getView().postDelayed(() -> requestPinClockWidget(), 300);
+                    View root = getView();
+                    if (root != null) root.postDelayed(() -> { if (isAdded()) requestPinClockWidget(); }, 300);
                 } else if ("customize".equals(selected)) {
                     showCustomizeSheet();
                 }

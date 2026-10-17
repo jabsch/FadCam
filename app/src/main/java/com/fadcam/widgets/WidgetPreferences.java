@@ -60,7 +60,9 @@ public class WidgetPreferences {
     }
     
     public boolean showArabicDate() {
-        return prefs.getBoolean(KEY_SHOW_ARABIC, true);
+        // Arabic date needs java.time (API 26+); below that it would render an empty line
+        return android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O
+                && prefs.getBoolean(KEY_SHOW_ARABIC, true);
     }
     
     public void setShowArabicDate(boolean show) {
@@ -76,7 +78,9 @@ public class WidgetPreferences {
     }
     
     public String getArabicDateFormat() {
-        return prefs.getString(KEY_ARABIC_DATE_FORMAT, ARABIC_FORMAT_DEFAULT);
+        // "default" renders as FULL_ARABIC; return that id so the picker ticks it
+        String format = prefs.getString(KEY_ARABIC_DATE_FORMAT, ARABIC_FORMAT_DEFAULT);
+        return ARABIC_FORMAT_DEFAULT.equals(format) ? "FULL_ARABIC" : format;
     }
     
     public void setArabicDateFormat(String format) {

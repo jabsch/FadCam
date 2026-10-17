@@ -90,6 +90,11 @@ public class SettingsHomeFragment extends Fragment {
         com.fadcam.SharedPreferencesManager prefs = com.fadcam.SharedPreferencesManager.getInstance(requireContext());
         prefManager = prefs;
         prefListener = (sp, key) -> {
+            if (com.fadcam.Constants.PREF_DEBUG_DATA.equals(key)) {
+                // Debug logging is switched from its own sheet; keep this row in step
+                if (getView() != null) refreshAppInlineValues(getView());
+                return;
+            }
             if (!"show_trash_in_settings".equals(key)) return;
             boolean show = prefs.isShowTrashInSettings();
             FLog.d("TrashDebug", "prefListener fired: show=" + show);
