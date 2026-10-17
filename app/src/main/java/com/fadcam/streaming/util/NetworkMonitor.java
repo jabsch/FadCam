@@ -119,7 +119,7 @@ public class NetworkMonitor {
                     // Calculate speed (bytes/ms -> Mbps)
                     double bytesPerMs = (double) bytesDownloaded / durationMs;
                     double bitsPerSecond = bytesPerMs * 8 * 1000;
-                    double mbps = bitsPerSecond / (1024 * 1024);
+                    double mbps = bitsPerSecond / 1_000_000.0; // network Mbps are decimal
                     
                     // For streaming server, upload matters more
                     // Estimate upload as 60% of download (typical asymmetric ratio)

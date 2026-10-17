@@ -689,6 +689,9 @@ public class RemoteFragment extends BaseFragment {
                 if (serverUrlWithPort != null) {
                     String rootUrl = "http://" + serverUrlWithPort + "/";
                     rootUrlText.setText(rootUrl);
+                } else {
+                    // Running but no network address yet
+                    rootUrlText.setText("http://---.---.---.---:----/");
                 }
             }
         } else {
@@ -1219,7 +1222,7 @@ public class RemoteFragment extends BaseFragment {
             getString(R.string.remote_security_password_desc),
             android.R.drawable.ic_lock_idle_lock,
             helperText
-        );
+        ).withPasswordInput();
         
         sheet.setCallbacks(new InputActionBottomSheetFragment.Callbacks() {
             @Override
@@ -1252,6 +1255,8 @@ public class RemoteFragment extends BaseFragment {
                     return;
                 }
                 Toast.makeText(requireContext(), R.string.remote_security_password_set, Toast.LENGTH_SHORT).show();
+                // Input sheets don't close themselves; it stayed open showing the password
+                sheet.dismissAllowingStateLoss();
                 if (enableAuthWhenSet && remoteAuthToggle != null) {
                     // setChecked doesn't call the tap listener, so turn auth on here
                     authManager.setAuthEnabled(true);
@@ -1305,7 +1310,7 @@ public class RemoteFragment extends BaseFragment {
                 getString(R.string.e2e_encryption_setup_desc),
                 android.R.drawable.ic_lock_idle_lock,
                 getString(R.string.e2e_encryption_setup_desc)
-        );
+        ).withPasswordInput();
 
         sheet.setCallbacks(new InputActionBottomSheetFragment.Callbacks() {
             @Override public void onImportConfirmed(JSONObject json) {}
@@ -1314,19 +1319,21 @@ public class RemoteFragment extends BaseFragment {
             @Override
             public void onInputConfirmed(String password) {
                 if (password == null || password.trim().isEmpty()) {
-                    Toast.makeText(requireContext(),
-                            "Password cannot be empty", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(requireContext(), R.string.e2e_password_empty, Toast.LENGTH_SHORT).show();
                     return;
                 }
 
                 String userUuid = cloudAuthManager.getUserId();
                 if (userUuid == null || userUuid.isEmpty()) {
-                    Toast.makeText(requireContext(),
-                            "Link your FadSec ID account first", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(requireContext(), R.string.e2e_link_account_first, Toast.LENGTH_SHORT).show();
                     return;
                 }
+                sheet.dismissAllowingStateLoss();
 
-                // Fetch verify_tag and derive key on a background thread (PBKDF2 is slow)
+                // PBKDF2 is slow: the user can rotate or leave meanwhile, so results go
+                // through the app context and main handler, never getActivity()/requireContext()
+                final android.content.Context appCtx = requireContext().getApplicationContext();
+                final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
                 new Thread(() -> {
                     try {
                         // Use the verify_tag cached during device-link (set by CloudAccountActivity).
@@ -1334,42 +1341,28 @@ public class RemoteFragment extends BaseFragment {
                         String verifyTag = cloudAuthManager.getStoredE2EVerifyTag();
                         if (verifyTag == null) {
                             FLog.w(TAG, "No cached e2e_verify_tag — E2E not configured on dashboard, or device needs re-linking");
-                            if (getActivity() != null) {
-                                getActivity().runOnUiThread(() ->
-                                        Toast.makeText(requireContext(),
-                                                "Set up E2E encryption in the FadCam dashboard first, then re-link this device",
-                                                Toast.LENGTH_LONG).show());
-                            }
+                            main.post(() -> Toast.makeText(appCtx, R.string.e2e_setup_dashboard_first,
+                                    Toast.LENGTH_LONG).show());
                             return;
                         }
 
                         // Derive + verify + store (throws SecurityException on wrong password)
                         keyManager.initFromPassword(password.trim(), userUuid, verifyTag);
 
-                        if (getActivity() != null) {
-                            getActivity().runOnUiThread(() -> {
-                                updateE2EStatusLabel();
-                                Toast.makeText(requireContext(),
-                                        "E2E encryption configured", Toast.LENGTH_SHORT).show();
-                            });
-                        }
+                        main.post(() -> {
+                            if (isAdded()) updateE2EStatusLabel();
+                            Toast.makeText(appCtx, R.string.e2e_configured, Toast.LENGTH_SHORT).show();
+                        });
                     } catch (SecurityException e) {
                         // Wrong password — verify_tag mismatch
                         FLog.e(TAG, "E2E password incorrect: " + e.getMessage());
-                        if (getActivity() != null) {
-                            getActivity().runOnUiThread(() ->
-                                    Toast.makeText(requireContext(),
-                                            "Incorrect password — please try again",
-                                            Toast.LENGTH_LONG).show());
-                        }
+                        main.post(() -> Toast.makeText(appCtx, R.string.e2e_password_incorrect,
+                                Toast.LENGTH_LONG).show());
                     } catch (Exception e) {
                         FLog.e(TAG, "E2E key setup failed", e);
-                        if (getActivity() != null) {
-                            getActivity().runOnUiThread(() ->
-                                    Toast.makeText(requireContext(),
-                                            "Setup failed: " + e.getMessage(),
-                                            Toast.LENGTH_LONG).show());
-                        }
+                        main.post(() -> Toast.makeText(appCtx,
+                                appCtx.getString(R.string.e2e_setup_failed, String.valueOf(e.getMessage())),
+                                Toast.LENGTH_LONG).show());
                     }
                 }, "e2e-key-derive").start();
             }

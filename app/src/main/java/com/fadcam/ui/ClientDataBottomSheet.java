@@ -93,7 +93,10 @@ public class ClientDataBottomSheet extends BottomSheetDialogFragment {
             }
             
             List<ClientMetrics> clientMetrics = manager.getAllClientMetrics();
-            activeClientsText.setText(String.valueOf(clientMetrics.size()));
+            // The list keeps clients until the server restarts; count only the active ones
+            int active = 0;
+            for (ClientMetrics m : clientMetrics) if (m.isActive()) active++;
+            activeClientsText.setText(String.valueOf(active));
             
             if (clientMetrics.isEmpty()) {
                 recyclerView.setVisibility(View.GONE);
