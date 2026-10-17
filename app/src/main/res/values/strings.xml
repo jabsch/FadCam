@@ -3445,4 +3445,5 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="playback_time_left">%1$s left</string>
     <string name="playback_channel_name">Video playback</string>
     <string name="playback_channel_desc">Background media playback controls</string>
+    <string name="video_recording_voice_busy">Stop the voice recording first. Both can\'t use the microphone at once.</string>
 </resources>

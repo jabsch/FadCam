@@ -24,6 +24,10 @@ public class RecordingToggleActivity extends Activity {
             if (RecordingShortcutDispatcher.hasActiveSession(this)) {
                 FLog.i(TAG, "Toggle: stopping recording");
                 RecordingShortcutDispatcher.stop(this);
+            } else if (com.fadcam.services.VoiceRecordingService.isRecording()) {
+                // Both can't use the microphone at once; one file would come out silent
+                android.widget.Toast.makeText(this, R.string.video_recording_voice_busy,
+                        android.widget.Toast.LENGTH_LONG).show();
             } else {
                 FLog.i(TAG, "Toggle: starting recording");
                 RecordingShortcutDispatcher.start(this, RecordingStartActivity.CAMERA_MODE_CURRENT);

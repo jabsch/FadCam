@@ -21,6 +21,11 @@ public class RecordingStartActivity extends Activity {
                 Utils.showQuickToast(this, R.string.recording_already_active);
                 return;
             }
+            if (com.fadcam.services.VoiceRecordingService.isRecording()) {
+                // Both can't use the microphone at once; one file would come out silent
+                Toast.makeText(this, R.string.video_recording_voice_busy, Toast.LENGTH_LONG).show();
+                return;
+            }
             String mode = getIntent() != null
                     ? getIntent().getStringExtra(EXTRA_SHORTCUT_CAMERA_MODE)
                     : null;

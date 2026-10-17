@@ -62,9 +62,16 @@ public class TorchService extends Service {
             SharedPreferencesManager sharedPreferencesManager = SharedPreferencesManager.getInstance(this);
             
             // If recording is in progress, delegate to RecordingService
-            if (sharedPreferencesManager.isRecordingInProgress()) {
-                FLog.d(TAG, "Recording is in progress, delegating torch toggle to RecordingService");
-                Intent intent = new Intent(this, RecordingService.class);
+            // hasActiveSession drops a flag left by a killed process; the raw flag is also set by
+            // dual recordings, which own the camera themselves
+            if (com.fadcam.RecordingShortcutDispatcher.hasActiveSession(this)) {
+                boolean dual = com.fadcam.utils.ServiceUtils.isServiceRunningInForeground(this,
+                        com.fadcam.dualcam.service.DualCameraRecordingService.class);
+                FLog.d(TAG, "Recording is in progress, delegating torch toggle to "
+                        + (dual ? "DualCameraRecordingService" : "RecordingService"));
+                Intent intent = new Intent(this, dual
+                        ? com.fadcam.dualcam.service.DualCameraRecordingService.class
+                        : RecordingService.class);
                 intent.setAction(Constants.INTENT_ACTION_TOGGLE_RECORDING_TORCH);
                 startService(intent);
                 // onStartCommand put up a "Toggling torch…" foreground
@@ -83,6 +90,9 @@ public class TorchService extends Service {
 
             // Check if "both torches" option is enabled
             boolean bothTorchesEnabled = sharedPreferences.getBoolean(Constants.PREF_BOTH_TORCHES_ENABLED, false);
+            // Whether any torch actually changed: a busy camera (preview, another app) throws,
+            // and reporting "on" anyway left a dark torch and a stale "Torch on" notification
+            boolean anyToggled = false;
 
             if (bothTorchesEnabled) {
                 FLog.d(TAG, "Both torches mode enabled");
@@ -94,6 +104,7 @@ public class TorchService extends Service {
                         try {
                             FLog.d(TAG, "Toggling torch for camera: " + cameraId);
                             cameraManager.setTorchMode(cameraId, newState);
+                            anyToggled = true;
                         } catch (Exception e) {
                             FLog.e(TAG, "Error toggling torch for camera " + cameraId + ": " + e.getMessage());
                         }
@@ -152,6 +163,7 @@ public class TorchService extends Service {
                 if (selectedTorchSource != null) {
                     try {
                         cameraManager.setTorchMode(selectedTorchSource, newState);
+                        anyToggled = true;
                         FLog.d(TAG, "Torch toggled for camera: " + selectedTorchSource + ", new state: " + newState);
                     } catch (Exception e) {
                         FLog.e(TAG, "Error toggling torch for selected source: " + e.getMessage());
@@ -159,6 +171,15 @@ public class TorchService extends Service {
                 } else {
                     FLog.w(TAG, "No torch source selected or found");
                 }
+            }
+
+            if (!anyToggled && newState) {
+                FLog.w(TAG, "Torch did not turn on; keeping it reported as off");
+                new Handler(Looper.getMainLooper()).post(() ->
+                        android.widget.Toast.makeText(getApplicationContext(),
+                                R.string.torch_unavailable, android.widget.Toast.LENGTH_SHORT).show());
+                manageServiceNotification(isTorchOn.get());
+                return;
             }
 
             // Update state and UI regardless of mode
