@@ -8121,8 +8121,10 @@ public class RecordingService extends Service {
         try {
             if (ActivityCompat.checkSelfPermission(this,
                     Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ||
-                    ActivityCompat.checkSelfPermission(this,
-                            Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    (sharedPreferencesManager.isRecordAudioEnabled()
+                            && ActivityCompat.checkSelfPermission(this,
+                            Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)) {
+                // The mic is only needed when Record audio is on
                 FLog.e(TAG, "Permissions missing, cannot start recording.");
                 Toast.makeText(this, getString(R.string.toast_permissions_required), Toast.LENGTH_LONG).show();
                 recordingState = RecordingState.NONE;
