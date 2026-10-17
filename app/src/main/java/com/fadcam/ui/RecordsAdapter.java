@@ -391,7 +391,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             return;
         }
         final Uri videoUri = videoItem.uri;
-        final String displayName = videoItem.displayName != null ? videoItem.displayName : "Unnamed Video";
+        final String displayName = videoItem.displayName != null ? videoItem.displayName : context.getString(R.string.video_info_unknown);
         final String uriString = videoUri.toString();
         final boolean isImage = videoItem.mediaType == VideoItem.MediaType.IMAGE;
 
@@ -1400,9 +1400,15 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 continue;
             if (uriStr.equals(it.uri == null ? null : it.uri.toString()))
                 return i;
-            // tolerate filename fallback keys (may be stored as plain filenames)
-            String fn = getFileName(it.uri);
-            if (fn != null && fn.equals(uriStr))
+        }
+        // Tolerate filename fallback keys (may be stored as plain filenames). Uses the
+        // cached display name: a ContentResolver query per row froze the player on
+        // custom folders, since this runs on the main thread for every seek.
+        for (int i = 0; i < entries.size(); i++) {
+            Object entry = entries.get(i);
+            if (!(entry instanceof VideoItemEntry)) continue;
+            VideoItem it = ((VideoItemEntry) entry).item;
+            if (it != null && uriStr.equals(it.displayName))
                 return i;
         }
         return -1;
@@ -1909,7 +1915,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                         finalNewUri,
                         appliedName, // the card showed the requested name even when a suffix was added
                         videoItem.size,
-                        System.currentTimeMillis(),
+                        videoItem.lastModified, // a rename keeps the file's date and month group
                         videoItem.category,
                         videoItem.mediaType,
                         videoItem.shotSubtype,
@@ -1978,10 +1984,11 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         }
 
         if (recordsIndex >= 0 && recordsIndex < records.size()) {
+            int oldEntryCount = entries == null ? -1 : entries.size();
             records.set(recordsIndex, updatedItem);
             entries = buildEntries(records);
             updateSelectionUri(originalItem.uri, updatedItem.uri);
-            if (entryIndex >= 0 && entryIndex < entries.size()) {
+            if (entryIndex >= 0 && entryIndex < entries.size() && entries.size() == oldEntryCount) {
                 notifyItemChanged(entryIndex);
             } else {
                 notifyDataSetChanged();
@@ -2228,7 +2235,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                                     .setType("video/*")
                                     .putExtra(Intent.EXTRA_STREAM, shareUri)
                                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
-                            "Upload to YouTube");
+                            context.getString(R.string.video_menu_upload_youtube));
                     context.startActivity(chooserIntent);
                 }
             }
@@ -2243,7 +2250,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                                 .setType("video/*")
                                 .putExtra(Intent.EXTRA_STREAM, shareUri)
                                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
-                        "Upload to YouTube");
+                        context.getString(R.string.video_menu_upload_youtube));
                 context.startActivity(chooserIntent);
             } catch (Exception ex) {
                 FLog.e(TAG, "Error with fallback share: " + ex.getMessage(), ex);
@@ -2297,7 +2304,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                                     .setType("video/*")
                                     .getIntent()
                                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
-                            "Upload to Drive");
+                            context.getString(R.string.video_menu_upload_drive));
                     context.startActivity(chooserIntent);
                 }
             }
@@ -2312,7 +2319,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                                 .setType("video/*")
                                 .putExtra(Intent.EXTRA_STREAM, shareUri)
                                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
-                        "Upload to Drive");
+                        context.getString(R.string.video_menu_upload_drive));
                 context.startActivity(chooserIntent);
             } catch (Exception ex) {
                 FLog.e(TAG, "Error with fallback share: " + ex.getMessage(), ex);
