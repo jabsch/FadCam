@@ -94,7 +94,10 @@ public final class PlayerHolder {
             // Create player with audio attributes set in builder
             // This is critical - setting audio attrs after build may not work on all devices
             player = new ExoPlayer.Builder(appContext)
-                    .setAudioAttributes(audioAttrs, /* handleAudioFocus= */ false)
+                    // ExoPlayer requests and abandons focus itself, so music apps resume
+                    // after the video stops and a call pauses playback
+                    .setAudioAttributes(audioAttrs, /* handleAudioFocus= */ true)
+                    .setHandleAudioBecomingNoisy(true) // pause when headphones are unplugged
                     .setLoadControl(loadControl)
                     .setSeekBackIncrementMs(10000) // 10 second seek back
                     .setSeekForwardIncrementMs(10000) // 10 second seek forward
@@ -102,9 +105,6 @@ public final class PlayerHolder {
             
             // Use CLOSEST_SYNC for fast seeking to nearest keyframe
             player.setSeekParameters(SeekParameters.CLOSEST_SYNC);
-            
-            // Force set audio attributes again after creation
-            player.setAudioAttributes(audioAttrs, false);
             
             // Explicitly set volume to 1.0
             player.setVolume(1.0f);
@@ -119,15 +119,12 @@ public final class PlayerHolder {
                 boolean musicActive = am.isMusicActive();
                 FLog.i(TAG, "AudioManager state: MUSIC=" + musicVol + "/" + musicMax + 
                           ", mode=" + mode + ", speakerOn=" + speakerOn + ", musicActive=" + musicActive);
-                
-                // Request audio focus manually 
-                int result = am.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
-                FLog.i(TAG, "Manual audio focus request result: " + (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED ? "GRANTED" : "FAILED"));
+
             } catch (Exception e) {
                 FLog.w(TAG, "Could not log AudioManager state", e);
             }
             
-            FLog.d(TAG, "ExoPlayer created with audio attributes, volume=1.0, audioFocus=false");
+            FLog.d(TAG, "ExoPlayer created with audio attributes, volume=1.0, audioFocus=true");
             
             // Add comprehensive analytics listener for debugging audio issues
             player.addAnalyticsListener(new AnalyticsListener() {

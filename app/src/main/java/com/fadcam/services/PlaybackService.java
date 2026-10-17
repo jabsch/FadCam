@@ -72,12 +72,31 @@ public class PlaybackService extends Service {
     // Millis timestamp when the auto-stop alarm is scheduled (0 when none)
     private long autoStopTriggerAtMs = 0L;
 
+    // Shows the finished state when the video reaches its end, and lets the
+    // notification be swiped away instead of staying pinned as "playing".
+    private final Player.Listener endedListener =
+            new Player.Listener() {
+        @Override
+        public void onPlaybackStateChanged(int state) {
+            if (state != Player.STATE_ENDED) return;
+            stopProgressUpdates();
+            cancelAutoStop();
+            buildAndShowNotification();
+            try { com.fadcam.Utils.stopForegroundCompat(PlaybackService.this, false); } catch (Exception ignored) {}
+            isForeground = false;
+        }
+    };
+
     private static final String AUTO_STOP_ALARM_ACTION = "com.fadcam.action.AUTO_STOP_ALARM";
     private String videoTitle = ""; // Store the video filename/title
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null) return START_NOT_STICKY;
+        if (intent == null) {
+            // Sticky restart after the process died: nothing to play, so don't linger
+            stopSelf();
+            return START_NOT_STICKY;
+        }
         String action = intent.getAction();
         if (ACTION_STOP.equals(action)) {
             // Make sure to stop playback first, then clean up
@@ -137,6 +156,8 @@ public class PlaybackService extends Service {
         try {
             PlayerHolder holder = PlayerHolder.getInstance();
             player = holder.getOrCreate(this);
+            player.removeListener(endedListener);
+            player.addListener(endedListener);
             player.setAudioAttributes(new AudioAttributes.Builder()
                     .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
                     .setUsage(C.USAGE_MEDIA)
@@ -224,6 +245,9 @@ public class PlaybackService extends Service {
                 stopProgressUpdates();
                 cancelAutoStop();
             } else {
+                if (player.getPlaybackState() == ExoPlayer.STATE_ENDED) {
+                    player.seekTo(0); // play from the start again
+                }
                 player.play();
                 startProgressUpdates();
                 scheduleAutoStopIfNeeded();
@@ -477,6 +501,9 @@ public class PlaybackService extends Service {
     public void onDestroy() {
         stopProgressUpdates();
         cancelAutoStop();
+        if (player != null) {
+            try { player.removeListener(endedListener); } catch (Exception ignored) {}
+        }
         // Make sure playback is stopped when service is destroyed
         if (player != null) {
             try {

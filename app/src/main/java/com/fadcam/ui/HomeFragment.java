@@ -7627,15 +7627,12 @@ public class HomeFragment extends BaseFragment {
             FLog.d(TAG, "resumeUpdateHandlers: Clock handler resumed");
         }
 
-        if (isRecording() || isPaused()) {
+        if (isRecordingSessionActive()) {
 
             // Resume storage + stats updates
             if (!infoUpdatesRunning) {
                 if (updateInfoRunnable == null) {
-        startUpdatingInfo();
-        
-        // Hide paused overlay with fade-out
-        hidePausedOverlay();
+                    startUpdatingInfo();
                 } else {
                     infoUpdatesRunning = true;
                     handlerClock.post(updateInfoRunnable);
