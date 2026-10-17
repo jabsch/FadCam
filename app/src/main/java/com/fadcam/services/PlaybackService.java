@@ -470,6 +470,18 @@ public class PlaybackService extends Service {
                 .setOnlyAlertOnce(true) // Prevent sounds on updates
                 .setSilent(true) // Ensure updates are silent
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
+        // With Tab Lock on, the lock screen showed the recording's name and the tap opened
+        // the player with no PIN. Hide the title there and send the tap through Records.
+        final boolean appLocked = com.fadcam.SharedPreferencesManager.getInstance(this).isAppLockEnabled();
+        if (appLocked) {
+            nb.setVisibility(NotificationCompat.VISIBILITY_PRIVATE);
+            nb.setPublicVersion(new NotificationCompat.Builder(ctx, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_stat_playback)
+                    .setContentTitle(getString(R.string.app_name))
+                    .setContentText(playing ? getString(R.string.universal_playing) : getString(R.string.universal_paused))
+                    .setSilent(true)
+                    .build());
+        }
                 
         // Add media control actions
         nb.addAction(R.drawable.ic_fast_rewind_24, getString(R.string.universal_rewind), rewindIntent); // Rewind button
@@ -490,8 +502,15 @@ public class PlaybackService extends Service {
             nb.setShowWhen(false); // Hide timestamp since we're showing our own progress
         }
 
-        Intent open = new Intent(this, VideoPlayerActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        if (playingUri != null) open.setData(playingUri);
+        Intent open;
+        if (appLocked) {
+            open = new Intent(this, com.fadcam.MainActivity.class)
+                    .setAction(com.fadcam.Constants.ACTION_SHOW_RECORDS)
+                    .setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        } else {
+            open = new Intent(this, VideoPlayerActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            if (playingUri != null) open.setData(playingUri);
+        }
         PendingIntent openPi = PendingIntent.getActivity(this, 2, open, flags);
         nb.setContentIntent(openPi);
 
