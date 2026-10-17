@@ -34,6 +34,7 @@ public class SecuritySettingsFragment extends Fragment {
     private TextView valueTabLock;
     private TextView valueCloakRecents;
     private TextView valuePrivacyBlackMode;
+    private TextView valueExternalTriggers;
     private Boolean pendingToggleDesiredState; // track attempted switch state for rollback on cancel
 
     @Nullable
@@ -50,6 +51,8 @@ public class SecuritySettingsFragment extends Fragment {
         valueTabLock = view.findViewById(R.id.value_tab_lock_status);
     valueCloakRecents = view.findViewById(R.id.value_cloak_recents_status);
         valuePrivacyBlackMode = view.findViewById(R.id.value_privacy_black_status);
+        valueExternalTriggers = view.findViewById(R.id.value_external_triggers_status);
+        refreshExternalTriggersValue();
         refreshAppLockValue();
     refreshCloakRecentsValue();
         refreshPrivacyBlackModeValue();
@@ -73,6 +76,34 @@ public class SecuritySettingsFragment extends Fragment {
         View rowPrivacyBlack = view.findViewById(R.id.row_privacy_black);
         if (rowPrivacyBlack != null) {
             rowPrivacyBlack.setOnClickListener(v -> showPrivacyBlackConfig());
+        }
+        View rowExternalTriggers = view.findViewById(R.id.row_external_triggers);
+        if (rowExternalTriggers != null) {
+            rowExternalTriggers.setOnClickListener(v -> showExternalTriggersConfig());
+        }
+    }
+
+    private void refreshExternalTriggersValue() {
+        if (valueExternalTriggers != null) {
+            boolean allowed = sharedPreferencesManager.isExternalTriggersAllowed();
+            valueExternalTriggers.setText(allowed ? getString(R.string.universal_enabled) : getString(R.string.universal_disabled));
+        }
+    }
+
+    private void showExternalTriggersConfig() {
+        com.fadcam.ui.picker.PickerBottomSheetFragment sheet = com.fadcam.ui.picker.PickerBottomSheetFragment
+                .newInstanceWithSwitch(getString(R.string.external_triggers_title), new java.util.ArrayList<>(), null,
+                        "external_triggers_sheet_result", getString(R.string.external_triggers_helper),
+                        getString(R.string.external_triggers_switch), sharedPreferencesManager.isExternalTriggersAllowed());
+        sheet.show(getParentFragmentManager(), "external_triggers_sheet");
+    }
+
+    private void onExternalTriggersSheetResult(@NonNull Bundle bundle) {
+        if (bundle.containsKey(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE)) {
+            boolean allowed = bundle.getBoolean(com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SWITCH_STATE);
+            sharedPreferencesManager.setExternalTriggersAllowed(allowed);
+            refreshExternalTriggersValue();
+            Toast.makeText(requireContext(), allowed ? R.string.setting_enabled_msg : R.string.setting_disabled_msg, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -210,6 +241,7 @@ public class SecuritySettingsFragment extends Fragment {
         androidx.fragment.app.FragmentManager fm = getParentFragmentManager();
         fm.setFragmentResultListener("applock_sheet_result", getViewLifecycleOwner(), (requestKey, bundle) -> onAppLockSheetResult(bundle));
         fm.setFragmentResultListener("cloak_recents_sheet_result", getViewLifecycleOwner(), (requestKey, bundle) -> onCloakSheetResult(bundle));
+        fm.setFragmentResultListener("external_triggers_sheet_result", getViewLifecycleOwner(), (requestKey, bundle) -> onExternalTriggersSheetResult(bundle));
         fm.setFragmentResultListener("privacy_black_sheet_result", getViewLifecycleOwner(), (requestKey, bundle) -> onPrivacyBlackSheetResult(bundle));
         fm.setFragmentResultListener("privacy_black_gestures_result", getViewLifecycleOwner(), (requestKey, bundle) -> onPrivacyBlackGesturesResult(bundle));
     }

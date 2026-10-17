@@ -1650,6 +1650,17 @@ public class SharedPreferencesManager {
     }
 
     /** Enables or disables cloaking the recents snapshot. */
+    public static final String PREF_EXTERNAL_TRIGGERS_ALLOWED = "external_triggers_allowed";
+
+    /** Settings > Security: whether other apps (Tasker, adb) may fire the trigger shortcuts. */
+    public boolean isExternalTriggersAllowed() {
+        return safeGetBoolean(PREF_EXTERNAL_TRIGGERS_ALLOWED, true);
+    }
+
+    public void setExternalTriggersAllowed(boolean allowed) {
+        sharedPreferences.edit().putBoolean(PREF_EXTERNAL_TRIGGERS_ALLOWED, allowed).apply();
+    }
+
     public void setCloakRecentsEnabled(boolean enabled) {
         sharedPreferences
             .edit()

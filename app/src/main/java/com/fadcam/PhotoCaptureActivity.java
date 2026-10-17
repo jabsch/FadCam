@@ -65,6 +65,10 @@ public class PhotoCaptureActivity extends ComponentActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (!ExternalTriggerGate.allows(this)) {
+            finish();
+            return;
+        }
         launchedFromShortcut = Intent.ACTION_VIEW.equals(getIntent() != null ? getIntent().getAction() : null);
         try {
             com.fadcam.Utils.overridePendingTransitionCompat(this, 0, 0);

@@ -17,6 +17,10 @@ public class ScreenShotCaptureActivity extends ComponentActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (!ExternalTriggerGate.allows(this)) {
+            finish();
+            return;
+        }
         FLog.d(TAG, "onCreate: screenshot shortcut invoked");
 
         try {

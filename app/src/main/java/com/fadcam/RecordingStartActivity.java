@@ -15,6 +15,10 @@ public class RecordingStartActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (!ExternalTriggerGate.allows(this)) {
+            finishWithoutUi(this);
+            return;
+        }
 
         try {
             if (RecordingShortcutDispatcher.hasActiveSession(this)) {
