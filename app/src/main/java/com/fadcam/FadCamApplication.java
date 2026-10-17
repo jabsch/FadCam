@@ -42,11 +42,14 @@ public class FadCamApplication extends Application implements DefaultLifecycleOb
             @Override
             public void onActivityResumed(@androidx.annotation.NonNull android.app.Activity activity) {
                 com.fadcam.utils.DisplayRefreshMode.apply(activity);
+                applyCloak(activity);
             }
 
             @Override
             public void onActivityCreated(@androidx.annotation.NonNull android.app.Activity activity,
-                    @androidx.annotation.Nullable android.os.Bundle savedInstanceState) {}
+                    @androidx.annotation.Nullable android.os.Bundle savedInstanceState) {
+                applyCloak(activity);
+            }
 
             @Override
             public void onActivityStarted(@androidx.annotation.NonNull android.app.Activity activity) {}
@@ -70,6 +73,31 @@ public class FadCamApplication extends Application implements DefaultLifecycleOb
         // still catches post-kill index writes (invocation is on Room's own
         // background invalidation thread either way).
         new Thread(this::registerSelfHealingScanObserver, "selfheal-observer").start();
+    }
+
+    /**
+     * Settings > Security > Cloak Recents for every screen but MainActivity, which applies
+     * it itself. Only MainActivity had it, so the video player, image viewer and editor
+     * showed footage in Recents and allowed screenshots. FadRec's overlay editors are left
+     * out: a secure window over the screen would black out the screen recording itself.
+     */
+    private static void applyCloak(@androidx.annotation.NonNull android.app.Activity activity) {
+        if (activity instanceof MainActivity || activity.getClass().getName().startsWith("com.fadcam.fadrec.")) {
+            return;
+        }
+        try {
+            boolean cloak = SharedPreferencesManager.getInstance(activity).isCloakRecentsEnabled();
+            if (android.os.Build.VERSION.SDK_INT >= 34) {
+                activity.setRecentsScreenshotEnabled(!cloak);
+            }
+            if (cloak) {
+                activity.getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+            } else {
+                activity.getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE);
+            }
+        } catch (Throwable t) {
+            FLog.w("Cloak", "apply failed for " + activity.getClass().getSimpleName(), t);
+        }
     }
 
     /**
