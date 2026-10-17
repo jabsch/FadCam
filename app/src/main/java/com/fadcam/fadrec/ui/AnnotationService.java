@@ -3535,6 +3535,13 @@ public class AnnotationService extends Service {
                     }
                 }
                 
+                // The edited text is hidden while the editor is open; Back left it hidden for good
+                if (resultCode == BaseTransparentEditorActivity.RESULT_CANCELLED
+                        && currentEditingTextObject != null && annotationView != null) {
+                    currentEditingTextObject.setVisible(true);
+                    annotationView.notifyStateChangedWithRedraw();
+                }
+
                 // Clear editing reference and show toolbar
                 currentEditingTextObject = null;
                 showToolbar();

@@ -39,10 +39,17 @@ public class PrivacyBlackActivity extends Activity {
         View blackView = new View(this);
         blackView.setBackgroundColor(0xFF000000); // Solid black
         
-        // Enable immersive mode
+        setContentView(blackView);
+
+        // Immersive mode after setContentView: before it the view had no window, so the
+        // insets controller was null and the navigation bar stayed visible
         com.fadcam.util.SystemBarUtil.hideSystemBars(blackView);
 
-        setContentView(blackView);
+        // A recording that stops on its own (time limit, full storage, notification)
+        // left this screen up, keeping the display on with nothing recording
+        androidx.core.content.ContextCompat.registerReceiver(this, recordingStoppedReceiver,
+                new android.content.IntentFilter(com.fadcam.Constants.BROADCAST_ON_RECORDING_STOPPED),
+                androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
 
         // Toast letting user know how to exit
         Toast.makeText(this, getString(com.fadcam.R.string.privacy_black_mode_enabled_toast), Toast.LENGTH_SHORT).show();
@@ -82,6 +89,23 @@ public class PrivacyBlackActivity extends Activity {
     }
 
 
+
+    private final android.content.BroadcastReceiver recordingStoppedReceiver = new android.content.BroadcastReceiver() {
+        @Override
+        public void onReceive(android.content.Context context, android.content.Intent intent) {
+            if (!isFinishing()) exitPrivacyMode();
+        }
+    };
+
+    @Override
+    protected void onDestroy() {
+        try {
+            unregisterReceiver(recordingStoppedReceiver);
+        } catch (IllegalArgumentException ignored) {
+        }
+        handler.removeCallbacksAndMessages(null);
+        super.onDestroy();
+    }
 
     private void exitPrivacyMode() {
         Toast.makeText(this, getString(com.fadcam.R.string.privacy_black_mode_disabled_toast), Toast.LENGTH_SHORT).show();
