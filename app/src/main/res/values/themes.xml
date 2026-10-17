@@ -171,7 +171,7 @@
         <item name="android:textColor">@color/amoled_text_primary</item>
     </style>
 
-    <style name="Theme.FadCam.Red" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.FadCam.Red" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorTopBar">@color/red_theme_primary_variant</item>
         <item name="colorBottomNav">@color/red_theme_primary_variant</item>
         <item name="colorHeading">@color/red_theme_primary</item>
@@ -263,7 +263,7 @@
         <item name="trackTint">@color/switch_track</item>
     </style>
 
-    <style name="Theme.FadCam.Gold" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.FadCam.Gold" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorTopBar">@color/gold_theme_primary_variant</item>
         <item name="colorBottomNav">@color/gold_theme_primary_variant</item>
         <item name="colorHeading">@color/gold_theme_primary</item>
@@ -349,7 +349,7 @@
         <item name="android:textColor">@color/white</item>
     </style>
 
-    <style name="Theme.FadCam.SilentForest" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.FadCam.SilentForest" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorTopBar">@color/silentforest_theme_primary_variant</item>
         <item name="colorBottomNav">@color/silentforest_theme_primary_variant</item>
         <item name="colorHeading">@color/silentforest_theme_primary</item>
@@ -435,7 +435,7 @@
         <item name="android:textColor">@color/white</item>
     </style>
 
-    <style name="Theme.FadCam.ShadowAlloy" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.FadCam.ShadowAlloy" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorTopBar">@color/shadowalloy_theme_primary_variant</item>
         <item name="colorBottomNav">@color/shadowalloy_theme_primary_variant</item>
         <item name="colorHeading">@color/shadowalloy_theme_primary</item>
@@ -521,7 +521,7 @@
         <item name="android:textColor">@color/white</item>
     </style>
 
-    <style name="Theme.FadCam.PookiePink" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.FadCam.PookiePink" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorTopBar">@color/pookiepink_theme_primary_variant</item>
         <item name="colorBottomNav">@color/pookiepink_theme_primary_variant</item>
         <item name="colorHeading">@color/pookiepink_theme_primary</item>
