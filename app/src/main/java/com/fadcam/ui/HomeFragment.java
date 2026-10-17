@@ -12378,16 +12378,15 @@ public class HomeFragment extends BaseFragment {
         if (isRecordingOrPaused()) {
             // If recording is in progress, show a confirmation dialog
             new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Recording in Progress")
-                .setMessage("Do you want to stop recording and exit?")
-                .setPositiveButton("Stop and Exit", (dialog, which) -> {
+                .setTitle(R.string.home_back_recording_title)
+                .setMessage(R.string.home_back_recording_message)
+                .setPositiveButton(R.string.home_back_recording_stop_exit, (dialog, which) -> {
                     stopRecording();
-                    // Allow normal back behavior after stopping recording
-                    requireActivity()
-                        .getOnBackPressedDispatcher()
-                        .onBackPressed();
+                    // Exit directly: re-dispatching back would hit this dialog again while the
+                    // stop is still in flight, or only show "press back again to exit"
+                    if (getActivity() != null) getActivity().finish();
                 })
-                .setNegativeButton("Continue Recording", null)
+                .setNegativeButton(R.string.home_back_recording_continue, null)
                 .show();
             return true; // We handled the back press
         }

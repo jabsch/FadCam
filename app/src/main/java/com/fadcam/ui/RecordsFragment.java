@@ -1700,20 +1700,7 @@ public class RecordsFragment extends BaseFragment implements
                     });
         }
 
-        // --- Back Press Handling ---
-        requireActivity().getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                if (isInSelectionMode)
-                    exitSelectionMode();
-                else {
-                    if (isEnabled()) {
-                        setEnabled(false);
-                        requireActivity().getOnBackPressedDispatcher().onBackPressed();
-                    }
-                }
-            }
-        });
+        // Back press (search, selection mode) is handled by onBackPressed() via BaseFragment
         // *** Other initialization code specific to the fragment's creation ***
         // (like setting arguments, retaining instance, etc., if applicable)
     }

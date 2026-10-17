@@ -409,7 +409,7 @@ public class MotionLabSettingsFragment extends Fragment {
 
     private void handleBack() {
         if (getActivity() != null) {
-            OverlayNavUtil.dismiss(requireActivity());
+            OverlayNavUtil.popLevel(requireActivity()); // back to Advanced, not all the way out
         }
     }
 

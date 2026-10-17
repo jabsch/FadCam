@@ -44,6 +44,12 @@ public final class OverlayNavUtil {
         final int beforeBackStackCount = activity.getSupportFragmentManager().getBackStackEntryCount();
         // Fragment container doesn't use swipe gestures, no need to re-enable input
         container.animate().alpha(0f).setDuration(160).withEndAction(() -> {
+            // Home/Recents or a recreate inside the 160 ms fade: popBackStack() would throw
+            androidx.fragment.app.FragmentManager endFm = activity.getSupportFragmentManager();
+            if (activity.isFinishing() || endFm.isDestroyed() || endFm.isStateSaved()) {
+                container.setAlpha(1f);
+                return;
+            }
             androidx.fragment.app.Fragment currentTop = activity.getSupportFragmentManager()
                     .findFragmentById(R.id.overlay_fragment_container);
             boolean sameInstance = currentTop == beforeTop; // instance equality

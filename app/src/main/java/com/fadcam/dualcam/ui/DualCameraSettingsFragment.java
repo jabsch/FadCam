@@ -99,7 +99,7 @@ public class DualCameraSettingsFragment extends Fragment {
 
         View back = view.findViewById(R.id.back_button);
         if (back != null) {
-            back.setOnClickListener(v -> OverlayNavUtil.dismiss(requireActivity()));
+            back.setOnClickListener(v -> OverlayNavUtil.popLevel(requireActivity())); // back to Video settings
         }
     }
 
