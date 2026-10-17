@@ -4169,7 +4169,8 @@
                 { method: 'POST', path: '/audio/volume', desc: 'Set device volume level (accepts "volume" 0-15 or "percentage" 0-100)' },
                 { method: 'POST', path: '/alarm/ring', desc: 'Ring security alarm/buzzer with specified sound and duration' },
                 { method: 'POST', path: '/alarm/stop', desc: 'Stop ringing security alarm' },
-                { method: 'POST', path: '/alarm/schedule', desc: 'Schedule alarm for future time' }
+                { method: 'POST', path: '/alarm/schedule', desc: 'Schedule alarm for future time' },
+                { method: 'POST', path: '/alarm/schedule/cancel', desc: 'Cancel the scheduled alarm' }
             ];
             
             let endpointsHtml = `
@@ -4563,6 +4564,28 @@
         function cancelScheduledAlarm() {
             if (!alarmScheduled) return;
 
+            // The phone holds the real alarm; cancel it there first
+            fetch('/alarm/schedule/cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authService.getAuthHeaders() },
+                body: '{}'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    clearScheduledAlarmUi();
+                    showToast('❌ Scheduled alarm cancelled', 2000);
+                } else {
+                    showToast('Error: ' + data.message, 3000);
+                }
+            })
+            .catch(error => {
+                console.error('Error cancelling scheduled alarm:', error);
+                showToast('Failed to cancel alarm', 3000);
+            });
+        }
+
+        function clearScheduledAlarmUi() {
             // Clear schedule from memory
             alarmScheduled = null;
             localStorage.removeItem('scheduledAlarm');
@@ -4580,8 +4603,6 @@
             document.getElementById('scheduleSetBtn').style.opacity = '1';
             document.getElementById('scheduleCancelBtn').disabled = true;
             document.getElementById('scheduleCancelBtn').style.opacity = '0.5';
-
-            showToast('❌ Scheduled alarm cancelled', 2000);
         }
 
         /**
@@ -4619,30 +4640,11 @@
                 cancelBtn.style.opacity = '0.5';
             }
 
-            fetch('/alarm/ring', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...authService.getAuthHeaders() },
-                body: JSON.stringify({
-                    sound: soundFile,
-                    duration_ms: durationMs
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    showToast('⏰ Scheduled alarm triggered!', 3000);
-                    // Clear scheduled alarm from memory
-                    alarmScheduled = null;
-                    localStorage.removeItem('scheduledAlarm');
-                } else {
-                    console.error('Error triggering scheduled alarm:', data.message);
-                    showToast('Error triggering alarm', 3000);
-                }
-            })
-            .catch(error => {
-                console.error('Error triggering scheduled alarm:', error);
-                showToast('Failed to trigger alarm', 3000);
-            });
+            // The phone's own AlarmManager rings it; posting /alarm/ring here too
+            // started it a second time
+            showToast('⏰ Scheduled alarm triggered!', 3000);
+            alarmScheduled = null;
+            localStorage.removeItem('scheduledAlarm');
         }
         
         /**

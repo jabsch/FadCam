@@ -307,7 +307,7 @@ public class PhotoCaptureActivity extends ComponentActivity {
                                          org.osmdroid.util.GeoPoint liveLocation,
                                          android.location.Location rawFix) {
         try {
-            if (prefs.isSpeedEnabled() || prefs.isAltitudeEnabled() || prefs.isCompassEnabled()) {
+            if (prefs.isSpeedEnabled() || prefs.isAltitudeEnabled() || prefs.isAccuracyEnabled() || prefs.isCompassEnabled()) {
                 com.fadcam.sensors.SensorDataProvider sdp = com.fadcam.sensors.SensorDataProvider.getInstance(getApplicationContext());
                 sdp.start(null);
                 // Feed the REAL fix (carries speed/altitude from GPS) into the
@@ -319,6 +319,8 @@ public class PhotoCaptureActivity extends ComponentActivity {
                 try { Thread.sleep(400); } catch (InterruptedException ignored) {}
                 if (prefs.isSpeedEnabled()) { if (sb.length() > 0) sb.append("\n"); sb.append("Speed: ").append(String.format(java.util.Locale.US, "%.0f", sdp.getSpeedKmh())).append("km/h"); }
                 if (prefs.isAltitudeEnabled()) { if (sb.length() > 0) sb.append("\n"); sb.append("Alt: ").append(String.format(java.util.Locale.US, "%.0f", sdp.getAltitude())).append("m"); }
+                // Same line the video watermark draws; photos skipped it entirely
+                if (prefs.isAccuracyEnabled() && rawFix != null && rawFix.hasAccuracy()) { if (sb.length() > 0) sb.append("\n"); sb.append("Accuracy: ").append(String.format(java.util.Locale.US, "%.0f", rawFix.getAccuracy())).append("m"); }
                 if (prefs.isCompassEnabled()) { if (sb.length() > 0) sb.append("\n"); sb.append("Compass: ").append(sdp.getCompassDirection()); }
                 com.fadcam.sensors.SensorDataProvider.resetInstance();
             }
