@@ -92,7 +92,9 @@ class HlsService {
         this.mediaErrorRecoveryCount = 0; // Reset media error recovery count
         this.mediaErrorRecoveryAttempted = null;
         
-        if (Hls.isSupported()) {
+        // The CDN script doesn't load on a hotspot with no internet; Safari can still
+        // play natively, so don't let a missing Hls throw before that branch
+        if (typeof Hls !== 'undefined' && Hls.isSupported()) {
             console.log('[HlsService] HLS.js supported, loading stream');
             
             // Get config with auth headers if in cloud mode

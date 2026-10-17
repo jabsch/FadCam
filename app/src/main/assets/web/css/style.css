@@ -4663,6 +4663,7 @@ input[type="range"].zoom-slider:focus {
     top: 76px;
     right: 12px;
     width: 380px;
+    max-width: calc(100vw - 24px);
     max-height: 500px;
     background: linear-gradient(135deg, rgba(20, 15, 10, 0.98) 0%, rgba(30, 20, 15, 0.98) 100%);
     border: 2px solid rgba(60, 45, 30, 0.8);

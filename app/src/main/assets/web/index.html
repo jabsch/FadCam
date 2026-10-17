@@ -72,7 +72,7 @@
                 <button class="fadex-panel-refresh" id="fadexPanelRefresh" title="Refresh notifications">
                     <i class="fas fa-sync-alt"></i>
                 </button>
-                <button class="fadex-panel-close" id="fadexPanelClose" title="Close">✕</button>
+                <button class="fadex-panel-close" id="fadexPanelClose" title="Close" aria-label="Close">✕</button>
             </div>
         </div>
         <div class="fadex-panel-list" id="fadexPanelList">
@@ -312,7 +312,7 @@
             <!-- Torch & Volume Row -->
             <div class="cards-grid">
                 <!-- Torch Card - Standalone Custom Card -->
-                <div class="torch-card" onclick="toggleTorch()">
+                <div class="torch-card" onclick="toggleTorch()" role="button" tabindex="0" aria-label="Toggle torch">
                     <div class="torch-card-inner">
                         <!-- Background Fill -->
                         <div class="torch-fill" id="torchFill"></div>
@@ -330,7 +330,7 @@
                 </div>
 
                 <!-- Recording Card - Standalone Custom Card -->
-                <div class="torch-card recording-card" onclick="toggleRecording()">
+                <div class="torch-card recording-card" onclick="toggleRecording()" role="button" tabindex="0" aria-label="Start or stop recording">
                     <div class="torch-card-inner">
                         <!-- Background Fill -->
                         <div class="torch-fill recording-fill" id="recordingFill"></div>
@@ -352,7 +352,7 @@
                 </div>
 
                 <!-- Camera Control Card -->
-                <div class="cam-ctrl-card camera-utility-card" id="cameraCard" onclick="toggleCamera()">
+                <div class="cam-ctrl-card camera-utility-card" id="cameraCard" onclick="toggleCamera()" role="button" tabindex="0" aria-label="Switch camera">
                     <div class="cam-ctrl-fill" id="cameraFill"></div>
                     <i class="fas fa-camera-rotate cam-ctrl-icon" id="cameraIcon"></i>
                     <div class="cam-ctrl-text">
@@ -367,7 +367,7 @@
                 </div>
 
                 <!-- Alarm Control Card -->
-                <div class="card-sm" onclick="showAlarmModal()" id="alarmCard" style="transition: all 300ms ease; cursor: pointer;">
+                <div class="card-sm" onclick="showAlarmModal()" id="alarmCard" role="button" tabindex="0" aria-label="Alarm" style="transition: all 300ms ease; cursor: pointer;">
                     <div class="card-clickable">
                         <i class="fas fa-bell card-icon-sm" style="color: #ef4444; font-size: 18px;" id="alarmIcon"></i>
                         <div class="card-sm-content">
@@ -589,7 +589,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Uptime Details</h2>
-                <button class="modal-close" onclick="hideUptimeModal()">✕</button>
+                <button class="modal-close" onclick="hideUptimeModal()" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="uptimeContent"></div>
         </div>
@@ -600,7 +600,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Connected Clients</h2>
-                <button class="modal-close" onclick="hideClientsModal()">✕</button>
+                <button class="modal-close" onclick="hideClientsModal()" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="clientsContent"></div>
         </div>
@@ -611,7 +611,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Battery Status</h2>
-                <button class="modal-close" onclick="hideBatteryModal()">✕</button>
+                <button class="modal-close" onclick="hideBatteryModal()" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="batteryContent"></div>
         </div>
@@ -622,7 +622,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Network Status</h2>
-                <button class="modal-close" onclick="hideNetworkModal()">✕</button>
+                <button class="modal-close" onclick="hideNetworkModal()" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="networkContent"></div>
         </div>
@@ -633,7 +633,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Monthly Usage</h2>
-                <button class="modal-close" onclick="hideDataTransferModal()">✕</button>
+                <button class="modal-close" onclick="hideDataTransferModal()" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="dataTransferContent"></div>
         </div>
@@ -644,7 +644,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Segments</h2>
-                <button class="modal-close" onclick="hideSegmentsModal()">✕</button>
+                <button class="modal-close" onclick="hideSegmentsModal()" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="segmentsContent"></div>
         </div>
@@ -655,7 +655,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Storage</h2>
-                <button class="modal-close" onclick="hideStorageModal()">✕</button>
+                <button class="modal-close" onclick="hideStorageModal()" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="storageContent"></div>
         </div>
@@ -666,7 +666,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Memory Usage</h2>
-                <button class="modal-close" onclick="hideMemoryModal()">✕</button>
+                <button class="modal-close" onclick="hideMemoryModal()" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="memoryContent"></div>
         </div>
@@ -677,7 +677,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>API Endpoints</h2>
-                <button class="modal-close" onclick="hideEndpointsModal()">✕</button>
+                <button class="modal-close" onclick="hideEndpointsModal()" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="endpointsContent"></div>
         </div>
@@ -774,7 +774,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Recording Mode</h2>
-                <button class="modal-close" onclick="hideRecordingModeModal()">✕</button>
+                <button class="modal-close" onclick="hideRecordingModeModal()" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="recordingModeContent"></div>
         </div>
@@ -785,7 +785,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Stream Quality</h2>
-                <button class="modal-close" onclick="hideStreamQualityModal()">✕</button>
+                <button class="modal-close" onclick="hideStreamQualityModal()" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="streamQualityContent"></div>
         </div>
@@ -798,7 +798,7 @@
                 <h2 style="display: flex; align-items: center; gap: 10px;">
                     <i class="fas fa-shield-alt"></i>Security Settings
                 </h2>
-                <button class="modal-close" onclick="hideSecuritySettingsModal()">✕</button>
+                <button class="modal-close" onclick="hideSecuritySettingsModal()" aria-label="Close">✕</button>
             </div>
             <div class="modal-body">
                 <!-- Security Warning -->
@@ -856,7 +856,7 @@
                     <i class="fas fa-bell" style="font-size: 24px; color: #ef4444;"></i>
                     <span>Security Alarm</span>
                 </h2>
-                <button class="modal-close" onclick="hideAlarmModal()">✕</button>
+                <button class="modal-close" onclick="hideAlarmModal()" aria-label="Close">✕</button>
             </div>
             <div class="modal-body">
                 <!-- Tab Selection -->
@@ -1049,7 +1049,7 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js"></script>
     <!-- Supabase JS for Realtime (Cloud mode instant commands) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Flatpickr Date-Time Picker -->
@@ -1265,7 +1265,8 @@
                 const getTolerance = (targetField, key = null) => {
                     if (targetField === 'volumePercentage') return 5;
                     if (targetField === 'zoomRatio') {
-                        return key === 'ratio' ? 0.05 : 0.05;
+                        // The server rounds pan to 3 decimals, so an exact match never came
+                        return key === 'ratio' ? 0.05 : 0.01;
                     }
                     return 0;
                 };
@@ -2901,7 +2902,10 @@
             } catch (error) {
                 console.error('[Recording] Failed to toggle:', error);
                 executingState.stop('isRecording');
-                showToast('Failed to toggle recording');
+                // Cancelling the HEVC prompt is a choice, not a failure
+                if (!(error && error.message && error.message.startsWith('User cancelled'))) {
+                    showToast('Failed to toggle recording');
+                }
             }
         }
 
@@ -4000,7 +4004,7 @@
             toastElement.innerHTML = `
                 <div class="toast-content">
                     <span class="toast-message">${message}</span>
-                    <button class="toast-close" onclick="closeToastById('${toastId}')">✕</button>
+                    <button class="toast-close" onclick="closeToastById('${toastId}')" aria-label="Close">✕</button>
                 </div>
                 <div class="toast-progress-bar"></div>
             `;
@@ -5564,7 +5568,7 @@
                         <i class="fas fa-check-circle" style="color: #3fb950;"></i>
                         <strong>This Browser</strong>
                     </div>
-                    <div style="font-size: 12px; color: #8b949e;">Logged in as <strong>${new Date().toLocaleString()}</strong></div>
+                    <div style="font-size: 12px; color: #8b949e;">Session active</div>
                 </div>
             `;
         }
@@ -5614,12 +5618,18 @@
                     }
                 });
 
-                if (response.status === 401 || response.status === 200) {
+                if (response.status === 200) {
                     // Clear local session
                     await authService.logout();
                     showLockScreen();
                     hideSecuritySettingsModal();
                     showToast('✅ All sessions logged out', 2000);
+                } else if (response.status === 401) {
+                    // Our own session had expired, so the server cleared nothing
+                    await authService.logout();
+                    showLockScreen();
+                    hideSecuritySettingsModal();
+                    showToast('Session expired. Sign in again to log out other devices.', 3000);
                     
                     // DON'T pause dashboard - keep polling for real-time auth status updates
                 } else {
@@ -5634,6 +5644,16 @@
         /**
          * Setup profile dropdown toggle
          */
+        // The control cards are divs; let Enter and Space press them like buttons
+        document.addEventListener('keydown', (e) => {
+            const el = e.target;
+            if ((e.key === 'Enter' || e.key === ' ') && el && el.getAttribute
+                    && el.getAttribute('role') === 'button' && el.hasAttribute('onclick')) {
+                e.preventDefault();
+                el.click();
+            }
+        });
+
         document.addEventListener('DOMContentLoaded', () => {
             console.log('[Profile] DOM loaded, setting up dropdown');
             const profileBtn = document.getElementById('profileBtn');
