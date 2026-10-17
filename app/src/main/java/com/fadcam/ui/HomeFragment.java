@@ -574,6 +574,10 @@ public class HomeFragment extends BaseFragment {
 
     private BroadcastReceiver torchReceiver;
     private GpsProviderReceiver gpsProviderReceiver;
+    private boolean isCameraSwitchReceiversRegistered = false;
+    // Held in a field: SharedPreferences keeps listeners only weakly, so a lambda
+    // passed straight in was collected and the banner stopped updating.
+    private SharedPreferences.OnSharedPreferenceChangeListener gpsBannerPrefsListener;
 
     private Surface textureViewSurface; // To hold the Surface from TextureView
 
@@ -3476,6 +3480,8 @@ public class HomeFragment extends BaseFragment {
      */
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     private void registerCameraSwitchReceivers(Context context) {
+        // onStart and every resume both register; a second registration doubled each callback
+        if (isCameraSwitchReceiversRegistered) return;
         if (broadcastOnCameraSwitchStarted == null 
                 || broadcastOnCameraSwitchComplete == null 
                 || broadcastOnCameraSwitchFailed == null) {
@@ -3496,6 +3502,7 @@ public class HomeFragment extends BaseFragment {
             androidx.core.content.ContextCompat.registerReceiver(context, broadcastOnMirrorChanged, mirrorFilter, android.content.Context.RECEIVER_NOT_EXPORTED);
             androidx.core.content.ContextCompat.registerReceiver(context, broadcastOnZoomChanged, zoomFilter, android.content.Context.RECEIVER_NOT_EXPORTED);
             androidx.core.content.ContextCompat.registerReceiver(context, broadcastOnExposureChanged, exposureFilter, android.content.Context.RECEIVER_NOT_EXPORTED);
+            isCameraSwitchReceiversRegistered = true;
             FLog.d(TAG, "Camera switch + control receivers registered successfully");
         } catch (Exception e) {
             FLog.e(TAG, "Error registering camera switch receivers", e);
@@ -3506,6 +3513,8 @@ public class HomeFragment extends BaseFragment {
      * Unregisters camera switch broadcast receivers.
      */
     private void unregisterCameraSwitchReceivers(Context context) {
+        if (!isCameraSwitchReceiversRegistered) return;
+        isCameraSwitchReceiversRegistered = false;
         try {
             if (broadcastOnCameraSwitchStarted != null) {
                 context.unregisterReceiver(broadcastOnCameraSwitchStarted);
@@ -9508,6 +9517,11 @@ public class HomeFragment extends BaseFragment {
             } catch (IllegalArgumentException ignored) {}
             gpsProviderReceiver = null;
         }
+        if (gpsBannerPrefsListener != null && sharedPreferencesManager != null) {
+            sharedPreferencesManager.sharedPreferences
+                .unregisterOnSharedPreferenceChangeListener(gpsBannerPrefsListener);
+            gpsBannerPrefsListener = null;
+        }
         
         super.onDestroyView();
         TorchService.setHomeFragment(null);
@@ -10617,17 +10631,19 @@ public class HomeFragment extends BaseFragment {
 
         // Listen for location-related pref changes so the banner updates immediately
         // when the user toggles location watermark or motion lab features
+        // (the quick-timer badge is refreshed by prefsListener)
+        if (gpsBannerPrefsListener != null) {
+            sharedPreferencesManager.sharedPreferences
+                .unregisterOnSharedPreferenceChangeListener(gpsBannerPrefsListener);
+        }
+        gpsBannerPrefsListener = (sp, key) -> {
+            if (key != null && (key.startsWith("location_") || key.startsWith("embed_location")
+                    || key.startsWith("watermark_location") || key.startsWith("motion_"))) {
+                updateGpsWarningBanner();
+            }
+        };
         sharedPreferencesManager.sharedPreferences
-            .registerOnSharedPreferenceChangeListener((sp, key) -> {
-                if (key != null && (key.startsWith("location_") || key.startsWith("embed_location")
-                        || key.startsWith("watermark_location") || key.startsWith("motion_"))) {
-                    updateGpsWarningBanner();
-                }
-                if (key != null && (SharedPreferencesManager.PREF_MAX_RECORDING_DURATION_OPTION.equals(key)
-                        || SharedPreferencesManager.PREF_MAX_RECORDING_DURATION_CUSTOM_SECONDS.equals(key))) {
-                    refreshQuickTimerValue();
-                }
-            });
+            .registerOnSharedPreferenceChangeListener(gpsBannerPrefsListener);
 
         btnFullscreenPreview = view.findViewById(R.id.btnFullscreenPreview);
         btnCaptureShotPreview = view.findViewById(R.id.btnCaptureShotPreview);
