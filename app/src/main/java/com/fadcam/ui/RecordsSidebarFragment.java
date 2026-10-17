@@ -103,6 +103,7 @@ public class RecordsSidebarFragment extends DialogFragment {
             selectedSortId = getArguments().getString(ARG_SELECTED_SORT_ID, "latest");
             currentGridSpan = getArguments().getInt("grid_span", 2);
         }
+        registerPickerListeners();
 
         // Handle close button
         ImageView closeButton = view.findViewById(R.id.records_sidebar_close_btn);
@@ -167,17 +168,12 @@ public class RecordsSidebarFragment extends DialogFragment {
 
     }
 
-    private void openViewModePicker(){
-        final String pickerKey = "records_view_mode_picker";
-        ArrayList<OptionItem> options = new ArrayList<>();
-        options.add(OptionItem.withLigature("view_1", getString(R.string.records_grid_1), "view_list"));
-        options.add(OptionItem.withLigature("view_2", getString(R.string.records_grid_2), "grid_view"));
-        options.add(OptionItem.withLigature("view_3", getString(R.string.records_grid_3), "grid_view"));
-        options.add(OptionItem.withLigature("view_4", getString(R.string.records_grid_4), "grid_view"));
-        options.add(OptionItem.withLigature("view_5", getString(R.string.records_grid_5), "grid_view"));
-        String selectedId = "view_" + currentGridSpan;
-
-        getParentFragmentManager().setFragmentResultListener(pickerKey, this, (k, bundle) -> {
+    /**
+     * Registered once with the view: registering only when a row was tapped lost a
+     * pick made after rotation and delivered it on the next tap instead.
+     */
+    private void registerPickerListeners() {
+        getParentFragmentManager().setFragmentResultListener("records_view_mode_picker", getViewLifecycleOwner(), (k, bundle) -> {
             String selId = bundle.getString(PickerBottomSheetFragment.BUNDLE_SELECTED_ID);
             if(selId!=null){
                 int span = 2; // default
@@ -191,10 +187,41 @@ public class RecordsSidebarFragment extends DialogFragment {
                 Bundle out = new Bundle();
                 out.putString("action", "set_view_mode");
                 out.putInt("grid_span", span);
+                currentGridSpan = span;
+                if (getArguments() != null) getArguments().putInt("grid_span", span);
                 getParentFragmentManager().setFragmentResult(resultKey, out);
                 dismiss();
             }
         });
+        getParentFragmentManager().setFragmentResultListener("records_sort_picker", getViewLifecycleOwner(), (k, bundle)->{
+            String selId = bundle.getString(PickerBottomSheetFragment.BUNDLE_SELECTED_ID);
+            if(selId!=null){
+                selectedSortId = selId;
+                // Kept in the arguments so the subtitle and checked item survive rotation
+                if (getArguments() != null) getArguments().putString(ARG_SELECTED_SORT_ID, selId);
+                Bundle out = new Bundle();
+                out.putString("action", "sort");
+                out.putString("sort_id", selId);
+                getParentFragmentManager().setFragmentResult(resultKey, out);
+                View root = getView();
+                if(root!=null){
+                    TextView sub = root.findViewById(R.id.row_sort_subtitle);
+                    updateSortSubtitle(sub, selId);
+                }
+            }
+        });
+    }
+
+    private void openViewModePicker(){
+        final String pickerKey = "records_view_mode_picker";
+        ArrayList<OptionItem> options = new ArrayList<>();
+        options.add(OptionItem.withLigature("view_1", getString(R.string.records_grid_1), "view_list"));
+        options.add(OptionItem.withLigature("view_2", getString(R.string.records_grid_2), "grid_view"));
+        options.add(OptionItem.withLigature("view_3", getString(R.string.records_grid_3), "grid_view"));
+        options.add(OptionItem.withLigature("view_4", getString(R.string.records_grid_4), "grid_view"));
+        options.add(OptionItem.withLigature("view_5", getString(R.string.records_grid_5), "grid_view"));
+        String selectedId = "view_" + currentGridSpan;
+
 
         PickerBottomSheetFragment picker = PickerBottomSheetFragment.newInstance(
                 getString(R.string.records_grid_option), options, selectedId, pickerKey, getString(R.string.records_grid_helper)
@@ -223,21 +250,6 @@ public class RecordsSidebarFragment extends DialogFragment {
     options.add(OptionItem.withLigature("largest", getString(R.string.sort_largest_first), "trending_up"));
 
         final String pickerKey = "records_sort_picker";
-        getParentFragmentManager().setFragmentResultListener(pickerKey, this, (k, bundle)->{
-            String selId = bundle.getString(PickerBottomSheetFragment.BUNDLE_SELECTED_ID);
-            if(selId!=null){
-                selectedSortId = selId;
-                Bundle out = new Bundle();
-                out.putString("action", "sort");
-                out.putString("sort_id", selId);
-                getParentFragmentManager().setFragmentResult(resultKey, out);
-                View root = getView();
-                if(root!=null){
-                    TextView sub = root.findViewById(R.id.row_sort_subtitle);
-                    updateSortSubtitle(sub, selId);
-                }
-            }
-        });
     PickerBottomSheetFragment picker = PickerBottomSheetFragment.newInstance(
         getString(R.string.sort_by), options, selectedSortId, pickerKey, getString(R.string.records_sort_helper)
     );

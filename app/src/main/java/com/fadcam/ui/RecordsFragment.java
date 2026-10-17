@@ -1727,6 +1727,7 @@ public class RecordsFragment extends BaseFragment implements
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         FLog.d(TAG, "onViewCreated: View hierarchy created. Finding views and setting up.");
+        registerRecordsSidebarListener();
 
         // Modern options-menu handling (the Fragment menu methods are deprecated).
         requireActivity().addMenuProvider(new androidx.core.view.MenuProvider() {
@@ -4827,14 +4828,17 @@ public class RecordsFragment extends BaseFragment implements
 
     // --- Options Menu & Sorting ---
 
-    private void showRecordsSidebar() {
-        if (getActivity() == null)
-            return;
-        // Use unified overlay: open a sidebar-style fragment to host row-based options.
-        RecordsSidebarFragment sidebar = RecordsSidebarFragment.newInstance(mapSortToId(currentSortOption), currentGridSpan);
+    private static final String RECORDS_SIDEBAR_RESULT_KEY = "records_sidebar_result";
+
+    /**
+     * Registered with the view, not when the sidebar opens: a sidebar restored after
+     * rotation had no listener, so its rows did nothing and the held result fired the
+     * next time it opened (a stale "Delete all" popped its confirmation).
+     */
+    private void registerRecordsSidebarListener() {
         // Listen for result events from rows (sort picker, delete all, etc.)
-        final String resultKey = "records_sidebar_result";
-        getParentFragmentManager().setFragmentResultListener(resultKey, this, (key, bundle) -> {
+        final String resultKey = RECORDS_SIDEBAR_RESULT_KEY;
+        getParentFragmentManager().setFragmentResultListener(resultKey, getViewLifecycleOwner(), (key, bundle) -> {
             if (!resultKey.equals(key))
                 return;
             String action = bundle.getString("action");
@@ -4883,7 +4887,14 @@ public class RecordsFragment extends BaseFragment implements
                     break;
             }
         });
-        sidebar.setResultKey(resultKey);
+    }
+
+    private void showRecordsSidebar() {
+        if (getActivity() == null)
+            return;
+        // Use unified overlay: open a sidebar-style fragment to host row-based options.
+        RecordsSidebarFragment sidebar = RecordsSidebarFragment.newInstance(mapSortToId(currentSortOption), currentGridSpan);
+        sidebar.setResultKey(RECORDS_SIDEBAR_RESULT_KEY);
         // Show as a Material side sheet dialog instead of full-screen overlay
         sidebar.show(getParentFragmentManager(), "RecordsSidebar");
     }

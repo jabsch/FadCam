@@ -63,6 +63,11 @@ public abstract class BaseTransparentEditorActivity extends AppCompatActivity {
         com.fadcam.util.SystemBarUtil.setNavigationBarColor(getWindow(), 0);
         getWindow().setBackgroundDrawableResource(android.R.color.transparent);
         setContentView(getLayoutResourceId());
+        // Nothing called these: the text editor opened with no listeners (Done, Bold,
+        // colors did nothing), no initial text and no keyboard, and the annotation
+        // overlay was never moved out of the way
+        sendBroadcast(new Intent(ACTION_EDITOR_STARTED).setPackage(getPackageName()));
+        onEditorViewCreated(findViewById(android.R.id.content));
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
