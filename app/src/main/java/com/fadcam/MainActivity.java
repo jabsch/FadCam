@@ -1045,7 +1045,8 @@ public class MainActivity extends AppCompatActivity {
         Context appContext = getApplicationContext();
         new Thread(() -> {
             try {
-                new ShortcutsManager(appContext).publishAllDynamic();
+                // Also updates pinned copies, so a language change reaches their labels
+                new ShortcutsManager(appContext).refreshShortcuts();
             } catch (Exception e) {
                 FLog.w("MainActivity", "Publishing dynamic shortcuts failed", e);
             }

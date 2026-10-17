@@ -465,7 +465,7 @@ public class ShortcutsSettingsFragment extends Fragment {
                 } else if ("reset".equals(selected)) {
                     ShortcutsManager sm = new ShortcutsManager(requireContext());
                     sm.reset(shortcutId);
-                    sm.publishAllDynamic();
+                    sm.refreshShortcuts();
                     refreshShortcutRows();
                 }
             }
@@ -501,7 +501,7 @@ public class ShortcutsSettingsFragment extends Fragment {
                     ShortcutIconGridBottomSheet sheet = new ShortcutIconGridBottomSheet(iconResId -> {
                         ShortcutsManager sm = new ShortcutsManager(requireContext());
                         if (sm.setCustomIconFromResId(shortcutId, iconResId)) {
-                            sm.publishAllDynamic();
+                            sm.refreshShortcuts();
                             refreshShortcutRows();
                         }
                     });
@@ -551,7 +551,7 @@ public class ShortcutsSettingsFragment extends Fragment {
                 // Persist empty as clearing customization to fall back to default
                 ShortcutsManager sm = new ShortcutsManager(requireContext());
                 sm.setCustomLabel(shortcutId, (input != null && !input.trim().isEmpty()) ? input.trim() : null);
-                sm.publishAllDynamic();
+                sm.refreshShortcuts();
                 refreshShortcutRows();
                 sheet.dismiss();
             }
@@ -743,7 +743,7 @@ public class ShortcutsSettingsFragment extends Fragment {
             boolean ok = sm.setCustomIconFromUri(pendingIconShortcutId, uri);
             pendingIconShortcutId = null;
             if (ok) {
-                sm.publishAllDynamic();
+                sm.refreshShortcuts();
                 refreshShortcutRows();
             }
         });

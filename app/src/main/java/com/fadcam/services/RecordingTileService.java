@@ -194,8 +194,9 @@ public class RecordingTileService extends TileService {
 
     private void switchCamera(SharedPreferencesManager prefs, boolean recording) {
         CameraType current = prefs.getCameraSelection();
-        if (recording && current.isDual()) {
-            FLog.w(TAG, "switchCamera ignored: camera switching is not supported during active Dual recording");
+        if (current.isDual()) {
+            // Flipping front/back would silently leave Dual mode, and the tile can't get back to it
+            FLog.w(TAG, "switchCamera ignored: Dual mode has no front/back to switch");
             return;
         }
         CameraType target = (current == CameraType.FRONT) ? CameraType.BACK : CameraType.FRONT;
