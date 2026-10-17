@@ -4,6 +4,8 @@
     <!-- Text and icons drawn on colorTopBar: white on the dark themes, dark on Snow Veil -->
     <attr name="colorTopBarContent" format="color" />
     <attr name="colorTopBarContentSecondary" format="color" />
+    <!-- Grey helper text drawn straight on the page background -->
+    <attr name="colorTextSubtle" format="color" />
     <attr name="colorBottomNav" format="color" />
     <attr name="colorHeading" format="color" />
     <attr name="colorButton" format="color" />

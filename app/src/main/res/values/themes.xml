@@ -8,6 +8,7 @@
         <item name="android:statusBarColor">@color/gray</item>
         <item name="colorTopBar">@color/colorPrimary</item>
         <item name="colorTopBarContent">@android:color/white</item>
+        <item name="colorTextSubtle">@android:color/darker_gray</item>
         <item name="colorTopBarContentSecondary">#CCFFFFFF</item>
         <item name="colorBottomNav">@color/colorPrimary</item>
         <item name="colorHeading">@color/colorPrimary</item>
@@ -108,6 +109,7 @@
         <item name="materialSwitchStyle">@style/Widget.FadCam.Switch</item>
         <item name="colorTopBar">@color/amoled_black_pure</item>
         <item name="colorTopBarContent">@android:color/white</item>
+        <item name="colorTextSubtle">@android:color/darker_gray</item>
         <item name="colorTopBarContentSecondary">#CCFFFFFF</item>
         <item name="colorBottomNav">@color/amoled_black_pure</item>
         <item name="colorHeading">@color/amoled_heading</item>
@@ -178,6 +180,7 @@
     <style name="Theme.FadCam.Red" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorTopBar">@color/red_theme_primary_variant</item>
         <item name="colorTopBarContent">@android:color/white</item>
+        <item name="colorTextSubtle">@android:color/darker_gray</item>
         <item name="colorTopBarContentSecondary">#CCFFFFFF</item>
         <item name="colorBottomNav">@color/red_theme_primary_variant</item>
         <item name="colorHeading">@color/red_theme_primary</item>
@@ -272,6 +275,7 @@
     <style name="Theme.FadCam.Gold" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorTopBar">@color/gold_theme_primary_variant</item>
         <item name="colorTopBarContent">@android:color/white</item>
+        <item name="colorTextSubtle">@android:color/darker_gray</item>
         <item name="colorTopBarContentSecondary">#CCFFFFFF</item>
         <item name="colorBottomNav">@color/gold_theme_primary_variant</item>
         <item name="colorHeading">@color/gold_theme_primary</item>
@@ -360,6 +364,7 @@
     <style name="Theme.FadCam.SilentForest" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorTopBar">@color/silentforest_theme_primary_variant</item>
         <item name="colorTopBarContent">@android:color/white</item>
+        <item name="colorTextSubtle">@android:color/darker_gray</item>
         <item name="colorTopBarContentSecondary">#CCFFFFFF</item>
         <item name="colorBottomNav">@color/silentforest_theme_primary_variant</item>
         <item name="colorHeading">@color/silentforest_theme_primary</item>
@@ -448,6 +453,7 @@
     <style name="Theme.FadCam.ShadowAlloy" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorTopBar">@color/shadowalloy_theme_primary_variant</item>
         <item name="colorTopBarContent">@android:color/white</item>
+        <item name="colorTextSubtle">@android:color/darker_gray</item>
         <item name="colorTopBarContentSecondary">#CCFFFFFF</item>
         <item name="colorBottomNav">@color/shadowalloy_theme_primary_variant</item>
         <item name="colorHeading">@color/shadowalloy_theme_primary</item>
@@ -536,6 +542,7 @@
     <style name="Theme.FadCam.PookiePink" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorTopBar">@color/pookiepink_theme_primary_variant</item>
         <item name="colorTopBarContent">@android:color/white</item>
+        <item name="colorTextSubtle">@android:color/darker_gray</item>
         <item name="colorTopBarContentSecondary">#CCFFFFFF</item>
         <item name="colorBottomNav">@color/pookiepink_theme_primary_variant</item>
         <item name="colorHeading">@color/pookiepink_theme_primary</item>
@@ -624,6 +631,7 @@
     <style name="Theme.FadCam.SnowVeil" parent="Theme.Material3.Light.NoActionBar">
         <item name="colorTopBar">@color/snowveil_theme_primary_variant</item>
         <item name="colorTopBarContent">#FF121820</item>
+        <item name="colorTextSubtle">#FF616161</item>
         <item name="colorTopBarContentSecondary">#CC121820</item>
         <item name="colorBottomNav">@color/snowveil_theme_primary_variant</item>
         <item name="colorHeading">@color/snowveil_theme_heading_on_blue</item>
@@ -829,6 +837,7 @@
         <item name="android:statusBarColor">@color/gray</item>
         <item name="colorTopBar">@color/gray</item>
         <item name="colorTopBarContent">@android:color/white</item>
+        <item name="colorTextSubtle">@android:color/darker_gray</item>
         <item name="colorTopBarContentSecondary">#CCFFFFFF</item>
         <item name="colorBottomNav">@color/gray</item>
         <item name="colorHeading">#cfbafd</item>
@@ -924,6 +933,7 @@
     <style name="Theme.FadCam.WatchCompat" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Watch shows the phone Trash overlay, whose header uses these -->
         <item name="colorTopBarContent">@android:color/white</item>
+        <item name="colorTextSubtle">@android:color/darker_gray</item>
         <item name="colorTopBarContentSecondary">#CCFFFFFF</item>
         <!-- Explicit window background to prevent rendering issues -->
         <item name="android:windowBackground">@color/black</item>

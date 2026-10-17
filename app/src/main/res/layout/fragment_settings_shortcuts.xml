@@ -562,7 +562,7 @@ app:layout_constraintTop_toTopOf="parent"
         android:layout_marginTop="8dp"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
-        android:textColor="@android:color/darker_gray"
+        android:textColor="?attr/colorTextSubtle"
         android:textSize="12sp"
         android:text="@string/shortcuts_helper_text"/>
 
@@ -573,7 +573,7 @@ app:layout_constraintTop_toTopOf="parent"
         android:layout_marginTop="4dp"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
-        android:textColor="@android:color/darker_gray"
+        android:textColor="?attr/colorTextSubtle"
         android:textColorLink="@color/red_theme_accent"
         android:textSize="12sp"
         android:autoLink="web"
@@ -896,7 +896,7 @@ app:layout_constraintTop_toTopOf="parent"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="24dp"
         android:text="@string/hardware_buttons_helper"
-        android:textColor="@android:color/darker_gray"
+        android:textColor="?attr/colorTextSubtle"
         android:textSize="12sp" />
 
         </LinearLayout>
