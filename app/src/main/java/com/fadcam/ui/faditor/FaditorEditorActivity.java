@@ -96,6 +96,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private ExportManager exportManager;
     private SharedPreferencesManager prefsManager;
     private FragmentedMp4Remuxer remuxer;
+    /** FFmpeg session of a remux still running for the preview; 0 when none. */
+    private long remuxSessionId = 0L;
 
     // ── Export service binding ────────────────────────────────────────
     private ExportService exportService;
@@ -530,6 +532,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         super.onDestroy();
         playheadHandler.removeCallbacks(playheadUpdater);
         autoSaveHandler.removeCallbacks(autoSaveRunnable);
+        if (remuxSessionId != 0L && remuxer != null) {
+            remuxer.cancel(remuxSessionId); // nobody is waiting for the preview copy any more
+            remuxSessionId = 0L;
+        }
         releaseAudioPlayer();
         audioExecutor.shutdownNow();
         saveProjectNow();
@@ -914,10 +920,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
             showRemuxProgress();
             FLog.i(TAG, "Remuxing fragmented MP4 for seekable preview…");
 
-            remuxer.remuxAsync(sourceFile, new FragmentedMp4Remuxer.RemuxCallback() {
+            remuxSessionId = remuxer.remuxAsync(sourceFile, new FragmentedMp4Remuxer.RemuxCallback() {
                 @Override
                 public void onRemuxComplete(boolean success, String outputPath) {
                     runOnUiThread(() -> {
+                        remuxSessionId = 0L;
+                        // Back was pressed while remuxing: don't build players for a closed editor
+                        if (isFinishing() || isDestroyed()) return;
                         hideRemuxProgress();
                         if (success && outputPath != null) {
                             FLog.i(TAG, "Remux complete: " + outputPath);
@@ -3297,9 +3306,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
         editorTimeline.setTrimFromClip(clip);
         editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
 
-        // Update player state
-        if (!clip.isImageClip()) {
-            playerManager.updateTrimBounds(clip);
+        // Update player state. Undoing a delete, add or reorder can leave a different
+        // clip selected, so load it unless the player already holds that source.
+        if (clip.isImageClip()) {
+            showImagePreview(clip.getSourceUri());
+        } else {
+            hideImagePreview();
+            if (playerManager.isSourceLoaded(clip.getSourceUri())) {
+                playerManager.updateTrimBounds(clip);
+            } else {
+                playerManager.loadClip(clip);
+            }
             playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
             playerManager.setPlaybackSpeed(clip.getSpeedMultiplier());
         }
