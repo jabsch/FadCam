@@ -7173,6 +7173,19 @@ public class RecordingService extends Service {
         // Apply zoom ratio to the capture request
         // CONTROL_ZOOM_RATIO was added in Android 11 (API 30)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // The settings picker can offer 0.5x on a lens whose range starts at 1.0x
+            try {
+                if (cameraManager != null && cameraDevice != null) {
+                    android.util.Range<Float> range = cameraManager
+                            .getCameraCharacteristics(cameraDevice.getId())
+                            .get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE);
+                    if (range != null) {
+                        zoomRatio = range.clamp(zoomRatio);
+                    }
+                }
+            } catch (Exception e) {
+                FLog.w(TAG, "Could not read zoom range, using saved zoom as is", e);
+            }
             builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoomRatio);
         }
     }
