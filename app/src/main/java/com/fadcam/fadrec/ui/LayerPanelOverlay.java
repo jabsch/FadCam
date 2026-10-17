@@ -190,7 +190,7 @@ public class LayerPanelOverlay {
         // Add to window
         int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                : WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+                : WindowManager.LayoutParams.TYPE_PHONE;
         
         // Use WRAP_CONTENT for dynamic sizing based on content
     layoutParams = new WindowManager.LayoutParams(

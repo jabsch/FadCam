@@ -164,6 +164,8 @@ public class AnnotationService extends Service {
     // State management
     private boolean isExpanded = false;
     private boolean isAnimating = false; // Track if menu is currently animating
+    private volatile boolean destroyed;
+    private boolean editorHidingCanvas;
     private boolean overlayVisible = true; // Controls if arrow overlay is shown
     private boolean annotationEnabled = false; // Controls if drawing is active (DEFAULT: OFF)
     private int canvasVisibilityBeforeEditor = View.VISIBLE;
@@ -339,7 +341,7 @@ public class AnnotationService extends Service {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 dialog.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
             } else {
-                dialog.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+                dialog.getWindow().setType(WindowManager.LayoutParams.TYPE_PHONE);
             }
         }
 
@@ -480,7 +482,7 @@ public class AnnotationService extends Service {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 deleteAllDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
             } else {
-                deleteAllDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+                deleteAllDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_PHONE);
             }
         }
 
@@ -606,7 +608,7 @@ public class AnnotationService extends Service {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     deleteDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
                 } else {
-                    deleteDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+                    deleteDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_PHONE);
                 }
             }
 
@@ -749,6 +751,9 @@ public class AnnotationService extends Service {
 
             // Switch back to main thread for UI operations
             new Handler(Looper.getMainLooper()).post(() -> {
+                // Turned off before the scan finished: onDestroy already ran with nothing
+                // attached, so adding the overlays now left them on screen for good
+                if (destroyed) return;
                 try {
                     setupAnnotationCanvas();
                     setupToolbar();
@@ -837,7 +842,7 @@ public class AnnotationService extends Service {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startupDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
             } else {
-                startupDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+                startupDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_PHONE);
             }
         }
         
@@ -968,7 +973,7 @@ public class AnnotationService extends Service {
 
         int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                : WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+                : WindowManager.LayoutParams.TYPE_PHONE;
 
         annotationCanvasParams = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
@@ -997,7 +1002,7 @@ public class AnnotationService extends Service {
 
         int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                : WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+                : WindowManager.LayoutParams.TYPE_PHONE;
 
         // ===== ARROW OVERLAY SETUP =====
         arrowOverlay = inflater.inflate(R.layout.annotation_arrow_button, null);
@@ -1483,9 +1488,12 @@ public class AnnotationService extends Service {
                     .alpha(0f)
                     .setDuration(150)
                     .withEndAction(() -> {
-                        // Hide the entire menu window by setting alpha to 0
+                        // Hide the entire menu window by setting alpha to 0. The service can
+                        // stop within the 150 ms; updating a removed view throws
                         menuParams.alpha = 0f;
-                        windowManager.updateViewLayout(toolbarView, menuParams);
+                        if (toolbarView != null && toolbarView.isAttachedToWindow()) {
+                            windowManager.updateViewLayout(toolbarView, menuParams);
+                        }
                         
                         expandableContent.setVisibility(View.GONE);
                         expandableContent.setAlpha(1f);
@@ -3560,7 +3568,12 @@ public class AnnotationService extends Service {
                 if (BaseTransparentEditorActivity.ACTION_EDITOR_STARTED.equals(action)) {
                     // Disable annotation canvas when editor starts
                     if (annotationView != null) {
-                        canvasVisibilityBeforeEditor = annotationView.getVisibility();
+                        // A recreated editor sends this again; capturing then would save
+                        // GONE and keep the canvas hidden after it closes
+                        if (!editorHidingCanvas) {
+                            canvasVisibilityBeforeEditor = annotationView.getVisibility();
+                        }
+                        editorHidingCanvas = true;
                         annotationView.setEnabled(false);
                         
                         // CRITICAL: Hide annotation overlay completely so it doesn't appear on top of editor
@@ -3577,6 +3590,7 @@ public class AnnotationService extends Service {
                     // Put the canvas back as it was: forcing it on left a full-screen,
                     // touch-eating overlay while the Annotation toggle still said off
                     if (annotationView != null) {
+                        editorHidingCanvas = false;
                         annotationView.setEnabled(annotationEnabled);
                         annotationView.setVisibility(canvasVisibilityBeforeEditor);
                         if (annotationEnabled) {
@@ -3770,7 +3784,7 @@ public class AnnotationService extends Service {
         if (dialog.getWindow() != null) {
             int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                     ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                    : WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+                    : WindowManager.LayoutParams.TYPE_PHONE;
             dialog.getWindow().setType(layoutType);
             dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
         }
@@ -4488,6 +4502,7 @@ public class AnnotationService extends Service {
 
     @Override
     public void onDestroy() {
+        destroyed = true;
         super.onDestroy();
         FLog.d(TAG, "AnnotationService destroyed");
 
@@ -4660,8 +4675,12 @@ public class AnnotationService extends Service {
             if (currentPage != null) {
                 AnnotationLayer activeLayer = currentPage.getActiveLayer();
                 if (activeLayer != null && !activeLayer.isLocked()) {
-                    activeLayer.addObject(shapeObject);
-                    annotationView.invalidate();
+                    // Through the command stack (undo works) and a bitmap redraw: invalidate()
+                    // alone drew the cached bitmap, so the new shape stayed invisible
+                    currentPage.executeCommand(
+                            new com.fadcam.fadrec.ui.annotation.AddObjectCommand(activeLayer, shapeObject));
+                    annotationView.notifyStateChangedWithRedraw();
+                    updateUndoRedoButtons();
                     saveCurrentState();
                     Toast.makeText(this, getString(R.string.annotation_shape_added), Toast.LENGTH_SHORT).show();
                 } else {

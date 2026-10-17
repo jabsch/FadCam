@@ -139,7 +139,7 @@ public class ProjectNamingDialogActivity extends Activity {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                 window.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
             } else {
-                window.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+                window.setType(WindowManager.LayoutParams.TYPE_PHONE);
             }
             
             // Adjust window to keyboard - don't resize, just pan

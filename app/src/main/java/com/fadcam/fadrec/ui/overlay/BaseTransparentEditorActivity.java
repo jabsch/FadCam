@@ -77,6 +77,21 @@ public abstract class BaseTransparentEditorActivity extends AppCompatActivity {
         });
     }
     
+    /** Set by the finishWith* methods, which tell AnnotationService the editor closed. */
+    private boolean resultSent;
+
+    @Override
+    protected void onDestroy() {
+        // Home, swiping it from Recents or a system kill skipped those messages, leaving the
+        // canvas hidden and untouchable, the toolbar hidden and the edited text invisible
+        if (!resultSent && !isChangingConfigurations()) {
+            sendBroadcast(new Intent(ACTION_EDITOR_RESULT)
+                    .putExtra(EXTRA_RESULT_CODE, RESULT_CANCELLED).setPackage(getPackageName()));
+            sendBroadcast(new Intent(ACTION_EDITOR_FINISHED).setPackage(getPackageName()));
+        }
+        super.onDestroy();
+    }
+
     /**
      * Setup edge-to-edge layout - make content draw behind system bars
      * but respect their space (system bars have alpha, content beneath is visible)
@@ -152,6 +167,7 @@ public abstract class BaseTransparentEditorActivity extends AppCompatActivity {
      * Finish with save result
      */
     protected void finishWithSave(Bundle resultData) {
+        resultSent = true;
         // Send broadcast for AnnotationService
         Intent broadcast = new Intent(ACTION_EDITOR_RESULT);
         broadcast.putExtra(EXTRA_RESULT_CODE, RESULT_SAVE);
@@ -173,6 +189,7 @@ public abstract class BaseTransparentEditorActivity extends AppCompatActivity {
      * Finish with cancel result
      */
     protected void finishWithCancel() {
+        resultSent = true;
         // Send broadcast for AnnotationService
         Intent broadcast = new Intent(ACTION_EDITOR_RESULT);
         broadcast.putExtra(EXTRA_RESULT_CODE, RESULT_CANCELLED);
@@ -193,6 +210,7 @@ public abstract class BaseTransparentEditorActivity extends AppCompatActivity {
      * Finish with delete result
      */
     protected void finishWithDelete(Bundle resultData) {
+        resultSent = true;
         // Send broadcast for AnnotationService
         Intent broadcast = new Intent(ACTION_EDITOR_RESULT);
         broadcast.putExtra(EXTRA_RESULT_CODE, RESULT_DELETE);

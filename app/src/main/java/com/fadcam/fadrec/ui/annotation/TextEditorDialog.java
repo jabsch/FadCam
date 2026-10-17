@@ -69,7 +69,7 @@ public class TextEditorDialog extends Dialog {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
             } else {
-                getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+                getWindow().setType(WindowManager.LayoutParams.TYPE_PHONE);
             }
             
             // Add flags for proper behavior

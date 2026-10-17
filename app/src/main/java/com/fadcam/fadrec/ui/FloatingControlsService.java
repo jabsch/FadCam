@@ -88,7 +88,7 @@ public class FloatingControlsService extends Service {
         // Set up window parameters
         int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                : WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+                : WindowManager.LayoutParams.TYPE_PHONE;
         
         final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -244,7 +244,7 @@ public class FloatingControlsService extends Service {
         // Set up window parameters for menu
         int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                : WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+                : WindowManager.LayoutParams.TYPE_PHONE;
         
         WindowManager.LayoutParams menuParams = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
