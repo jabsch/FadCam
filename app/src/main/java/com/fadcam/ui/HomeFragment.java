@@ -7281,9 +7281,11 @@ public class HomeFragment extends BaseFragment {
             return false;
         }
         String value = text.toString().trim();
-        // (?U): the timer is formatted in the default locale, so Arabic/Pashto use non-ASCII digits
-        return value.matches("(?U)\\d+(?::\\d{2}){1,2}")
-                || value.matches("(?U)\\d+[dhms](?:\\s+\\d+[dhms])*$");
+        // The timer is formatted in the default locale, so Arabic/Pashto use non-ASCII digits.
+        // Android's ICU regex already matches any Unicode digit with \d; it rejects the
+        // (?U) flag with a PatternSyntaxException, which crashed Home on every launch.
+        return value.matches("\\d+(?::\\d{2}){1,2}")
+                || value.matches("\\d+[dhms](?:\\s+\\d+[dhms])*$");
     }
 
     private boolean shouldAnimateElapsedTransition(String previous, String next) {
