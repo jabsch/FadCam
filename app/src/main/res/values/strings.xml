@@ -1053,6 +1053,7 @@
     <string name="shortcut_purpose_start">This shortcut starts recording with the back camera.</string>
     <string name="shortcut_purpose_start_front">This shortcut starts recording with the front camera.</string>
     <string name="shortcut_purpose_start_current">This shortcut starts recording with the currently selected camera mode.</string>
+    <string name="shortcut_purpose_start_zoom">This shortcut starts recording with the back camera at %1$sx zoom. It uses the main back camera, which on phones like the Pixel switches to the ultrawide or telephoto lens for that zoom by itself. The zoom stays set for later recordings until you change it.</string>
     <string name="shortcut_purpose_start_dual">This shortcut starts dual camera recording (PiP).</string>
     <string name="shortcut_purpose_stop">This shortcut stops the current recording.</string>
     <string name="shortcut_purpose_toggle">A single dynamic shortcut that starts or stops the recording using the default camera — use the separate Start and Stop shortcuts for manual control.</string>
@@ -1084,6 +1085,10 @@
     <string name="shortcut_start_front">Start Front</string>
     <string name="shortcut_start_current">Start Current</string>
     <string name="shortcut_start_dual">Start Dual</string>
+    <string name="shortcut_start_zoom_0_5">Start 0.5x</string>
+    <string name="shortcut_start_zoom_1">Start 1x</string>
+    <string name="shortcut_start_zoom_2">Start 2x</string>
+    <string name="shortcut_start_zoom_5">Start 5x</string>
     <string name="shortcut_toggle_recording">Start / Stop</string>
     <string name="shortcut_toggle_recording_long">Start or stop recording</string>
     <string name="stop_recording">Stop</string>
@@ -3411,6 +3416,10 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="shortcut_badge_shot_front">FadShot Front</string>
     <string name="shortcut_badge_screenshot">Screenshot</string>
     <string name="shortcut_badge_voice">Voice</string>
+    <string name="shortcut_badge_zoom_0_5">Ultrawide</string>
+    <string name="shortcut_badge_zoom_1">Main</string>
+    <string name="shortcut_badge_zoom_2">2x Zoom</string>
+    <string name="shortcut_badge_zoom_5">Telephoto</string>
     <string name="shortcut_badge_default">Shortcut</string>
     <string name="torch_toggled_notification">Torch toggled</string>
     <string name="video_split_custom_option">Custom…</string>

@@ -32,12 +32,29 @@ public class ShortcutsManager {
     public static final String ID_SHOT_FRONT = "capture_photo_front";
     public static final String ID_SCREENSHOT = "capture_screenshot";
     public static final String ID_VOICE = "voice_toggle";
+    public static final String ID_START_ZOOM_0_5 = "record_start_zoom_0_5";
+    public static final String ID_START_ZOOM_1 = "record_start_zoom_1";
+    public static final String ID_START_ZOOM_2 = "record_start_zoom_2";
+    public static final String ID_START_ZOOM_5 = "record_start_zoom_5";
 
     /** Every shortcut id, in the order the shortcuts screen lists them. */
     public static final String[] ALL_IDS = {
         ID_TOGGLE, ID_START, ID_STOP, ID_TORCH, ID_START_FRONT, ID_START_CURRENT,
-        ID_START_DUAL, ID_SHOT, ID_SHOT_FRONT, ID_SCREENSHOT, ID_VOICE
+        ID_START_DUAL, ID_VOICE, ID_START_ZOOM_0_5, ID_START_ZOOM_1, ID_START_ZOOM_2,
+        ID_START_ZOOM_5, ID_SHOT, ID_SHOT_FRONT, ID_SCREENSHOT
     };
+
+    /** Back-camera zoom a zoom start shortcut records at, or null for other ids. */
+    @Nullable
+    public static String zoomRatioFor(@NonNull String id) {
+        switch (id) {
+            case ID_START_ZOOM_0_5: return "0.5";
+            case ID_START_ZOOM_1: return "1";
+            case ID_START_ZOOM_2: return "2";
+            case ID_START_ZOOM_5: return "5";
+            default: return null;
+        }
+    }
 
     /**
      * Intent that performs the given shortcut, or null for an unknown id. Used by
@@ -45,6 +62,11 @@ public class ShortcutsManager {
      */
     @Nullable
     public static Intent intentFor(@NonNull Context context, @NonNull String id) {
+        String zoom = zoomRatioFor(id);
+        if (zoom != null) {
+            return startIntent(context, com.fadcam.RecordingStartActivity.CAMERA_MODE_BACK)
+                .putExtra(com.fadcam.RecordingStartActivity.EXTRA_SHORTCUT_ZOOM_RATIO, zoom);
+        }
         switch (id) {
             case ID_TOGGLE:
                 return activityIntent(context, "com.fadcam.RecordingToggleActivity");
@@ -91,6 +113,10 @@ public class ShortcutsManager {
             case ID_SHOT_FRONT: res = com.fadcam.R.string.shortcut_take_photo_front; break;
             case ID_SCREENSHOT: res = com.fadcam.R.string.shortcut_take_screenshot; break;
             case ID_VOICE: res = com.fadcam.R.string.shortcut_voice_recording; break;
+            case ID_START_ZOOM_0_5: res = com.fadcam.R.string.shortcut_start_zoom_0_5; break;
+            case ID_START_ZOOM_1: res = com.fadcam.R.string.shortcut_start_zoom_1; break;
+            case ID_START_ZOOM_2: res = com.fadcam.R.string.shortcut_start_zoom_2; break;
+            case ID_START_ZOOM_5: res = com.fadcam.R.string.shortcut_start_zoom_5; break;
             default: return id;
         }
         return context.getString(res);
@@ -110,6 +136,10 @@ public class ShortcutsManager {
             case ID_SHOT_FRONT: return com.fadcam.R.drawable.fadshot_front_shortcut;
             case ID_SCREENSHOT: return com.fadcam.R.drawable.fadrec_screenshot_shortcut;
             case ID_VOICE: return com.fadcam.R.drawable.voice_shortcut;
+            case ID_START_ZOOM_0_5: return com.fadcam.R.drawable.start_zoom_0_5_shortcut;
+            case ID_START_ZOOM_1: return com.fadcam.R.drawable.start_zoom_1_shortcut;
+            case ID_START_ZOOM_2: return com.fadcam.R.drawable.start_zoom_2_shortcut;
+            case ID_START_ZOOM_5: return com.fadcam.R.drawable.start_zoom_5_shortcut;
             default: return com.fadcam.R.drawable.flashlight_shortcut;
         }
     }
@@ -432,6 +462,12 @@ public class ShortcutsManager {
                 ctx.getString(com.fadcam.R.string.shortcut_take_screenshot)
             )
         );
+        // Zoom starts last: the list is cut to the launcher's limit from the end
+        for (String id : new String[] {
+                ID_START_ZOOM_0_5, ID_START_ZOOM_1, ID_START_ZOOM_2, ID_START_ZOOM_5 }) {
+            list.add(buildShortcut(id, intentFor(ctx, id), defaultIconFor(id),
+                defaultLabelFor(ctx, id)));
+        }
         List<ShortcutInfoCompat> published = list;
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N_MR1) {
             android.content.pm.ShortcutManager shortcutManager =

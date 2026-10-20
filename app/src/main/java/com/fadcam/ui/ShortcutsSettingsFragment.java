@@ -129,6 +129,7 @@ public class ShortcutsSettingsFragment extends Fragment {
                 getString(R.string.shortcut_voice_recording),
                 new Intent(Intent.ACTION_VIEW).setClassName(requireContext(), "com.fadcam.VoiceRecordingToggleActivity"),
                 ShortcutsManager.ID_VOICE);
+        wireZoomRows(view);
 
         // Unify ripple/click: handle click on parent container only
         View widgetCell = view.findViewById(R.id.cell_widget_clock);
@@ -313,6 +314,12 @@ public class ShortcutsSettingsFragment extends Fragment {
             subtitle = root.findViewById(R.id.subtitle_screenshot);
         } else if (rowId == R.id.cell_voice) {
             subtitle = root.findViewById(R.id.subtitle_voice);
+        } else {
+            for (ZoomRow zoom : ZOOM_ROWS) {
+                if (rowId == zoom.rowId) {
+                    subtitle = root.findViewById(zoom.subtitleId);
+                }
+            }
         }
         // Apply custom label/icon if present
         ShortcutsPreferences sp = new ShortcutsPreferences(requireContext());
@@ -348,6 +355,8 @@ public class ShortcutsSettingsFragment extends Fragment {
                 subtitle.setBackgroundResource(R.drawable.badge_orange);
             } else if (ShortcutsManager.ID_VOICE.equals(shortcutId)) {
                 subtitle.setBackgroundResource(R.drawable.badge_red);
+            } else if (ShortcutsManager.zoomRatioFor(shortcutId) != null) {
+                subtitle.setBackgroundResource(R.drawable.badge_amber);
             }
         }
         if (icon != null)
@@ -383,7 +392,50 @@ public class ShortcutsSettingsFragment extends Fragment {
             return R.id.title_screenshot;
         if (rowId == R.id.cell_voice)
             return R.id.title_voice;
+        for (ZoomRow zoom : ZOOM_ROWS) {
+            if (rowId == zoom.rowId)
+                return zoom.titleId;
+        }
         return R.id.title_photo;
+    }
+
+    /** One shortcuts-screen cell per zoom start shortcut. */
+    private static final class ZoomRow {
+        final String shortcutId;
+        final int rowId;
+        final int iconId;
+        final int titleId;
+        final int subtitleId;
+        final int badgeRes;
+
+        ZoomRow(String shortcutId, int rowId, int iconId, int titleId, int subtitleId, int badgeRes) {
+            this.shortcutId = shortcutId;
+            this.rowId = rowId;
+            this.iconId = iconId;
+            this.titleId = titleId;
+            this.subtitleId = subtitleId;
+            this.badgeRes = badgeRes;
+        }
+    }
+
+    private static final ZoomRow[] ZOOM_ROWS = {
+            new ZoomRow(ShortcutsManager.ID_START_ZOOM_0_5, R.id.cell_start_zoom_0_5, R.id.icon_start_zoom_0_5,
+                    R.id.title_start_zoom_0_5, R.id.subtitle_start_zoom_0_5, R.string.shortcut_badge_zoom_0_5),
+            new ZoomRow(ShortcutsManager.ID_START_ZOOM_1, R.id.cell_start_zoom_1, R.id.icon_start_zoom_1,
+                    R.id.title_start_zoom_1, R.id.subtitle_start_zoom_1, R.string.shortcut_badge_zoom_1),
+            new ZoomRow(ShortcutsManager.ID_START_ZOOM_2, R.id.cell_start_zoom_2, R.id.icon_start_zoom_2,
+                    R.id.title_start_zoom_2, R.id.subtitle_start_zoom_2, R.string.shortcut_badge_zoom_2),
+            new ZoomRow(ShortcutsManager.ID_START_ZOOM_5, R.id.cell_start_zoom_5, R.id.icon_start_zoom_5,
+                    R.id.title_start_zoom_5, R.id.subtitle_start_zoom_5, R.string.shortcut_badge_zoom_5),
+    };
+
+    private void wireZoomRows(View root) {
+        for (ZoomRow zoom : ZOOM_ROWS) {
+            wireShortcutRow(root, zoom.rowId, zoom.iconId, ShortcutsManager.defaultIconFor(zoom.shortcutId),
+                    ShortcutsManager.defaultLabelFor(requireContext(), zoom.shortcutId),
+                    ShortcutsManager.intentFor(requireContext(), zoom.shortcutId),
+                    zoom.shortcutId);
+        }
     }
 
     // Removed codename display; using concise badges instead.
@@ -595,6 +647,10 @@ public class ShortcutsSettingsFragment extends Fragment {
         } else if (ShortcutsManager.ID_VOICE.equals(shortcutId)) {
             return getString(R.string.shortcut_badge_voice);
         }
+        for (ZoomRow zoom : ZOOM_ROWS) {
+            if (zoom.shortcutId.equals(shortcutId))
+                return getString(zoom.badgeRes);
+        }
         return getString(R.string.shortcut_badge_default);
     }
 
@@ -619,6 +675,8 @@ public class ShortcutsSettingsFragment extends Fragment {
             return getString(R.string.shortcut_purpose_screenshot);
         } else if (ShortcutsManager.ID_VOICE.equals(shortcutId)) {
             return getString(R.string.shortcut_purpose_voice);
+        } else if (ShortcutsManager.zoomRatioFor(shortcutId) != null) {
+            return getString(R.string.shortcut_purpose_start_zoom, ShortcutsManager.zoomRatioFor(shortcutId));
         } else {
             return getString(R.string.shortcut_purpose_torch);
         }
@@ -693,6 +751,7 @@ public class ShortcutsSettingsFragment extends Fragment {
                 getString(R.string.shortcut_voice_recording),
                 new Intent(Intent.ACTION_VIEW).setClassName(requireContext(), "com.fadcam.VoiceRecordingToggleActivity"),
                 ShortcutsManager.ID_VOICE);
+        wireZoomRows(view);
     }
 
     private void loadShortcutIconInto(ImageView imageView, String shortcutId, int defaultIconRes) {
