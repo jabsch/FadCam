@@ -34,7 +34,7 @@ public class RecordingToggleActivity extends Activity {
                         android.widget.Toast.LENGTH_LONG).show();
             } else {
                 FLog.i(TAG, "Toggle: starting recording");
-                RecordingShortcutDispatcher.start(this, RecordingStartActivity.CAMERA_MODE_CURRENT);
+                RecordingShortcutDispatcher.start(this, RecordingStartActivity.CAMERA_MODE_CURRENT, null);
             }
         } catch (Exception e) {
             FLog.e(TAG, "Error toggling recording via shortcut", e);

@@ -48,9 +48,17 @@ public final class RecordingShortcutDispatcher {
         return true;
     }
 
-    /** Starts recording with the given {@link RecordingStartActivity} camera mode. */
-    public static void start(Context context, String mode) {
+    /**
+     * Starts recording with the given {@link RecordingStartActivity} camera mode;
+     * a non-null zoom ratio starts the back camera at that zoom instead (see
+     * {@link #applyStartZoom}).
+     */
+    public static void start(Context context, String mode, Float zoomRatio) {
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(context);
+        if (zoomRatio != null) {
+            mode = RecordingStartActivity.CAMERA_MODE_BACK;
+            applyStartZoom(prefs, zoomRatio);
+        }
         if (mode == null) {
             mode = RecordingStartActivity.CAMERA_MODE_BACK;
         }
@@ -81,6 +89,20 @@ public final class RecordingShortcutDispatcher {
                         .setAction(Constants.INTENT_ACTION_START_RECORDING);
         startIntent.putExtra(Constants.INTENT_EXTRA_HEADLESS_START, true);
         ContextCompat.startForegroundService(context, startIntent);
+    }
+
+    /**
+     * Saves the zoom the recording starts at. Ratios count from the main lens
+     * (0.5x ultrawide, 5x telephoto), so the main back camera is selected: on
+     * phones like the Pixel it is the logical camera, which switches to the
+     * ultrawide or telephoto lens for that zoom by itself. A physical lens picked
+     * in settings would read the ratio against its own field of view instead.
+     * The recording clamps the ratio to what the camera supports.
+     */
+    private static void applyStartZoom(SharedPreferencesManager prefs, float zoomRatio) {
+        prefs.setSelectedBackCameraId(Constants.DEFAULT_BACK_CAMERA_ID);
+        prefs.setSpecificZoomRatio(CameraType.BACK, zoomRatio);
+        prefs.setSpecificPan(CameraType.BACK, 0f, 0f);
     }
 
     /** Stops whichever recording service owns the live session. */
