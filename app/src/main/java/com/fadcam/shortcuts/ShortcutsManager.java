@@ -64,7 +64,8 @@ public class ShortcutsManager {
     public static Intent intentFor(@NonNull Context context, @NonNull String id) {
         String zoom = zoomRatioFor(id);
         if (zoom != null) {
-            return startIntent(context, com.fadcam.RecordingStartActivity.CAMERA_MODE_BACK)
+            // Toggles: start at this zoom when idle, stop a live recording otherwise
+            return activityIntent(context, "com.fadcam.RecordingToggleActivity")
                 .putExtra(com.fadcam.RecordingStartActivity.EXTRA_SHORTCUT_ZOOM_RATIO, zoom);
         }
         switch (id) {
