@@ -51,7 +51,7 @@ public class RecordingStartActivity extends Activity {
 
     /** The zoom extra as a positive ratio, or null when absent or unreadable. */
     @androidx.annotation.Nullable
-    private static Float zoomRatio(android.content.Intent intent) {
+    static Float zoomRatio(android.content.Intent intent) {
         String value = intent != null ? intent.getStringExtra(EXTRA_SHORTCUT_ZOOM_RATIO) : null;
         if (value == null) return null;
         try {

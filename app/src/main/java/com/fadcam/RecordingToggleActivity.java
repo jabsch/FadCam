@@ -5,8 +5,10 @@ import android.os.Bundle;
 import android.os.SystemClock;
 
 /**
- * No-UI entry point for the toggle shortcut: starts recording when idle and
+ * No-UI entry point for the toggle shortcuts: starts recording when idle and
  * stops it when a session is live, dispatching the service command directly.
+ * The zoom toggles add {@link RecordingStartActivity#EXTRA_SHORTCUT_ZOOM_RATIO}
+ * and start the back camera at that zoom; stopping ignores it.
  */
 public class RecordingToggleActivity extends Activity {
     private static final String TAG = "RecordingToggleActivity";
@@ -34,7 +36,10 @@ public class RecordingToggleActivity extends Activity {
                         android.widget.Toast.LENGTH_LONG).show();
             } else {
                 FLog.i(TAG, "Toggle: starting recording");
-                RecordingShortcutDispatcher.start(this, RecordingStartActivity.CAMERA_MODE_CURRENT, null);
+                Float zoomRatio = RecordingStartActivity.zoomRatio(getIntent());
+                RecordingShortcutDispatcher.start(this, zoomRatio != null
+                        ? RecordingStartActivity.CAMERA_MODE_BACK
+                        : RecordingStartActivity.CAMERA_MODE_CURRENT, zoomRatio);
             }
         } catch (Exception e) {
             FLog.e(TAG, "Error toggling recording via shortcut", e);
