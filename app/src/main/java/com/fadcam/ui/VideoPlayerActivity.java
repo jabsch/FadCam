@@ -628,8 +628,8 @@ public class VideoPlayerActivity extends AppCompatActivity {
                     android.view.ScaleGestureDetector detector
                 ) {
                     currentScale *= detector.getScaleFactor();
-                    // Constrain scale between 0.5x and 3.0x
-                    currentScale = Math.max(0.5f, Math.min(currentScale, 3.0f));
+                    // Constrain scale between 0.5x and 10x
+                    currentScale = Math.max(0.5f, Math.min(currentScale, 10.0f));
 
                     // Apply scale only to video surface, not the entire player view with controls
                     applyVideoTransform();
