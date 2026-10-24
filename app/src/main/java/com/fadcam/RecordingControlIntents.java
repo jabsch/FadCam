@@ -47,6 +47,14 @@ public final class RecordingControlIntents {
         return i;
     }
 
+    /**
+     * Zoom a live back-camera recording to a lens-style ratio (0.5x, 5x), letting
+     * a logical camera switch to the ultrawide or telephoto lens. Clears the pan.
+     */
+    public static Intent setLensZoomRatio(Context ctx, float zoomRatio) {
+        return setZoomRatio(ctx, zoomRatio).putExtra(Constants.EXTRA_ZOOM_LENS_SWITCH, true);
+    }
+
     public static Intent setZoomRatio(Context ctx, float zoomRatio, float panX, float panY) {
         Intent i = setZoomRatio(ctx, zoomRatio);
         i.putExtra(Constants.EXTRA_PAN_X, panX);

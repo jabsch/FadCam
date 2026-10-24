@@ -404,6 +404,11 @@ public abstract class Constants {
     public static final String EXTRA_FOCUS_X = "com.fadcam.EXTRA_FOCUS_X"; // float (normalized 0..1)
     public static final String EXTRA_FOCUS_Y = "com.fadcam.EXTRA_FOCUS_Y"; // float (normalized 0..1)
     public static final String EXTRA_ZOOM_RATIO = "com.fadcam.EXTRA_ZOOM_RATIO"; // float
+    /**
+     * With EXTRA_ZOOM_RATIO: zoom through CONTROL_ZOOM_RATIO, centred, so a logical
+     * camera can change lens (ultrawide/telephoto) mid-recording. Boolean.
+     */
+    public static final String EXTRA_ZOOM_LENS_SWITCH = "com.fadcam.EXTRA_ZOOM_LENS_SWITCH";
     /** Pan offset X for zoom: float -1.0 (full left) to +1.0 (full right), 0.0 = centre */
     public static final String EXTRA_PAN_X = "com.fadcam.EXTRA_PAN_X"; // float
     public static final String EXTRA_AUDIO_MUTED =

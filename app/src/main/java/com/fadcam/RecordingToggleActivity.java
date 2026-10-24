@@ -7,8 +7,10 @@ import android.os.SystemClock;
 /**
  * No-UI entry point for the toggle shortcuts: starts recording when idle and
  * stops it when a session is live, dispatching the service command directly.
- * The zoom toggles add {@link RecordingStartActivity#EXTRA_SHORTCUT_ZOOM_RATIO}
- * and start the back camera at that zoom; stopping ignores it.
+ * The zoom toggles add {@link RecordingStartActivity#EXTRA_SHORTCUT_ZOOM_RATIO}:
+ * idle, they start the back camera at that zoom; during a back-camera
+ * recording at another zoom they switch to theirs without stopping, and the
+ * one for the zoom in use stops the recording.
  */
 public class RecordingToggleActivity extends Activity {
     private static final String TAG = "RecordingToggleActivity";
@@ -27,16 +29,21 @@ public class RecordingToggleActivity extends Activity {
                 FLog.w(TAG, "Ignoring duplicate recording toggle request");
                 return;
             }
+            Float zoomRatio = RecordingStartActivity.zoomRatio(getIntent());
             if (RecordingShortcutDispatcher.hasActiveSession(this)) {
-                FLog.i(TAG, "Toggle: stopping recording");
-                RecordingShortcutDispatcher.stop(this);
+                if (zoomRatio != null && RecordingShortcutDispatcher.shouldSwitchZoom(this, zoomRatio)) {
+                    FLog.i(TAG, "Toggle: switching live recording to zoom " + zoomRatio);
+                    RecordingShortcutDispatcher.switchZoom(this, zoomRatio);
+                } else {
+                    FLog.i(TAG, "Toggle: stopping recording");
+                    RecordingShortcutDispatcher.stop(this);
+                }
             } else if (com.fadcam.services.VoiceRecordingService.isRecording()) {
                 // Both can't use the microphone at once; one file would come out silent
                 android.widget.Toast.makeText(this, R.string.video_recording_voice_busy,
                         android.widget.Toast.LENGTH_LONG).show();
             } else {
                 FLog.i(TAG, "Toggle: starting recording");
-                Float zoomRatio = RecordingStartActivity.zoomRatio(getIntent());
                 RecordingShortcutDispatcher.start(this, zoomRatio != null
                         ? RecordingStartActivity.CAMERA_MODE_BACK
                         : RecordingStartActivity.CAMERA_MODE_CURRENT, zoomRatio);
