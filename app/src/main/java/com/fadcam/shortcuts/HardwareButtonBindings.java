@@ -11,8 +11,8 @@ import androidx.annotation.Nullable;
 import com.fadcam.service.HardwareButtonAccessibilityService;
 
 /**
- * Which JaCam shortcut each hardware button gesture runs: hold or double tap
- * of volume up or volume down. A single short press keeps changing the volume.
+ * Which JaCam shortcut each hardware button gesture runs: hold, double tap or
+ * triple tap of volume up or volume down. A single short press keeps changing the volume.
  * Values are {@link ShortcutsManager} ids, empty = unbound.
  */
 public final class HardwareButtonBindings {
@@ -30,7 +30,11 @@ public final class HardwareButtonBindings {
             case KeyEvent.KEYCODE_VOLUME_DOWN: key = "volume_down"; break;
             default: return null;
         }
-        return key + (gesture == VolumeKeyGestureDetector.Gesture.HOLD ? "_hold" : "_double");
+        switch (gesture) {
+            case HOLD: return key + "_hold";
+            case TRIPLE_TAP: return key + "_triple";
+            default: return key + "_double";
+        }
     }
 
     /** Shortcut id bound to this key and gesture, or null when nothing is bound. */

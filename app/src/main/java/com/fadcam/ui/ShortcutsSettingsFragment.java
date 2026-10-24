@@ -198,6 +198,12 @@ public class ShortcutsSettingsFragment extends Fragment {
             new HardwareRow(R.id.row_hw_volume_down_double, R.id.value_hw_volume_down_double,
                     android.view.KeyEvent.KEYCODE_VOLUME_DOWN, VolumeKeyGestureDetector.Gesture.DOUBLE_TAP,
                     R.string.hardware_buttons_volume_down_double),
+            new HardwareRow(R.id.row_hw_volume_up_triple, R.id.value_hw_volume_up_triple,
+                    android.view.KeyEvent.KEYCODE_VOLUME_UP, VolumeKeyGestureDetector.Gesture.TRIPLE_TAP,
+                    R.string.hardware_buttons_volume_up_triple),
+            new HardwareRow(R.id.row_hw_volume_down_triple, R.id.value_hw_volume_down_triple,
+                    android.view.KeyEvent.KEYCODE_VOLUME_DOWN, VolumeKeyGestureDetector.Gesture.TRIPLE_TAP,
+                    R.string.hardware_buttons_volume_down_triple),
     };
 
     private void refreshHardwareButtons(@Nullable View root) {
@@ -270,9 +276,16 @@ public class ShortcutsSettingsFragment extends Fragment {
         String current = HardwareButtonBindings.getBinding(requireContext(), row.keyCode, row.gesture);
         com.fadcam.ui.picker.PickerBottomSheetFragment.newInstance(
                 getString(row.titleRes), items, current == null ? noneId : current, resultKey,
-                getString(row.gesture == VolumeKeyGestureDetector.Gesture.DOUBLE_TAP
-                        ? R.string.hardware_buttons_double_helper : R.string.hardware_buttons_helper))
+                getString(helperFor(row.gesture)))
                 .show(getParentFragmentManager(), "hw_binding_picker");
+    }
+
+    private static int helperFor(VolumeKeyGestureDetector.Gesture gesture) {
+        switch (gesture) {
+            case DOUBLE_TAP: return R.string.hardware_buttons_double_helper;
+            case TRIPLE_TAP: return R.string.hardware_buttons_triple_helper;
+            default: return R.string.hardware_buttons_helper;
+        }
     }
 
     private void openAccessibilitySettings() {

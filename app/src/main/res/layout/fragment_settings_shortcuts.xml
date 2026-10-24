@@ -1019,6 +1019,80 @@ app:layout_constraintTop_toTopOf="parent"
         </LinearLayout>
         <View style="@style/SettingsDivider" />
         <LinearLayout
+            android:id="@+id/row_hw_volume_up_triple"
+            style="@style/SettingsGroupRow"
+            android:clickable="true"
+            android:focusable="true">
+            <TextView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginEnd="16dp"
+                android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no"
+                android:gravity="center"
+                android:text="keyboard_double_arrow_up"
+                android:textSize="18sp"
+                android:textColor="@android:color/darker_gray" />
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/hardware_buttons_volume_up_triple"
+                android:textStyle="bold"
+                android:textSize="15sp"
+                android:textColor="?attr/colorHeading"/>
+            <TextView
+                android:id="@+id/value_hw_volume_up_triple"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="-"
+                android:textColor="@android:color/darker_gray"
+                android:textSize="13sp"/>
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:src="@drawable/ic_arrow_right"
+                android:tint="@android:color/darker_gray"/>
+        </LinearLayout>
+        <View style="@style/SettingsDivider" />
+        <LinearLayout
+            android:id="@+id/row_hw_volume_down_triple"
+            style="@style/SettingsGroupRow"
+            android:clickable="true"
+            android:focusable="true">
+            <TextView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginEnd="16dp"
+                android:fontFamily="@font/materialicons"
+                android:importantForAccessibility="no"
+                android:gravity="center"
+                android:text="keyboard_double_arrow_down"
+                android:textSize="18sp"
+                android:textColor="@android:color/darker_gray" />
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/hardware_buttons_volume_down_triple"
+                android:textStyle="bold"
+                android:textSize="15sp"
+                android:textColor="?attr/colorHeading"/>
+            <TextView
+                android:id="@+id/value_hw_volume_down_triple"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="-"
+                android:textColor="@android:color/darker_gray"
+                android:textSize="13sp"/>
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:src="@drawable/ic_arrow_right"
+                android:tint="@android:color/darker_gray"/>
+        </LinearLayout>
+        <View style="@style/SettingsDivider" />
+        <LinearLayout
             android:id="@+id/row_hw_camera_apps"
             style="@style/SettingsGroupRow"
             android:clickable="true"
