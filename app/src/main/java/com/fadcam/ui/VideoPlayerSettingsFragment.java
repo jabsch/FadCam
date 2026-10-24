@@ -1021,6 +1021,11 @@ public class VideoPlayerSettingsFragment extends Fragment {
     private void showPlaybackSpeedPicker() {
         final String RK = "rk_vps_playback_speed";
         float[] speedValues = new float[] {
+            0.01f,
+            0.05f,
+            0.1f,
+            0.15f,
+            0.2f,
             0.25f,
             0.5f,
             0.6f,
@@ -1037,6 +1042,11 @@ public class VideoPlayerSettingsFragment extends Fragment {
             10.0f,
         };
         CharSequence[] labels = new CharSequence[] {
+            "0.01x",
+            "0.05x",
+            "0.1x",
+            "0.15x",
+            "0.2x",
             "0.25x",
             "0.5x",
             "0.6x",
@@ -1127,6 +1137,11 @@ public class VideoPlayerSettingsFragment extends Fragment {
     private void showQuickSpeedPicker() {
         final String RK = "rk_vps_quick_speed";
         float[] speedValues = new float[] {
+            0.01f,
+            0.05f,
+            0.1f,
+            0.15f,
+            0.2f,
             0.25f,
             0.5f,
             0.6f,
@@ -1143,6 +1158,11 @@ public class VideoPlayerSettingsFragment extends Fragment {
             10.0f,
         };
         CharSequence[] labels = new CharSequence[] {
+            "0.01x",
+            "0.05x",
+            "0.1x",
+            "0.15x",
+            "0.2x",
             "0.25x",
             "0.5x",
             "0.6x",

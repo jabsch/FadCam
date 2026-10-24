@@ -219,8 +219,13 @@ public class VideoPlayerActivity extends AppCompatActivity {
     private static final String RK_BACKGROUND_PLAYBACK =
         "rk_background_playback";
 
-    // Playback speed options (include more slow-speed choices 0.25 -> 0.9)
+    // Playback speed options (slow-motion choices 0.01 -> 0.9)
     private final CharSequence[] speedOptions = {
+        "0.01x",
+        "0.05x",
+        "0.1x",
+        "0.15x",
+        "0.2x",
         "0.25x",
         "0.5x",
         "0.6x",
@@ -237,6 +242,11 @@ public class VideoPlayerActivity extends AppCompatActivity {
         "10x",
     };
     private final float[] speedValues = {
+        0.01f,
+        0.05f,
+        0.1f,
+        0.15f,
+        0.2f,
         0.25f,
         0.5f,
         0.6f,
@@ -252,7 +262,12 @@ public class VideoPlayerActivity extends AppCompatActivity {
         8.0f,
         10.0f,
     };
-    private int currentSpeedIndex = 6; // Index for 1.0x speed in updated speedValues (after adding 0.25x)
+    private int currentSpeedIndex = indexOfSpeed(1.0f);
+    // The audio sink can't go below 0.1x (media3 clamps it), and with audio
+    // playing the audio clock drives the video, so slower speeds would stick
+    // at 0.1x. Below that the audio track is turned off and the video runs
+    // on its own clock.
+    private static final float MIN_AUDIO_SPEED = 0.1f;
     // Rotation recreates this screen: keep pause state and speed instead of
     // auto-playing at the default speed (and re-seeking a Forensics jump)
     private static final String STATE_WAS_PLAYING = "vp_was_playing";
@@ -613,8 +628,8 @@ public class VideoPlayerActivity extends AppCompatActivity {
                     android.view.ScaleGestureDetector detector
                 ) {
                     currentScale *= detector.getScaleFactor();
-                    // Constrain scale between 0.5x and 3.0x
-                    currentScale = Math.max(0.5f, Math.min(currentScale, 3.0f));
+                    // Constrain scale between 0.5x and 10x
+                    currentScale = Math.max(0.5f, Math.min(currentScale, 10.0f));
 
                     // Apply scale only to video surface, not the entire player view with controls
                     applyVideoTransform();
@@ -1195,6 +1210,48 @@ public class VideoPlayerActivity extends AppCompatActivity {
     }
 
 
+    private int indexOfSpeed(float speed) {
+        for (int i = 0; i < speedValues.length; i++) {
+            if (Math.abs(speedValues[i] - speed) < 0.001f) return i;
+        }
+        return 0;
+    }
+
+    // Set the speed, turning audio off below what the audio sink supports
+    private void applyPlaybackSpeed(float speed) {
+        if (player == null) return;
+        updateAudioForSpeed(speed);
+        player.setPlaybackParameters(new PlaybackParameters(speed));
+    }
+
+    // The player is shared (PlayerHolder), so read the audio state from it
+    // rather than a field, or a slow speed could leave the next video silent
+    private boolean isAudioOffForSlowSpeed() {
+        try {
+            return player != null && player.getTrackSelectionParameters()
+                .disabledTrackTypes.contains(C.TRACK_TYPE_AUDIO);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void updateAudioForSpeed(float speed) {
+        if (player == null) return;
+        boolean off = speed < MIN_AUDIO_SPEED - 0.001f;
+        if (off == isAudioOffForSlowSpeed()) return;
+        try {
+            player.setTrackSelectionParameters(
+                player.getTrackSelectionParameters()
+                    .buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, off)
+                    .build()
+            );
+            FLog.d(TAG, "Audio track " + (off ? "off" : "on") + " for " + speed + "x");
+        } catch (Exception e) {
+            FLog.e(TAG, "Failed to toggle audio for slow speed", e);
+        }
+    }
+
     // Animate playback speed from start to target over duration ms
     private void animatePlaybackSpeed(
         float start,
@@ -1202,6 +1259,16 @@ public class VideoPlayerActivity extends AppCompatActivity {
         int durationMs
     ) {
         if (player == null) return;
+        // Audio on/off follows the target, not every frame of the animation.
+        // Audio needs >= 0.1x, so ramp from there when coming up from below.
+        boolean audioWasOff = isAudioOffForSlowSpeed();
+        updateAudioForSpeed(target);
+        boolean audioOff = isAudioOffForSlowSpeed();
+        if (audioWasOff && !audioOff) start = Math.max(start, MIN_AUDIO_SPEED);
+        if (!audioWasOff && audioOff) {
+            player.setPlaybackParameters(new PlaybackParameters(target));
+            return;
+        }
         try {
             android.animation.ValueAnimator va =
                 android.animation.ValueAnimator.ofFloat(start, target);
@@ -1342,9 +1409,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
             // Set initial playback speed
             float initialSpeed = speedValues[currentSpeedIndex];
             FLog.d(TAG, "Setting initial playback speed to " + initialSpeed + "x");
-            player.setPlaybackParameters(
-                new PlaybackParameters(initialSpeed)
-            );
+            applyPlaybackSpeed(initialSpeed);
             boolean muted = SharedPreferencesManager.getInstance(
                 this
             ).isPlaybackMuted();
@@ -2918,9 +2983,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
                                 }
                             }
                             currentSpeedIndex = newIndex;
-                            player.setPlaybackParameters(
-                                new PlaybackParameters(val)
-                            );
+                            applyPlaybackSpeed(val);
                             FLog.i(TAG, "Playback speed set to: " + val + "x");
                         } catch (NumberFormatException ignored) {}
                     }
