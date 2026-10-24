@@ -105,6 +105,25 @@ public final class RecordingShortcutDispatcher {
         prefs.setSpecificPan(CameraType.BACK, 0f, 0f);
     }
 
+    /**
+     * Whether a zoom shortcut pressed during a live recording should change its
+     * zoom rather than stop it: only a single back-camera recording zooms, and
+     * the shortcut for the zoom already in use stops it instead.
+     */
+    public static boolean shouldSwitchZoom(Context context, float zoomRatio) {
+        SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(context);
+        if (prefs.getCameraSelection() != CameraType.BACK
+                || ServiceUtils.isServiceRunning(context, DualCameraRecordingService.class)) {
+            return false;
+        }
+        return Math.abs(prefs.getSpecificZoomRatio(CameraType.BACK) - zoomRatio) > 0.01f;
+    }
+
+    /** Changes the live back-camera recording to this zoom, lens switch included. */
+    public static void switchZoom(Context context, float zoomRatio) {
+        context.startService(RecordingControlIntents.setLensZoomRatio(context, zoomRatio));
+    }
+
     /** Stops whichever recording service owns the live session. */
     public static void stop(Context context) {
         // Sent from the visible trampoline activity, so the service is already
