@@ -200,4 +200,98 @@ public class VolumeKeyGestureDetectorTest {
         advance(1000);
         assertEquals(List.of("vol " + DOWN, "vol " + DOWN, "run torch"), log);
     }
+
+    @Test
+    public void tripleTapRunsShortcutOnThirdPress() {
+        bind(UP, Gesture.TRIPLE_TAP, "record");
+        tap(UP);
+        advance(100);
+        tap(UP);
+        advance(100);
+        detector.onKeyDown(UP, 0);
+        assertEquals(List.of("run record"), log);
+        detector.onKeyUp(UP);
+        advance(1000);
+        assertEquals(List.of("run record"), log);
+    }
+
+    @Test
+    public void doubleTapWaitsWhenTripleIsBound() {
+        bind(UP, Gesture.DOUBLE_TAP, "photo");
+        bind(UP, Gesture.TRIPLE_TAP, "record");
+        tap(UP);
+        advance(100);
+        tap(UP);
+        assertTrue(log.isEmpty());
+        advance(DOUBLE_MS);
+        assertEquals(List.of("run photo"), log);
+    }
+
+    @Test
+    public void tripleTapWinsOverDoubleTap() {
+        bind(UP, Gesture.DOUBLE_TAP, "photo");
+        bind(UP, Gesture.TRIPLE_TAP, "record");
+        tap(UP);
+        advance(100);
+        tap(UP);
+        advance(100);
+        tap(UP);
+        advance(1000);
+        assertEquals(List.of("run record"), log);
+    }
+
+    @Test
+    public void twoTapsWithOnlyTripleBoundAreTwoVolumeSteps() {
+        bind(DOWN, Gesture.TRIPLE_TAP, "torch");
+        tap(DOWN);
+        advance(100);
+        tap(DOWN);
+        assertTrue(log.isEmpty());
+        advance(DOUBLE_MS);
+        assertEquals(List.of("vol " + DOWN, "vol " + DOWN), log);
+    }
+
+    @Test
+    public void singleTapWithOnlyTripleBoundChangesVolumeAfterWindow() {
+        bind(DOWN, Gesture.TRIPLE_TAP, "torch");
+        tap(DOWN);
+        assertTrue(log.isEmpty());
+        advance(DOUBLE_MS);
+        assertEquals(List.of("vol " + DOWN), log);
+    }
+
+    @Test
+    public void slowThirdTapStartsOver() {
+        bind(UP, Gesture.DOUBLE_TAP, "photo");
+        bind(UP, Gesture.TRIPLE_TAP, "record");
+        tap(UP);
+        advance(100);
+        tap(UP);
+        advance(DOUBLE_MS + 50);
+        tap(UP);
+        advance(DOUBLE_MS);
+        assertEquals(List.of("run photo", "vol " + UP), log);
+    }
+
+    @Test
+    public void otherKeySettlesWaitingDoubleTap() {
+        bind(UP, Gesture.DOUBLE_TAP, "photo");
+        bind(UP, Gesture.TRIPLE_TAP, "record");
+        tap(UP);
+        advance(100);
+        tap(UP);
+        assertFalse(detector.onKeyDown(DOWN, 0));
+        assertEquals(List.of("run photo"), log);
+    }
+
+    @Test
+    public void holdStillWorksWithTripleBound() {
+        bind(UP, Gesture.HOLD, "record");
+        bind(UP, Gesture.TRIPLE_TAP, "photo");
+        detector.onKeyDown(UP, 0);
+        advance(HOLD_MS);
+        detector.onKeyUp(UP);
+        advance(1000);
+        assertEquals(List.of("run record"), log);
+    }
 }

@@ -1,16 +1,20 @@
 package com.fadcam.shortcuts;
 
 /**
- * Turns volume key presses into hold and double-tap gestures. Pure logic: the
- * host supplies the bindings, runs shortcuts, replays volume changes and owns
- * the timers, so this can be tested off device.
+ * Turns volume key presses into hold, double-tap and triple-tap gestures. Pure
+ * logic: the host supplies the bindings, runs shortcuts, replays volume changes
+ * and owns the timers, so this can be tested off device.
  *
  * <ul>
  *   <li>Hold: fires after the long-press timeout while the key is still down.</li>
- *   <li>Double tap: a second press of the same key within the double-tap window
- *       fires on that second press.</li>
- *   <li>A single short press still changes the volume. When a double tap is bound
- *       to that key, the change waits for the double-tap window to pass.</li>
+ *   <li>Double tap: a second press of the same key within the tap window. With
+ *       no triple tap bound it fires on that second press. With a triple tap
+ *       bound it fires once the window after the second tap passes.</li>
+ *   <li>Triple tap: a third press of the same key, each within the tap window
+ *       of the last, fires on that third press.</li>
+ *   <li>A single short press still changes the volume. When a double or triple
+ *       tap is bound to that key, the change waits for the tap window to pass.
+ *       Taps that end up matching no bound gesture each step the volume.</li>
  *   <li>Holding a key with no hold bound keeps stepping the volume, as without
  *       JaCam. A consumed key press gets no auto-repeat from the system, so the
  *       repeat is done here.</li>
@@ -20,7 +24,7 @@ package com.fadcam.shortcuts;
 public final class VolumeKeyGestureDetector {
 
     /** Gestures a volume key can be bound to. */
-    public enum Gesture { HOLD, DOUBLE_TAP }
+    public enum Gesture { HOLD, DOUBLE_TAP, TRIPLE_TAP }
 
     public interface Host {
         /** Shortcut id bound to this key and gesture, or null. */
@@ -45,11 +49,16 @@ public final class VolumeKeyGestureDetector {
 
     private int downKey = NO_KEY;
     private boolean holdFired;
-    private boolean secondTap;
+    /** A tap gesture already ran on this press, so its key up does nothing. */
+    private boolean tapFired;
+    /** This press is the second tap, waiting to see if a third follows. */
+    private boolean secondTapPending;
     private boolean repeating;
     private Runnable pendingHold;
 
     private int pendingTapKey = NO_KEY;
+    /** Finished taps of pendingTapKey still waiting for the window to pass. */
+    private int pendingTapCount;
     private Runnable pendingTap;
 
     /**
@@ -68,24 +77,46 @@ public final class VolumeKeyGestureDetector {
     public boolean onKeyDown(int keyCode, int repeatCount) {
         String hold = host.binding(keyCode, Gesture.HOLD);
         String doubleTap = host.binding(keyCode, Gesture.DOUBLE_TAP);
+        String tripleTap = host.binding(keyCode, Gesture.TRIPLE_TAP);
         if (pendingTapKey != NO_KEY && pendingTapKey != keyCode) {
-            // Apply a waiting single tap before this key's own step, keeping their order
+            // Apply a waiting tap before this key's own step, keeping their order
             flushPendingTap();
         }
-        if (hold == null && doubleTap == null) {
+        if (hold == null && doubleTap == null && tripleTap == null) {
             return keyCode == downKey;
         }
         if (repeatCount > 0) {
             // The hold repeat below steps the volume; a system repeat would double it
             return true;
         }
-        if (pendingTapKey == keyCode && doubleTap != null) {
-            clearPendingTap();
-            cancelHold();
-            downKey = keyCode;
-            secondTap = true;
-            host.runShortcut(doubleTap);
-            return true;
+        if (pendingTapKey == keyCode) {
+            int taps = pendingTapCount + 1;
+            if (taps == 3 && tripleTap != null) {
+                clearPendingTap();
+                cancelHold();
+                downKey = keyCode;
+                tapFired = true;
+                host.runShortcut(tripleTap);
+                return true;
+            }
+            if (taps == 2 && tripleTap != null) {
+                // Wait for a possible third tap; key up starts the window again
+                clearPendingTap();
+                cancelHold();
+                downKey = keyCode;
+                secondTapPending = true;
+                return true;
+            }
+            if (taps == 2 && doubleTap != null) {
+                clearPendingTap();
+                cancelHold();
+                downKey = keyCode;
+                tapFired = true;
+                host.runShortcut(doubleTap);
+                return true;
+            }
+            // Bindings changed while waiting: settle the old taps, start afresh
+            flushPendingTap();
         }
         cancelHold();
         downKey = keyCode;
@@ -98,7 +129,7 @@ public final class VolumeKeyGestureDetector {
             };
             host.schedule(pendingHold, holdTimeoutMs);
         } else {
-            // Only a double tap is bound: holding steps the volume like a normal hold
+            // Only taps are bound: holding steps the volume like a normal hold
             pendingHold = new Runnable() {
                 @Override
                 public void run() {
@@ -116,24 +147,27 @@ public final class VolumeKeyGestureDetector {
     public boolean onKeyUp(int keyCode) {
         if (keyCode != downKey) {
             return host.binding(keyCode, Gesture.HOLD) != null
-                    || host.binding(keyCode, Gesture.DOUBLE_TAP) != null;
+                    || host.binding(keyCode, Gesture.DOUBLE_TAP) != null
+                    || host.binding(keyCode, Gesture.TRIPLE_TAP) != null;
         }
-        boolean consumedAsGesture = holdFired || secondTap || repeating;
+        boolean consumedAsGesture = holdFired || tapFired || repeating;
+        boolean second = secondTapPending;
         cancelHold();
         if (consumedAsGesture) {
             return true;
         }
-        if (host.binding(keyCode, Gesture.DOUBLE_TAP) != null) {
-            pendingTapKey = keyCode;
-            pendingTap = this::flushPendingTap;
-            host.schedule(pendingTap, doubleTapTimeoutMs);
+        if (second) {
+            waitForNextTap(keyCode, 2);
+        } else if (host.binding(keyCode, Gesture.DOUBLE_TAP) != null
+                || host.binding(keyCode, Gesture.TRIPLE_TAP) != null) {
+            waitForNextTap(keyCode, 1);
         } else {
             host.adjustVolume(keyCode);
         }
         return true;
     }
 
-    /** Ends a press in progress but still applies a waiting single tap's volume step. */
+    /** Ends a press in progress but still settles waiting taps. */
     public void finishPending() {
         cancelHold();
         flushPendingTap();
@@ -145,10 +179,27 @@ public final class VolumeKeyGestureDetector {
         clearPendingTap();
     }
 
+    private void waitForNextTap(int keyCode, int taps) {
+        pendingTapKey = keyCode;
+        pendingTapCount = taps;
+        pendingTap = this::flushPendingTap;
+        host.schedule(pendingTap, doubleTapTimeoutMs);
+    }
+
+    /** No further tap came: run a double tap if two taps match one, else step the volume. */
     private void flushPendingTap() {
         int key = pendingTapKey;
+        int taps = pendingTapCount;
         clearPendingTap();
-        if (key != NO_KEY) {
+        if (key == NO_KEY) {
+            return;
+        }
+        String doubleTap = taps == 2 ? host.binding(key, Gesture.DOUBLE_TAP) : null;
+        if (doubleTap != null) {
+            host.runShortcut(doubleTap);
+            return;
+        }
+        for (int i = 0; i < taps; i++) {
             host.adjustVolume(key);
         }
     }
@@ -159,6 +210,7 @@ public final class VolumeKeyGestureDetector {
             pendingTap = null;
         }
         pendingTapKey = NO_KEY;
+        pendingTapCount = 0;
     }
 
     private void cancelHold() {
@@ -168,7 +220,8 @@ public final class VolumeKeyGestureDetector {
         }
         downKey = NO_KEY;
         holdFired = false;
-        secondTap = false;
+        tapFired = false;
+        secondTapPending = false;
         repeating = false;
     }
 }
