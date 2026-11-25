@@ -896,6 +896,11 @@ public class HomeFragment extends BaseFragment {
                             stopIntent.setAction(Constants.INTENT_ACTION_STOP_PREVIEW_ONLY);
                             clearPreviewOnlyPendingState(true);
                             isPreviewOnlyActive = false;
+                            // startPreviewOnly() turned the preview flag on in memory only. Put it
+                            // back to the saved setting, or the next recording would show the
+                            // preview while the sidebar switch says it is off (same bug upstream
+                            // FadCam fixed; here the setting itself is left untouched).
+                            isPreviewEnabled = sharedPreferencesManager.isPreviewEnabled();
                             ServiceStartPolicy.startRecordingAction(requireContext(), stopIntent);
                             animateNextPreviewTransition = true;
                             updatePreviewVisibility();
