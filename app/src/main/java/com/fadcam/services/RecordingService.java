@@ -1287,7 +1287,20 @@ public class RecordingService extends Service {
             final android.content.Context app = context.getApplicationContext();
             final SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(app);
             // Never scan while a recording is active — its file may be mid-write.
+            // FadCam's camera recorder owns isRecordingInProgress().
             if (prefs.isRecordingInProgress()) {
+                if (onDone != null) onDone.run();
+                return;
+            }
+            // Screen recording keeps its own state (it never sets isRecordingInProgress),
+            // so it must be checked separately — otherwise the scan can finalize a file
+            // that is still being written (upstream FadCam issue #357).
+            //
+            // FadMic (coming soon) must register its own recording state and be added
+            // to this guard for exactly the same reason.
+            final String screenState = prefs.getScreenRecordingState();
+            if ("IN_PROGRESS".equals(screenState) || "PAUSED".equals(screenState)) {
+                FLog.d(TAG, "Self-healing scan skipped: screen recording is " + screenState);
                 if (onDone != null) onDone.run();
                 return;
             }
@@ -1412,6 +1425,11 @@ public class RecordingService extends Service {
                             repo.markUnrepairableWithRetry(uriString, retryAfter);
                             android.net.Uri uri = android.net.Uri.parse(uriString);
                             String scheme = uri.getScheme();
+                            long attemptStartMs = System.currentTimeMillis();
+                            // Size before/after is the definitive write-loop evidence:
+                            // a repair must never grow a file it did not convert.
+                            long sizeBefore = -1L;
+                            long sizeAfter = -1L;
                             int result;
                             if ("file".equals(scheme)) {
                                 java.io.File f = new java.io.File(uri.getPath());
@@ -1419,6 +1437,7 @@ public class RecordingService extends Service {
                                     repo.markUnrepairableWithRetry(uriString, retryAfter);
                                     continue;
                                 }
+                                sizeBefore = f.length();
                                 java.nio.channels.FileChannel ch =
                                         new java.io.RandomAccessFile(f, "rw").getChannel();
                                 try {
@@ -1429,6 +1448,7 @@ public class RecordingService extends Service {
                                 } finally {
                                     try { ch.close(); } catch (Exception ignored) {}
                                 }
+                                sizeAfter = f.length();
                             } else if ("content".equals(scheme)) {
                                 android.os.ParcelFileDescriptor pfd =
                                         app.getContentResolver().openFileDescriptor(uri, "rw");
@@ -1437,6 +1457,8 @@ public class RecordingService extends Service {
                                     continue;
                                 }
                                 try {
+                                    try { sizeBefore = pfd.getStatSize(); }
+                                    catch (Exception ignored) {}
                                     // Two channels over the same fd: FileOutputStream's
                                     // channel is write-only (reads throw
                                     // NonReadableChannelException), so read via
@@ -1450,6 +1472,8 @@ public class RecordingService extends Service {
                                                     .finalizeAbandonedFile(readCh,
                                                             new java.io.FileOutputStream(
                                                                     pfd.getFileDescriptor()).getChannel());
+                                    try { sizeAfter = pfd.getStatSize(); }
+                                    catch (Exception ignored) {}
                                 } finally {
                                     try { pfd.close(); } catch (Exception ignored) {}
                                 }
@@ -1457,6 +1481,13 @@ public class RecordingService extends Service {
                                 repo.markUnrepairableWithRetry(uriString, retryAfter);
                                 continue;
                             }
+                            // Visible in the dossier so the next report shows exactly what
+                            // the scanner did, and never more than once per file/process.
+                            FLog.i(TAG, "Self-healing: " + fileNameFromUri(uriString)
+                                    + " → result=" + result
+                                    + " size=" + sizeBefore + "→" + sizeAfter
+                                    + " in " + (System.currentTimeMillis() - attemptStartMs) + "ms");
+
                             if (result == 1) {
                                 repo.markFinalized(uriString, 1);
                                 recordRepairEventStatic(prefs,
