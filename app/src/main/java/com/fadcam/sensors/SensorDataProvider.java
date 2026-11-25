@@ -199,6 +199,16 @@ public class SensorDataProvider implements SensorEventListener {
         //    moving as "no data" so the computed fallback below can take over.
         if (currentLocation.hasSpeed()) {
             float rawSpeed = currentLocation.getSpeed();
+            // Parked, the Doppler estimate jitters just above 0 with a 1-sigma speed accuracy
+            // larger than the value itself. Such a reading is a standstill, not slow motion
+            // (ported from upstream FadCam).
+            if (rawSpeed > 0f && android.os.Build.VERSION.SDK_INT >= 26
+                    && currentLocation.hasSpeedAccuracy()
+                    && rawSpeed <= currentLocation.getSpeedAccuracyMetersPerSecond()) {
+                currentSpeedMs = 0f;
+                lastLocationUpdateTime = System.currentTimeMillis();
+                return;
+            }
             if (rawSpeed > 0f) {
                 currentSpeedMs = rawSpeed;
                 lastLocationUpdateTime = System.currentTimeMillis();
@@ -329,6 +339,23 @@ public class SensorDataProvider implements SensorEventListener {
         return output;
     }
 
+    /**
+     * Whether a GPS fix younger than {@link #STALE_LOCATION_TIMEOUT_MS} is available, judged by
+     * the fix's own clock (the watermark re-feeds the last fix every tick, so the time we last
+     * processed one says nothing). Callers show "--" when this is false instead of printing a
+     * number that stopped being measured (ported from upstream FadCam).
+     */
+    public boolean hasFreshFix() {
+        Location loc = currentLocation;
+        if (loc == null) return false;
+        if (loc.getElapsedRealtimeNanos() > 0) {
+            long fixAgeMs = android.os.SystemClock.elapsedRealtime()
+                    - loc.getElapsedRealtimeNanos() / 1_000_000L;
+            return fixAgeMs <= STALE_LOCATION_TIMEOUT_MS;
+        }
+        return System.currentTimeMillis() - lastLocationUpdateTime <= STALE_LOCATION_TIMEOUT_MS;
+    }
+
     public float getSpeedKmh() {
         // Honest reporting: only surface a speed if we have a recent fix.
         // If GPS went stale (no fix for 10s), the value is no longer real —
@@ -349,7 +376,10 @@ public class SensorDataProvider implements SensorEventListener {
         // speed is Doppler-derived and accuracy-independent.
         if (currentLocation != null && currentLocation.hasSpeed()) {
             float raw = currentLocation.getSpeed();
-            if (raw > 0f) {
+            boolean withinNoise = android.os.Build.VERSION.SDK_INT >= 26
+                    && currentLocation.hasSpeedAccuracy()
+                    && raw <= currentLocation.getSpeedAccuracyMetersPerSecond();
+            if (raw > 0f && !withinNoise) {
                 currentSpeedMs = raw;
             }
         }

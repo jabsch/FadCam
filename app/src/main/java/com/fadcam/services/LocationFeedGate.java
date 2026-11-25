@@ -51,4 +51,39 @@ public final class LocationFeedGate {
                 || prefs.isAccuracyEnabled()
                 || prefs.isCompassEnabled();
     }
+
+    /**
+     * Calls startForeground with {@code baseType} plus the location type when a GPS feature is
+     * on and location permission is granted (ported from upstream FadCam). Without the location
+     * type, Android 10+ stops delivering fixes once JaCam leaves the screen (screen off, another
+     * app on top), so speed, altitude and the address froze or went stale mid-recording.
+     * If the system refuses the location type (for example a start from the background on
+     * Android 14+), the start is retried with {@code baseType} alone, which is the old behaviour.
+     */
+    @androidx.annotation.RequiresApi(api = android.os.Build.VERSION_CODES.Q)
+    public static void startForegroundWithLocation(android.app.Service service, int id,
+            android.app.Notification notification, int baseType) {
+        int withLocation = baseType | locationForegroundType(service);
+        if (withLocation != baseType) {
+            try {
+                androidx.core.app.ServiceCompat.startForeground(service, id, notification, withLocation);
+                return;
+            } catch (RuntimeException e) {
+                com.fadcam.FLog.w("LocationFeedGate",
+                        "startForeground with location type refused; retrying without it", e);
+            }
+        }
+        androidx.core.app.ServiceCompat.startForeground(service, id, notification, baseType);
+    }
+
+    private static int locationForegroundType(android.content.Context context) {
+        if (!needsLocationData(SharedPreferencesManager.getInstance(context))) return 0;
+        boolean fine = androidx.core.content.ContextCompat.checkSelfPermission(context,
+                android.Manifest.permission.ACCESS_FINE_LOCATION)
+                == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        boolean coarse = androidx.core.content.ContextCompat.checkSelfPermission(context,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        return (fine || coarse) ? android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION : 0;
+    }
 }

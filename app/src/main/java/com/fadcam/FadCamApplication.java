@@ -13,6 +13,8 @@ public class FadCamApplication extends Application implements DefaultLifecycleOb
     public void onCreate() {
         super.onCreate();
         com.fadcam.utils.CrashRecorder.install(this);
+        // ANRs, native crashes and foreground low-memory kills never reach the Java handler
+        com.fadcam.utils.CrashRecorder.recordPreviousExits(this);
         // Set while the Motion Lab screen is open and cleared in its onStop. A process
         // death skips onStop, which would leave the debug preview encoding forever.
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(this);

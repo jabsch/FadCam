@@ -896,6 +896,11 @@ public class HomeFragment extends BaseFragment {
                             stopIntent.setAction(Constants.INTENT_ACTION_STOP_PREVIEW_ONLY);
                             clearPreviewOnlyPendingState(true);
                             isPreviewOnlyActive = false;
+                            // startPreviewOnly() turned the preview flag on in memory only. Put it
+                            // back to the saved setting, or the next recording would show the
+                            // preview while the sidebar switch says it is off (same bug upstream
+                            // FadCam fixed; here the setting itself is left untouched).
+                            isPreviewEnabled = sharedPreferencesManager.isPreviewEnabled();
                             ServiceStartPolicy.startRecordingAction(requireContext(), stopIntent);
                             animateNextPreviewTransition = true;
                             updatePreviewVisibility();
@@ -2288,6 +2293,12 @@ public class HomeFragment extends BaseFragment {
         // This ensures stats reflect any changes made in Records tab or after recording.
         VideoStatsCache.invalidateStats(sharedPreferencesManager);
         updateStats();
+
+        // Same for the storage card: the StatFs read is cached for 30s and nothing
+        // refreshed the card while the tab was hidden, so a delete made in Records or
+        // Trash could leave the old free-space/time-left values on screen indefinitely.
+        StorageInfoCache.clearCache();
+        updateStorageInfo();
         isTorchOn = sharedPreferencesManager.sharedPreferences.getBoolean(Constants.PREF_TORCH_STATE, false);
         updateTorchUI(isTorchOn);
         updateMirrorButtonVisibilityAndState(false); // instant on resume
