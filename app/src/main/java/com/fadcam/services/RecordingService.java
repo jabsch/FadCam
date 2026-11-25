@@ -2056,7 +2056,14 @@ public class RecordingService extends Service {
                             .setContentTitle(getString(R.string.app_name))
                             .setContentText(getString(R.string.torch_toggled_notification))
                             .setSmallIcon(R.drawable.ic_notification_icon);
-                    startForeground(NOTIFICATION_ID, minimalBuilder.build());
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        // Explicit type: with no type the manifest's full list (now including
+                        // location) is claimed, which throws on Android 14+ without permission
+                        startForeground(NOTIFICATION_ID, minimalBuilder.build(),
+                                ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA);
+                    } else {
+                        startForeground(NOTIFICATION_ID, minimalBuilder.build());
+                    }
                     // Stop the service immediately after torch toggle since we're not recording
                     new Handler(Looper.getMainLooper()).postDelayed(this::stopSelf, 100);
                 } catch (Exception e) {
@@ -6025,8 +6032,12 @@ public class RecordingService extends Service {
                     return false;
                 }
 
-                androidx.core.app.ServiceCompat.startForeground(this, NOTIFICATION_ID,
-                        minimalBuilder.build(), foregroundServiceType);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    LocationFeedGate.startForegroundWithLocation(this, NOTIFICATION_ID,
+                            minimalBuilder.build(), foregroundServiceType);
+                } else {
+                    startForeground(NOTIFICATION_ID, minimalBuilder.build());
+                }
                 FLog.d(TAG, "Started foreground without notification permission.");
             } catch (Exception e) {
                 FLog.e(TAG, "Error starting foreground without notification permission", e);
@@ -6078,7 +6089,8 @@ public class RecordingService extends Service {
             }
 
             try {
-                startForeground(NOTIFICATION_ID, immediateBuilder.build(), foregroundServiceType);
+                LocationFeedGate.startForegroundWithLocation(this, NOTIFICATION_ID,
+                        immediateBuilder.build(), foregroundServiceType);
             } catch (RuntimeException e) {
                 // SecurityException / ForegroundServiceStartNotAllowedException
                 FLog.e(TAG, "startForeground refused", e);

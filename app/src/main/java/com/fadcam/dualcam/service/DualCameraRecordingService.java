@@ -2328,7 +2328,8 @@ public class DualCameraRecordingService extends Service {
                     == PackageManager.PERMISSION_GRANTED) {
                 type |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
             }
-            startForeground(NOTIFICATION_ID, notification, type);
+            com.fadcam.services.LocationFeedGate.startForegroundWithLocation(
+                    this, NOTIFICATION_ID, notification, type);
         } else {
             startForeground(NOTIFICATION_ID, notification);
         }
