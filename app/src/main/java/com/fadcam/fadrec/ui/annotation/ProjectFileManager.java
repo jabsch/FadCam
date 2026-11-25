@@ -79,14 +79,73 @@ public class ProjectFileManager {
         this.context = context;
         this.prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         
-        // Create projects directory: ~/Documents/FadRec/Projects/
-        File documentsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
-        File fadrecDir = new File(documentsDir, "FadRec");
-        this.projectsDir = new File(fadrecDir, "Projects");
-        
-        if (!projectsDir.exists()) {
-            projectsDir.mkdirs();
-            FLog.i(TAG, "Created FadRec projects directory: " + projectsDir.getAbsolutePath());
+        // Projects live in the app's own external files dir (Android/data/<pkg>/files/), as in
+        // upstream FadCam. Public Documents/FadRec needs a folder this install owns: when another
+        // install (upstream FadCam, a reinstall) created it, every read and write fails with
+        // EACCES and annotations silently stop being saved.
+        this.projectsDir = resolveProjectsDir(context);
+
+        if (!projectsDir.exists() && !projectsDir.mkdirs()) {
+            FLog.e(TAG, "Could not create FadRec projects directory: " + projectsDir.getAbsolutePath());
+        }
+        migrateLegacyProjectsOnce();
+    }
+
+    private static File resolveProjectsDir(Context context) {
+        File base = context.getExternalFilesDir(null);
+        if (base == null) {
+            // External volume unavailable: internal app storage keeps annotations working
+            base = context.getFilesDir();
+        }
+        return new File(new File(base, "FadRec"), "Projects");
+    }
+
+    private static final String KEY_LEGACY_MIGRATED = "legacy_documents_projects_migrated";
+
+    /**
+     * Copies projects from the old Documents/FadRec/Projects folder, once. Best effort: folders
+     * this install can't read are left where they are, and nothing is deleted from the old place.
+     */
+    private void migrateLegacyProjectsOnce() {
+        if (prefs.getBoolean(KEY_LEGACY_MIGRATED, false)) return;
+        prefs.edit().putBoolean(KEY_LEGACY_MIGRATED, true).apply();
+        try {
+            File legacy = new File(new File(Environment.getExternalStoragePublicDirectory(
+                    Environment.DIRECTORY_DOCUMENTS), "FadRec"), "Projects");
+            File[] folders = legacy.listFiles();
+            if (folders == null) return;
+            int copied = 0;
+            for (File folder : folders) {
+                if (!folder.isDirectory()) continue;
+                File target = new File(projectsDir, folder.getName());
+                if (target.exists()) continue;
+                if (copyTree(folder, target)) copied++;
+            }
+            FLog.i(TAG, "Migrated " + copied + " FadRec project(s) from " + legacy.getAbsolutePath());
+        } catch (Exception e) {
+            FLog.w(TAG, "Legacy FadRec project migration failed", e);
+        }
+    }
+
+    private static boolean copyTree(File src, File dst) {
+        if (src.isDirectory()) {
+            if (!dst.exists() && !dst.mkdirs()) return false;
+            File[] children = src.listFiles();
+            if (children == null) return false;
+            boolean ok = true;
+            for (File child : children) {
+                ok &= copyTree(child, new File(dst, child.getName()));
+            }
+            return ok;
+        }
+        try (java.io.InputStream in = new java.io.FileInputStream(src);
+             java.io.OutputStream out = new java.io.FileOutputStream(dst)) {
+            byte[] buf = new byte[16 * 1024];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            return true;
+        } catch (IOException e) {
+            return false;
         }
     }
     

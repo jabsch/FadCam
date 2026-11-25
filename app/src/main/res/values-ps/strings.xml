@@ -1832,6 +1832,8 @@ Yadona: La na yao exit method faal pati shi che bended na shi!</string>
     <string name="screen_rec_bitrate_mode_manual">Manual (CBR)</string>
     <string name="screen_rec_bitrate_range">1 \u2013 50 Mbps</string>
     <string name="screen_rec_framerate">Frame Rate</string>
+    <string name="screen_rec_codec">Codec</string>
+    <string name="note_screen_codec">Da skrin sabt codec wutaka\n(Talawala: %1$s)\nLarxhowuna: H.265 (HEVC) pa warta kayfiyat ke kochni fayluna war-kawi. Ka da wasila da karawalo war HEVC encoder wan-lari, JaCam ba pa automatiki dol H.264 ke sabt kri.</string>
     <string name="screen_rec_orientation">Samt</string>
     <string name="screen_rec_orientation_landscape">Landscape</string>
     <string name="screen_rec_orientation_portrait">Portrait</string>
@@ -2942,4 +2944,5 @@ How to read: "Zone 42N — 372,684m E, 3,512,334m N" = Zone 42 pa Northern hemis
     <string name="trash_show_in_settings_title">Settings ke Woyai</string>
     <string name="trash_show_in_settings_desc">Settings page ke Trash row zayed kai che ta jaldi rasai woyai</string>
 
+    <string name="records_display_group_title">Nishodana</string>
 </resources>

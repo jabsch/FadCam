@@ -17,6 +17,7 @@ public abstract class Constants {
         "video_resolution_width";
     public static final String PREF_RECORDS_SORT = "records_sort_option"; // LATEST_FIRST|OLDEST_FIRST|SMALLEST_FILES|LARGEST_FILES
     public static final String PREF_RECORDS_GRID_SPAN = "records_grid_span"; // 1|2|3|4|5
+    public static final String PREF_RECORDS_HIDE_METADATA = "records_hide_metadata";
     public static final String PREF_VIDEO_RESOLUTION_HEIGHT =
         "video_resolution_height";
     public static final String PREF_VIDEO_FRAME_RATE = "video_frame_rate";
@@ -384,6 +385,12 @@ public abstract class Constants {
     public static final String PREF_SCREEN_RECORDING_RESOLUTION = "screen_recording_resolution"; // e.g. "1920x1080"
     public static final String PREF_SCREEN_RECORDING_FPS = "screen_recording_fps";
     public static final String PREF_SCREEN_RECORDING_BITRATE = "screen_recording_bitrate";
+    /**
+     * Screen recording video codec ({@link com.fadcam.VideoCodec#name()}).
+     * Separate from {@link #PREF_VIDEO_CODEC} on purpose: screen capture has different
+     * encoder constraints than camera capture, so the two are configured independently.
+     */
+    public static final String PREF_SCREEN_RECORDING_CODEC = "screen_recording_codec";
     public static final String PREF_SCREEN_RECORDING_ORIENTATION = "screen_recording_orientation";
     public static final int DEFAULT_SCREEN_RECORDING_WIDTH = 1920; // FHD
     public static final int DEFAULT_SCREEN_RECORDING_HEIGHT = 1080; // FHD

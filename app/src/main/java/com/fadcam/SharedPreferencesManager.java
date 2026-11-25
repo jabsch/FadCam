@@ -1445,6 +1445,15 @@ public class SharedPreferencesManager {
         sharedPreferences.edit().putInt(Constants.PREF_RECORDS_GRID_SPAN, span).apply();
     }
 
+    /** Whether the Records grid hides file names and metadata and shows thumbnails only. */
+    public boolean isRecordsHideMetadataEnabled() {
+        return safeGetBoolean(Constants.PREF_RECORDS_HIDE_METADATA, false);
+    }
+
+    public void setRecordsHideMetadataEnabled(boolean enabled) {
+        sharedPreferences.edit().putBoolean(Constants.PREF_RECORDS_HIDE_METADATA, enabled).apply();
+    }
+
     public boolean isWatermarkDayEnabled() {
         return safeGetBoolean(Constants.PREF_WATERMARK_DAY, true); // default ON
     }
@@ -2877,6 +2886,32 @@ public class SharedPreferencesManager {
     public void setScreenRecordingFrameRate(int fps) {
         sharedPreferences.edit()
             .putInt(Constants.PREF_SCREEN_RECORDING_FPS, fps)
+            .apply();
+    }
+
+    /**
+     * Gets the screen recording video codec. Defaults to H.264: it is the only codec with a
+     * guaranteed software fallback, so a fresh install can always record.
+     */
+    public VideoCodec getScreenRecordingCodec() {
+        String saved = sharedPreferences.getString(
+            Constants.PREF_SCREEN_RECORDING_CODEC,
+            VideoCodec.AVC.name()
+        );
+        try {
+            return VideoCodec.valueOf(saved);
+        } catch (Exception e) {
+            return VideoCodec.AVC;
+        }
+    }
+
+    /**
+     * Sets the screen recording video codec preference.
+     */
+    public void setScreenRecordingCodec(VideoCodec codec) {
+        sharedPreferences.edit()
+            .putString(Constants.PREF_SCREEN_RECORDING_CODEC,
+                (codec == null ? VideoCodec.AVC : codec).name())
             .apply();
     }
 

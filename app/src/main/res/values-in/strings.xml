@@ -2431,6 +2431,8 @@ Catatan: Setidaknya satu metode keluar harus tetap diaktifkan untuk mencegah ter
     <string name="screen_rec_settings_subtitle">Pengaturan kualitas, audio &amp; output</string>
     <string name="screen_rec_resolution">Resolusi</string>
     <string name="screen_rec_framerate">Kecepatan Bingkai</string>
+    <string name="screen_rec_codec">Codec</string>
+    <string name="note_screen_codec">Pilih codec perekaman layar\n(Default: %1$s)\nTips: H.265 (HEVC) menghasilkan file lebih kecil dengan kualitas sama. Jika perangkat ini tidak memiliki encoder HEVC yang dapat digunakan, JaCam akan merekam dalam H.264 secara otomatis.</string>
     <string name="screen_rec_bitrate">Bitrate</string>
     <string name="screen_rec_orientation">Orientasi</string>
     <string name="screen_rec_bitrate_mode_auto">Otomatis (VBR)</string>
@@ -3181,4 +3183,5 @@ Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikas
     <!-- Trash: Show in Settings toggle -->
     <string name="trash_show_in_settings_title">Tampilkan di Pengaturan</string>
     <string name="trash_show_in_settings_desc">Menambahkan baris Sampah ke halaman Pengaturan untuk akses cepat</string>
+    <string name="records_display_group_title">Tampilan</string>
 </resources>

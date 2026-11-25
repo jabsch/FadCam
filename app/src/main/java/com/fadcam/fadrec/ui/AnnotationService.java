@@ -169,7 +169,6 @@ public class AnnotationService extends Service {
     private boolean overlayVisible = true; // Controls if arrow overlay is shown
     private boolean annotationEnabled = false; // Controls if drawing is active (DEFAULT: OFF)
     private int canvasVisibilityBeforeEditor = View.VISIBLE;
-    private boolean hasShownStartupDialog = false; // Track if startup dialog already shown to prevent repeated prompts
     private boolean canvasHidden = false; // Controls if canvas drawings are hidden (except pinned layers)
     private long lastArrowHintTimestamp = 0L;
     private Runnable pendingArrowHintRunnable;
@@ -790,17 +789,14 @@ public class AnnotationService extends Service {
         if (currentProjectName != null && projectFileManager != null) {
             // Check if project exists
             if (projectFileManager.projectExists(currentProjectName)) {
-                FLog.i(TAG, "Found existing project: " + currentProjectName);
-
-                // Only show startup dialog if we haven't shown it yet (prevents repeated prompts on service restart)
-                if (!hasShownStartupDialog) {
-                    FLog.d(TAG, "First time loading - showing startup dialog");
-                    showStartupDialog(currentProjectName);
-                    hasShownStartupDialog = true;
-                } else {
-                    FLog.d(TAG, "Service restarted - skipping dialog and loading project directly");
-                    loadExistingProject(currentProjectName);
-                }
+                // Resume silently (as upstream FadCam now does). The "continue or start a new
+                // project?" prompt was guarded by a per-instance flag, so it came back on every
+                // service start (START_STICKY restarts, overlay toggles) and, as an overlay
+                // window, could appear over other apps. A new project is in the Projects menu.
+                // Resuming also keeps auto-save safe: it writes every 5 s into
+                // currentProjectName, so an empty canvas would overwrite that project's pages.
+                FLog.i(TAG, "Resuming project: " + currentProjectName);
+                loadExistingProject(currentProjectName);
             } else {
                 FLog.w(TAG, "Saved project doesn't exist, starting fresh");
                 startFreshProject();
@@ -809,76 +805,6 @@ public class AnnotationService extends Service {
             FLog.w(TAG, "No current project name or ProjectFileManager not initialized");
             startFreshProject();
         }
-    }
-
-    /**
-     * Show dialog asking user to continue with last project or create new
-     */
-    private void showStartupDialog(String existingProjectName) {
-        String sanitizedName = ProjectFileManager.sanitizeProjectName(existingProjectName);
-
-        // Wrap with ContextThemeWrapper to provide Material theme context
-        Context themedContext = new ContextThemeWrapper(this, R.style.Base_Theme_FadCam);
-        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(themedContext);
-
-        androidx.appcompat.app.AlertDialog startupDialog = builder
-                .setTitle(getString(R.string.annotation_welcome_back))
-                .setMessage("Continue with your last saved project \"" + sanitizedName + "\" or start a new one?")
-                .setPositiveButton("Continue", (dialog, which) -> {
-                    dialog.dismiss();
-                    FLog.i(TAG, "User chose to continue with: " + existingProjectName);
-                    loadExistingProject(existingProjectName);
-                })
-                .setNegativeButton("New Project", (dialog, which) -> {
-                    dialog.dismiss();
-                    FLog.i(TAG, "User chose to create new project");
-                    createNewProject();
-                })
-                .setCancelable(false)
-                .create();
-
-        // Set proper colors for dialog visibility
-        if (startupDialog.getWindow() != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startupDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
-            } else {
-                startupDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_PHONE);
-            }
-        }
-        
-        // Force visibility with hardcoded colors
-        startupDialog.setOnShowListener(dialog -> {
-            // Set background color - dark gray
-            startupDialog.getWindow().getDecorView().setBackgroundColor(0xFF2A2A2A);
-            
-            // Set title color - white
-            int titleId = getResources().getIdentifier("alertTitle", "id", getPackageName());
-            if (titleId > 0) {
-                android.widget.TextView titleView = startupDialog.findViewById(titleId);
-                if (titleView != null) {
-                    titleView.setTextColor(0xFFFFFFFF);
-                }
-            }
-            
-            // Set message color - light gray
-            int messageId = android.R.id.message;
-            android.widget.TextView messageView = startupDialog.findViewById(messageId);
-            if (messageView != null) {
-                messageView.setTextColor(0xFFE0E0E0);
-            }
-            
-            // Set button colors
-            android.widget.Button positiveButton = startupDialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE);
-            android.widget.Button negativeButton = startupDialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE);
-            if (positiveButton != null) {
-                positiveButton.setTextColor(0xFF4CAF50);
-            }
-            if (negativeButton != null) {
-                negativeButton.setTextColor(0xFF4CAF50);
-            }
-        });
-
-        startupDialog.show();
     }
 
     /**

@@ -3703,6 +3703,8 @@ For the smoothest playback experience, you can use an external player like VLC. 
 <string name="screen_rec_resolution">Resolution</string>
 
 <string name="screen_rec_framerate">Frame Rate</string>
+    <string name="screen_rec_codec">Codec</string>
+    <string name="note_screen_codec">Choisissez le codec d’enregistrement d’écran\n(Par défaut : %1$s)\nAstuce : H.265 (HEVC) produit des fichiers plus petits à qualité égale. Si cet appareil n’a pas d’encodeur HEVC utilisable, JaCam enregistre automatiquement en H.264.</string>
 
 <string name="screen_rec_bitrate">Bitrate</string>
 
@@ -4577,4 +4579,5 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="trash_show_in_settings_title">Afficher dans les Paramètres</string>
     <string name="trash_show_in_settings_desc">Ajoute une ligne Corbeille à la page Paramètres pour un accès rapide</string>
 
+    <string name="records_display_group_title">Affichage</string>
 </resources>

@@ -2342,6 +2342,8 @@ Para la experiencia de reproducción más fluida, puedes usar un reproductor ext
     <string name="screen_rec_settings_subtitle">Calidad, audio y ajustes de salida</string>
     <string name="screen_rec_resolution">Resolución</string>
     <string name="screen_rec_framerate">Velocidad de fotogramas</string>
+    <string name="screen_rec_codec">Códec</string>
+    <string name="note_screen_codec">Elige el códec de grabación de pantalla\n(Predeterminado: %1$s)\nConsejo: H.265 (HEVC) produce archivos más pequeños con la misma calidad. Si este dispositivo no tiene un codificador HEVC utilizable, JaCam graba en H.264 automáticamente.</string>
     <string name="screen_rec_bitrate">Tasa de bits</string>
     <string name="screen_rec_orientation">Orientación</string>
     <string name="screen_rec_bitrate_mode_auto">Auto (VBR)</string>
@@ -3026,4 +3028,5 @@ Para la experiencia de reproducción más fluida, puedes usar un reproductor ext
     <!-- Trash: Show in Settings toggle -->
     <string name="trash_show_in_settings_title">Mostrar en Ajustes</string>
     <string name="trash_show_in_settings_desc">Añade una fila de Papelera a la página de Ajustes para acceso rápido</string>
+    <string name="records_display_group_title">Visualización</string>
 </resources>
