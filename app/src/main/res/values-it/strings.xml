@@ -2864,4 +2864,5 @@
     <!-- Trash: Show in Settings toggle -->
     <string name="trash_show_in_settings_title">Mostra nelle Impostazioni</string>
     <string name="trash_show_in_settings_desc">Aggiunge una riga Cestino alla pagina Impostazioni per accesso rapido</string>
+    <string name="records_display_group_title">Visualizzazione</string>
 </resources>

@@ -4839,4 +4839,5 @@ FadCam 为录制使用分段式 MP4 格式。这意味着视频被保存为多�
     <!-- Trash: Show in Settings toggle -->
     <string name="trash_show_in_settings_title">在设置中显示</string>
     <string name="trash_show_in_settings_desc">在设置页面添加回收站行以便快速访问</string>
+    <string name="records_display_group_title">显示</string>
 </resources>

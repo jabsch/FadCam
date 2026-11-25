@@ -3183,4 +3183,5 @@ Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikas
     <!-- Trash: Show in Settings toggle -->
     <string name="trash_show_in_settings_title">Tampilkan di Pengaturan</string>
     <string name="trash_show_in_settings_desc">Menambahkan baris Sampah ke halaman Pengaturan untuk akses cepat</string>
+    <string name="records_display_group_title">Tampilan</string>
 </resources>

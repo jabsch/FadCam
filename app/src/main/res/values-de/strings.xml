@@ -2865,4 +2865,5 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <!-- Trash: Show in Settings toggle -->
     <string name="trash_show_in_settings_title">In Einstellungen anzeigen</string>
     <string name="trash_show_in_settings_desc">Fügt eine Papierkorb-Zeile zur Einstellungsseite hinzu für schnellen Zugriff</string>
+    <string name="records_display_group_title">Anzeige</string>
 </resources>

@@ -2944,4 +2944,5 @@ How to read: "Zone 42N — 372,684m E, 3,512,334m N" = Zone 42 pa Northern hemis
     <string name="trash_show_in_settings_title">Settings ke Woyai</string>
     <string name="trash_show_in_settings_desc">Settings page ke Trash row zayed kai che ta jaldi rasai woyai</string>
 
+    <string name="records_display_group_title">Nishodana</string>
 </resources>

@@ -2923,4 +2923,5 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
     <!-- Trash: Show in Settings toggle -->
     <string name="trash_show_in_settings_title">Näita Seadetes</string>
     <string name="trash_show_in_settings_desc">Lisab prügikasti rea Seadete lehele kiireks juurdepääsuks</string>
+    <string name="records_display_group_title">Kuva</string>
 </resources>

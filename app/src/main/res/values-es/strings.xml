@@ -3028,4 +3028,5 @@ Para la experiencia de reproducción más fluida, puedes usar un reproductor ext
     <!-- Trash: Show in Settings toggle -->
     <string name="trash_show_in_settings_title">Mostrar en Ajustes</string>
     <string name="trash_show_in_settings_desc">Añade una fila de Papelera a la página de Ajustes para acceso rápido</string>
+    <string name="records_display_group_title">Visualización</string>
 </resources>

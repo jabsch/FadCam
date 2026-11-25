@@ -3592,4 +3592,5 @@ FadCam использует фрагментированный формат MP4 
     <!-- Trash: Show in Settings toggle -->
     <string name="trash_show_in_settings_title">Показывать в Настройках</string>
     <string name="trash_show_in_settings_desc">Добавляет строку Корзины на страницу Настроек для быстрого доступа</string>
+    <string name="records_display_group_title">Отображение</string>
 </resources>

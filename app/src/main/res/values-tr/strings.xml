@@ -2819,4 +2819,5 @@ En sorunsuz oynatma deneyimi için VLC gibi harici bir oynatıcı kullanabilirsi
     <!-- Trash: Show in Settings toggle -->
     <string name="trash_show_in_settings_title">Ayarlarda Göster</string>
     <string name="trash_show_in_settings_desc">Hızlı erişim için Ayarlar sayfasına bir Çöp satırı ekler</string>
+    <string name="records_display_group_title">Görünüm</string>
 </resources>

@@ -4647,4 +4647,5 @@
     <string name="trash_show_in_settings_title">إظهار في الإعدادات</string>
     <string name="trash_show_in_settings_desc">يضيف صف المهملات إلى صفحة الإعدادات للوصول السريع</string>
 
+    <string name="records_display_group_title">العرض</string>
 </resources>
